@@ -46,7 +46,7 @@ End NatTrans.
 (*
   Strictly Positive Universal Functors
 
-  - A functor (fun X => Sh -> option X) for a given shape "Sh"
+  - A functor (fun X => Sh -> X + nat) for a given shape "Sh"
  *)
 
 Module SPUF.
@@ -181,7 +181,7 @@ Qed.
 Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
   SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m)).
 Proof.
-  red; intros. unfold SPUF.map, option_map in EQ.
+  red; intros. unfold SPUF.map in EQ.
   destruct (emb M _ m a); [|inversion EQ].
   destruct s. inversion EQ. subst. auto.
 Qed.
@@ -202,7 +202,7 @@ Lemma sig_back_proj (M: t) A (P: A -> Prop) inh (m: SPUF.t M.(Sh) A)
     (ALL: SPUF.allP P m):
   SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back inh) m) = m.
 Proof.
-  extensionality s. unfold SPUF.map, option_map. 
+  extensionality s. unfold SPUF.map. 
   specialize (ALL s). destruct (m s); auto.
   unfold sig_back. 
   destruct (excluded_middle_informative _); [|exfalso]; auto.
