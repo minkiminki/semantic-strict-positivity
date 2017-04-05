@@ -112,11 +112,15 @@ Structure t := mk
 { Fn :> Functor.t_data
 ; Sh : Type
 ; emb: NatTrans.t Fn (SPUF.t Sh)
-; inh: Fn unit (* equivalent to [Fn <> (fun X => Empty_set)] *)
 
-; inj: forall (X: Type) (x y: Fn X)
-         (EQ: emb _ x = emb _ y),
-       x = y
+; inh: Fn unit    (* equivalent to [Fn <> (fun X => Empty_set)] *)
+; uni: forall (m: Fn unit) 
+         (CONST: forall s x, ~ emb _ m s = inl x),
+       exists m': Fn False, m = Fn.(Functor.map) (fun _ => ())  m'
+
+; inj: forall (X: Type) (m n: Fn X)
+         (EQ: emb _ m = emb _ n),
+       m = n
 }.
 
 Lemma functor_prop (M: t) : Functor.t_prop M.
@@ -182,9 +186,21 @@ Proof.
   destruct s. inversion EQ. subst. auto.
 Qed.
 
-Lemma sig_back_proj (M: t) A (P: A -> Prop) def (m: SPUF.t M.(Sh) A)
+Lemma sig_all2 (M: t) A (P: A -> Prop) (Q: sig P -> Prop) (m: M (sig P))
+    (ALLQ: SPUF.allP (fun a => forall (pf: P a), Q (exist _ _ pf)) 
+                     (M.(emb) _ (M.(Functor.map) (@proj1_sig _ _) m))):
+  SPUF.allP Q (M.(emb) _ m).
+Proof.
+  red. intros. specialize (ALLQ a).
+  rewrite (M.(emb).(NatTrans.map_nat)) in ALLQ.
+  simpl in ALLQ. unfold SPUF.map in ALLQ.
+  setoid_rewrite EQ in ALLQ.
+  destruct x. eauto.
+Qed.
+
+Lemma sig_back_proj (M: t) A (P: A -> Prop) inh (m: SPUF.t M.(Sh) A)
     (ALL: SPUF.allP P m):
-  SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back def) m) = m.
+  SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back inh) m) = m.
 Proof.
   extensionality s. unfold SPUF.map, option_map. 
   specialize (ALL s). destruct (m s); auto.
@@ -192,44 +208,39 @@ Proof.
   destruct (excluded_middle_informative _); [|exfalso]; auto.
 Qed.
 
-Lemma sig_back_commute (M: t) A (P: A -> Prop) def (m: M A)
-    (ALL: SPUF.allP P (M.(emb) _ m)):
-  SPUF.map _ (@proj1_sig _ P) (M.(emb) _ (M.(Functor.map) (sig_back def) m)) 
-  = M.(emb) _ m.
+Lemma allP_project (M: t) A (P: A -> Prop) (m: M A)
+    (ALLP: SPUF.allP P (M.(emb) _ m)):
+  exists m': M (sig P), m = M.(Functor.map) (@proj1_sig _ _) m'.
 Proof.
-  rewrite (M.(emb).(NatTrans.map_nat)). simpl.
-  rewrite sig_back_proj; eauto.
+  destruct (excluded_middle_informative (exists a, P a)) as [EXa|NEXa].
+  - destruct EXa as [a Pa]. 
+    exists (M.(Functor.map) (sig_back (fun _ => exist P _ Pa)) m).
+    apply M.(inj).
+    rewrite !M.(emb).(NatTrans.map_nat).
+    symmetry. apply sig_back_proj; eauto.
+  - destruct (M.(uni) (M.(Functor.map) (fun _ => ()) m)) as [m' EQm].
+    + intros. specialize (ALLP s).
+      rewrite M.(emb).(NatTrans.map_nat).
+      simpl in *. unfold SPUF.map in *.
+      destruct (emb M A m s) eqn: EQ.
+      * exfalso; eauto.
+      * setoid_rewrite EQ. intro FF; inversion FF. 
+    + exists (M.(Functor.map) (False_rect _) m').
+      apply M.(inj).
+      assert (INJ: forall n 
+                     (EQ: SPUF.map _ (fun _ => ()) (M.(emb) A m) = SPUF.map _ (fun _ => ()) n), 
+                   M.(emb) A m = n).
+      { intros. extensionality s.
+        assert (EQf:= equal_f EQ s). unfold SPUF.map in EQf.
+        destruct (M.(emb) A m s) eqn: EQ'.
+        - exfalso; eauto.
+        - destruct (n s); inversion EQf; subst; eauto.
+      }
+      apply INJ. 
+      repeat setoid_rewrite <- (M.(emb).(NatTrans.map_nat)).
+      rewrite EQm. 
+      repeat rewrite M.(Functor.map_comp). auto.
 Qed.
-
-Lemma sig_back_all (M: t) A (P: A -> Prop) (Q: sig P -> Prop) def (m: M A)
-    (ALLP: SPUF.allP P (M.(emb) _ m))
-    (ALLQ: SPUF.allP (fun a => forall (pf: P a), Q (exist _ _ pf)) 
-                     (M.(emb) _ m)):
-  SPUF.allP Q (M.(emb) _ (M.(Functor.map) (sig_back def) m)).
-Proof.
-  red. intros. specialize (ALLP a). specialize (ALLQ a).
-  rewrite (M.(emb).(NatTrans.map_nat)) in EQ.
-  destruct x. apply ALLQ.
-  simpl in *. unfold SPUF.map, option_map in *.
-  match goal with [|- ?x = _] => destruct x end; [|inversion EQ].
-  unfold sig_back in *. destruct (excluded_middle_informative _).
-  - dependent destruction EQ. auto.
-  - exfalso. eauto.
-Qed.
-
-(*
-Definition allP_sig (M: t) X (P: X -> Prop)
-    (u: SPUF.t M.(Sh) X)
-    (ALL: SPUF.allP P u):
-  SPUF.t M.(Sh) (sig P)
-:= fun a =>
-     match u a as o
-       return ((forall x, o = Some x -> P x) -> option {x : X | P x})
-     with
-     | Some x => fun ALLa => Some (exist P x (ALLa x eq_refl))
-     | None =>   fun _ => None
-     end (ALL a).
-*)
 
 End SSPF.
 
@@ -310,15 +321,12 @@ Proof.
   - erewrite (proof_irrelevance _ pf). exact BASE.
   - dependent destruction pf.
     destruct OnHD as [y [OnHD UNQ]]. red in OnHD. subst.
-
-    specialize (STEP hd (M.(Functor.map) 
-                         (@SSPF.sig_back _ PMlist (fun _=>Mnil)) y)).
-    revert STEP. unfold Mcons, Mlist.
+    destruct (SSPF.allP_project _ y OnTL) as [y']; subst.
     match goal with [|- appcontext[exist _ _ ?pf]] => generalize pf end.
-    rewrite (SSPF.sig_back_commute M (fun _=>Mnil) y); eauto.
-    intros. erewrite (proof_irrelevance _ _). apply STEP.
-
-    apply SSPF.sig_back_all; auto.
+    rewrite M.(SSPF.emb).(NatTrans.map_nat); intros.
+    erewrite (proof_irrelevance _ _). 
+    eapply STEP; eauto.
+    eapply SSPF.sig_all2; eauto.
 Qed.
 
 Fixpoint mfix T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (l: Mlist_) : T :=
@@ -391,7 +399,7 @@ Fixpoint embed X (l: list X) (s: list unit) : X + bool :=
 
 Program Definition t : SSPF.t := 
   @SSPF.mk (Functor.mk_data list List.map) (list unit) 
-          (NatTrans.mk _ _ embed _) nil _.
+          (NatTrans.mk _ _ embed _) nil _ _.
 Next Obligation.
   induction x; eauto.
   extensionality s. simpl. rewrite IHx.
@@ -399,17 +407,22 @@ Next Obligation.
   destruct s; eauto.
 Qed.
 Next Obligation.
+  destruct m.
+  - exists nil. eauto.
+  - exfalso. eapply (CONST (cons () nil)); simpl; eauto.
+Qed.
+Next Obligation.
   assert (EQ' := equal_f EQ). clear EQ.
-  revert y EQ'. induction x; intros.
-  - destruct y; eauto. 
+  revert n EQ'. induction m; intros.
+  - destruct n; eauto. 
     specialize (EQ' (cons tt nil)). inversion EQ'.
-  - destruct y.
+  - destruct n.
     + specialize (EQ' (cons tt nil)). inversion EQ'.
-    + rewrite (IHx y).
+    + rewrite (IHm n).
       * specialize (EQ' (cons tt nil)). inversion EQ'; subst; auto.
-      * intros. specialize (EQ' (cons tt x1)). 
-        destruct x1; eauto.
-        destruct x, y; eauto.
+      * intros. specialize (EQ' (cons tt x0)). 
+        destruct x0; eauto.
+        destruct m, n; eauto.
 Qed.
 
 End List_SSPF.
