@@ -51,7 +51,7 @@ End NatTrans.
 
 Module SPUF.
 
-Definition U (Sh: Type) (X: Type) := Sh -> (X + bool).
+Definition U (Sh: Type) (X: Type) := Sh -> (X + nat).
 
 Definition map Sh X Y (f: X -> Y) (u: U Sh X): U Sh Y :=
   fun a => match u a with inl x => inl (f x) | inr b => inr b end.
@@ -335,7 +335,7 @@ Fixpoint mfix T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (l: Mlist_) : T :
   | Mcons_ hd tl => tcons hd (SSPF.back _ Mnil_ tl) (SSPF.back _ tnil (SPUF.map _ (mfix tnil tcons) tl))
   end.
 
-Lemma mfix_unique T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) mfix'
+Lemma mfix_unique T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (mfix': Mlist -> T)
     (NIL: mfix' Mnil = tnil)
     (CONS: forall hd tl,
            mfix' (Mcons hd tl) = tcons hd (M.(Functor.map) (@proj1_sig _ _) tl) (M.(Functor.map) mfix' tl)):
@@ -386,14 +386,14 @@ End Mlist.
 
 Module List_SSPF.
 
-Fixpoint embed X (l: list X) (s: list unit) : X + bool :=
+Fixpoint embed X (l: list X) (s: list unit) : X + nat :=
   match l with
-  | nil => inr false
+  | nil => inr 0
   | cons hd tl => 
       match s with 
       | cons _ nil => inl hd
       | cons _ stl => embed tl stl
-      | _ => inr false
+      | _ => inr 0
       end
   end.
 
