@@ -1,4 +1,4 @@
-Require Import FunctionalExtensionality ProofIrrelevance ClassicalEpsilon.
+Require Import FunctionalExtensionality ProofIrrelevance ClassicalDescription.
 Require Import Program.
 Set Implicit Arguments.
 Set Automatic Coercions Import.
@@ -137,8 +137,8 @@ Definition on_image (M: t) X (u: SPUF.t _ X) (x: M X) : Prop :=
 Hint Unfold on_image.
 
 Definition back_opt (M: t) (X: Type) (u: SPUF.t _ X) : option (M X) :=
-  match excluded_middle_informative (ex (on_image M u)) with
-  | left pf => Some (proj1_sig (constructive_indefinite_description _ pf))
+  match excluded_middle_informative (ex (unique (on_image M u))) with
+  | left pf => Some (proj1_sig (constructive_definite_description _ pf))
   | _ => None
   end.
 
@@ -150,8 +150,9 @@ Lemma back_opt_unique (M: t) (X: Type) (fx: M X):
 Proof.
   unfold back_opt. destruct (excluded_middle_informative _) as [pf|pf].
   - f_equal. eapply M.(inj). 
-    rewrite (proj2_sig (constructive_indefinite_description _ pf)). auto.
-  - exfalso. eauto.
+    rewrite (proj2_sig (constructive_definite_description _ pf)). auto.
+  - exfalso. apply pf. exists fx. split; eauto.
+    intros. apply M.(SSPF.inj). auto.
 Qed.
 
 Lemma back_unique (M: t) (X: Type) x (fx: M X):
@@ -165,10 +166,12 @@ Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
   end.
 
 Lemma sig_on_image (M: t) A (P: A -> Prop) (m: M (sig P)):
-  ex (SSPF.on_image M (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m))).
+  ex (unique (SSPF.on_image M (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m)))).
 Proof.
-  eexists (M.(Functor.map) (@proj1_sig _ _) m). red.
-  rewrite (M.(emb).(NatTrans.map_nat)). eauto.  
+  eexists (M.(Functor.map) (@proj1_sig _ _) m). split.
+  - red. rewrite (M.(emb).(NatTrans.map_nat)). eauto.  
+  - intros. red in H. apply M.(SSPF.inj).
+    rewrite <- H. rewrite M.(emb).(NatTrans.map_nat). auto.
 Qed.
 
 Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
@@ -256,7 +259,7 @@ Inductive Mlist_ : Type :=
 Inductive PMlist: Mlist_ -> Prop :=
 | PMnil_ : PMlist Mnil_
 | PMcons_ hd tl 
-    (OnHD: ex (SSPF.on_image M tl))
+    (OnHD: ex (unique (SSPF.on_image M tl)))
     (OnTL: SPUF.allP PMlist tl):
   PMlist (Mcons_ hd tl)
 .
@@ -299,13 +302,14 @@ Qed.
 Lemma Mlist_ind l (P: Mlist -> Prop)
     (BASE: P Mnil)
     (STEP: forall hd tl 
-                  (IND: SPUF.allP P (M.(SSPF.emb) _ tl)), 
-             P (Mcons hd tl)):
+             (IND: SPUF.allP P (M.(SSPF.emb) _ tl)), 
+           P (Mcons hd tl)):
   P l.
 Proof.
   destruct l as [l pf]. revert pf. apply (Mlist__ind' l); intros.
   - erewrite (proof_irrelevance _ pf). exact BASE.
-  - dependent destruction pf. destruct OnHD as [y OnHD]. red in OnHD. subst.
+  - dependent destruction pf.
+    destruct OnHD as [y [OnHD UNQ]]. red in OnHD. subst.
 
     specialize (STEP hd (M.(Functor.map) 
                          (@SSPF.sig_back _ PMlist (fun _=>Mnil)) y)).
