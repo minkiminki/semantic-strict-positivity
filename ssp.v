@@ -89,6 +89,15 @@ Proof.
   apply INJ in H0. subst; auto.
 Qed.
 
+Lemma map_pointwise Sh X Y u (f g: X -> Y)
+    (ALL: allP (fun x => f x = g x) u):
+  map Sh f u = map Sh g u.
+Proof.
+  extensionality s. specialize (ALL s). unfold map. 
+  destruct (u s); eauto.
+  simpl. rewrite ALL; eauto.
+Qed.
+
 End SPUF.
 
 (*
@@ -102,11 +111,11 @@ Module SSPF.
 Structure t := mk
 { Fn :> Functor.t_data
 ; Sh : Type
-; tr : NatTrans.t Fn (SPUF.t Sh)
+; emb : NatTrans.t Fn (SPUF.t Sh)
 ; inh : forall (X: Type), X -> Fn X
 
 ; inj: forall (X: Type) (x y: Fn X)
-         (EQ: tr _ x = tr _ y),
+         (EQ: emb _ x = emb _ y),
        x = y
 }.
 
@@ -114,17 +123,17 @@ Lemma functor_prop (F: t) : Functor.t_prop F.
 Proof.
   split.
   - intros. apply F.(inj). unfold id. 
-    rewrite F.(tr).(NatTrans.map_nat).
+    rewrite F.(emb).(NatTrans.map_nat).
     rewrite (SPUF.t _).(Functor.map_id). auto.
   - intros. apply F.(inj). unfold compose.
-    repeat rewrite F.(tr).(NatTrans.map_nat).
+    repeat rewrite F.(emb).(NatTrans.map_nat).
     rewrite (SPUF.t _).(Functor.map_comp). auto.
 Qed.
 
-Definition to_functor (F: t) : Functor.t := exist _ _ (functor_prop F).
+Coercion to_functor (F: t) : Functor.t := exist _ _ (functor_prop F).
 
 Definition on_image (F: t) X (u: SPUF.t _ X) (x: F X) : Prop := 
-  u = F.(tr) _ x.
+  u = F.(emb) _ x.
 Hint Unfold on_image.
 
 Definition back_opt (F: t) (X: Type) (u: SPUF.t _ X) : option (F X) :=
@@ -139,22 +148,8 @@ Definition map_none (T: Type) (t: T) (o: option T) : T :=
 Definition back (F: t) (X: Type) (x: X) (u: SPUF.t _ X) : F X :=
   map_none (F.(inh) x) (back_opt F u).
 
-(*
-Definition allP_sig (F: t) X (P: X -> Prop)
-    (u: SPUF.t F.(Sh) X)
-    (ALL: SPUF.allP P u):
-  SPUF.t F.(Sh) (sig P)
-:= fun a =>
-     match u a as o
-       return ((forall x, o = Some x -> P x) -> option {x : X | P x})
-     with
-     | Some x => fun ALLa => Some (exist P x (ALLa x eq_refl))
-     | None =>   fun _ => None
-     end (ALL a).
-*)
-
 Lemma back_opt_unique (F: t) (X: Type) (fx: F X):
-  @back_opt F X (F.(tr) _ fx) = Some fx.
+  @back_opt F X (F.(emb) _ fx) = Some fx.
 Proof.
   unfold back_opt. destruct (excluded_middle_informative _) as [pf|pf].
   - f_equal. eapply F.(inj). 
@@ -163,7 +158,7 @@ Proof.
 Qed.
 
 Lemma back_unique (F: t) (X: Type) x (fx: F X):
-  @back F X x (F.(tr) _ fx) = fx.
+  @back F X x (F.(emb) _ fx) = fx.
 Proof. unfold back. rewrite back_opt_unique. auto. Qed.
 
 Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
@@ -173,17 +168,17 @@ Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
   end.
 
 Lemma sig_on_image (F: t) A (P: A -> Prop) (m: F (sig P)):
-  ex (SSPF.on_image F (SPUF.map _ (@proj1_sig _ _) (F.(tr) _ m))).
+  ex (SSPF.on_image F (SPUF.map _ (@proj1_sig _ _) (F.(emb) _ m))).
 Proof.
   eexists (F.(Functor.map) (@proj1_sig _ _) m). red.
-  rewrite (F.(tr).(NatTrans.map_nat)). eauto.  
+  rewrite (F.(emb).(NatTrans.map_nat)). eauto.  
 Qed.
 
 Lemma sig_all (F: t) A (P: A -> Prop) (m: F (sig P)):
-  SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (F.(tr) _ m)).
+  SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (F.(emb) _ m)).
 Proof.
   red; intros. unfold SPUF.map, option_map in EQ.
-  destruct (tr F _ m a); [|inversion EQ].
+  destruct (emb F _ m a); [|inversion EQ].
   destruct s. inversion EQ. subst. auto.
 Qed.
 
@@ -198,22 +193,22 @@ Proof.
 Qed.
 
 Lemma sig_back_commute (F: t) A (P: A -> Prop) def (m: F A)
-    (ALL: SPUF.allP P (F.(tr) _ m)):
-  SPUF.map _ (@proj1_sig _ P) (F.(tr) _ (F.(Functor.map) (sig_back def) m)) 
-  = F.(tr) _ m.
+    (ALL: SPUF.allP P (F.(emb) _ m)):
+  SPUF.map _ (@proj1_sig _ P) (F.(emb) _ (F.(Functor.map) (sig_back def) m)) 
+  = F.(emb) _ m.
 Proof.
-  rewrite (F.(tr).(NatTrans.map_nat)). simpl.
+  rewrite (F.(emb).(NatTrans.map_nat)). simpl.
   rewrite sig_back_proj; eauto.
 Qed.
 
 Lemma sig_back_all (F: t) A (P: A -> Prop) (Q: sig P -> Prop) def (m: F A)
-    (ALLP: SPUF.allP P (F.(tr) _ m))
+    (ALLP: SPUF.allP P (F.(emb) _ m))
     (ALLQ: SPUF.allP (fun a => forall (pf: P a), Q (exist _ _ pf)) 
-                     (F.(tr) _ m)):
-  SPUF.allP Q (F.(tr) _ (F.(Functor.map) (sig_back def) m)).
+                     (F.(emb) _ m)):
+  SPUF.allP Q (F.(emb) _ (F.(Functor.map) (sig_back def) m)).
 Proof.
   red. intros. specialize (ALLP a). specialize (ALLQ a).
-  rewrite (F.(tr).(NatTrans.map_nat)) in EQ.
+  rewrite (F.(emb).(NatTrans.map_nat)) in EQ.
   destruct x. apply ALLQ.
   simpl in *. unfold SPUF.map, option_map in *.
   match goal with [|- ?x = _] => destruct x end; [|inversion EQ].
@@ -221,6 +216,20 @@ Proof.
   - dependent destruction EQ. auto.
   - exfalso. eauto.
 Qed.
+
+(*
+Definition allP_sig (F: t) X (P: X -> Prop)
+    (u: SPUF.t F.(Sh) X)
+    (ALL: SPUF.allP P u):
+  SPUF.t F.(Sh) (sig P)
+:= fun a =>
+     match u a as o
+       return ((forall x, o = Some x -> P x) -> option {x : X | P x})
+     with
+     | Some x => fun ALLa => Some (exist P x (ALLa x eq_refl))
+     | None =>   fun _ => None
+     end (ALL a).
+*)
 
 End SSPF.
 
@@ -261,7 +270,7 @@ Definition Mlist := sig PMlist.
 Definition Mnil : Mlist := exist _ Mnil_ PMnil_.
 
 Definition Mcons (hd: M X) (tl: M Mlist) : Mlist :=
-  exist _ (Mcons_ hd (SPUF.map _ (@proj1_sig _ _) (M.(SSPF.tr) _ tl))) 
+  exist _ (Mcons_ hd (SPUF.map _ (@proj1_sig _ _) (M.(SSPF.emb) _ tl))) 
           (PMcons_ _ (SSPF.sig_on_image _ _ tl) (SSPF.sig_all _ _ tl)).
 
 Lemma Mcons_inj h1 t1 h2 t2
@@ -293,7 +302,7 @@ Qed.
 Lemma Mlist_ind l (P: Mlist -> Prop)
     (BASE: P Mnil)
     (STEP: forall hd tl 
-                  (IND: SPUF.allP P (M.(SSPF.tr) _ tl)), 
+                  (IND: SPUF.allP P (M.(SSPF.emb) _ tl)), 
              P (Mcons hd tl)):
   P l.
 Proof.
@@ -311,11 +320,51 @@ Proof.
     apply SSPF.sig_back_all; auto.
 Qed.
 
+Fixpoint mfix T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (l: Mlist_) : T :=
+  match l with
+  | Mnil_ => tnil
+  | Mcons_ hd tl => tcons hd (SSPF.back _ Mnil_ tl) (SSPF.back _ tnil (SPUF.map _ (mfix tnil tcons) tl))
+  end.
+
+Lemma mfix_unique T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) mfix'
+    (NIL: mfix' Mnil = tnil)
+    (CONS: forall hd tl,
+           mfix' (Mcons hd tl) = tcons hd (M.(Functor.map) (@proj1_sig _ _) tl) (M.(Functor.map) mfix' tl)):
+  forall l: Mlist, mfix tnil tcons (` l) = mfix' l. 
+Proof.
+  intros. eapply (@Mlist_ind l); eauto.
+  intros. rewrite CONS. simpl. f_equal. 
+  - setoid_rewrite <- M.(SSPF.emb).(NatTrans.map_nat).
+    rewrite SSPF.back_unique. auto.
+  - repeat setoid_rewrite <- M.(SSPF.emb).(NatTrans.map_nat).
+    rewrite SSPF.back_unique.
+    rewrite M.(Functor.map_comp).
+    apply M.(SSPF.inj).
+    setoid_rewrite M.(SSPF.emb).(NatTrans.map_nat).
+    apply SPUF.map_pointwise; eauto.
+Qed.
+
 Fixpoint len (lenM: M nat -> nat) (l: Mlist_) : nat :=
   match l with
   | Mnil_ => 0
   | Mcons_ hd tl => 1 + lenM (SSPF.back _ 0 (SPUF.map _ (len lenM) tl))
   end.
+
+Lemma len_unique lenM len'
+    (NIL: len' Mnil = 0)
+    (CONS: forall hd tl,
+           len' (Mcons hd tl) = 1 + lenM (M.(Functor.map) len' tl)):
+  forall l: Mlist, len lenM (proj1_sig l) = len' l.
+Proof.
+  intros. eapply (@Mlist_ind l); eauto.
+  intros. rewrite CONS. simpl. f_equal. f_equal.
+  repeat setoid_rewrite <- M.(SSPF.emb).(NatTrans.map_nat).
+  rewrite SSPF.back_unique.
+  rewrite M.(Functor.map_comp).
+  apply M.(SSPF.inj).
+  setoid_rewrite M.(SSPF.emb).(NatTrans.map_nat).
+  apply SPUF.map_pointwise; eauto.
+Qed.
 
 End Mlist.
 
