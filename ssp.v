@@ -119,46 +119,43 @@ Structure t := mk
        x = y
 }.
 
-Lemma functor_prop (F: t) : Functor.t_prop F.
+Lemma functor_prop (M: t) : Functor.t_prop M.
 Proof.
   split.
-  - intros. apply F.(inj). unfold id. 
-    rewrite F.(emb).(NatTrans.map_nat).
+  - intros. apply M.(inj). unfold id. 
+    rewrite M.(emb).(NatTrans.map_nat).
     rewrite (SPUF.t _).(Functor.map_id). auto.
-  - intros. apply F.(inj). unfold compose.
-    repeat rewrite F.(emb).(NatTrans.map_nat).
+  - intros. apply M.(inj). unfold compose.
+    repeat rewrite M.(emb).(NatTrans.map_nat).
     rewrite (SPUF.t _).(Functor.map_comp). auto.
 Qed.
 
-Coercion to_functor (F: t) : Functor.t := exist _ _ (functor_prop F).
+Coercion to_functor (M: t) : Functor.t := exist _ _ (functor_prop M).
 
-Definition on_image (F: t) X (u: SPUF.t _ X) (x: F X) : Prop := 
-  u = F.(emb) _ x.
+Definition on_image (M: t) X (u: SPUF.t _ X) (x: M X) : Prop := 
+  u = M.(emb) _ x.
 Hint Unfold on_image.
 
-Definition back_opt (F: t) (X: Type) (u: SPUF.t _ X) : option (F X) :=
-  match excluded_middle_informative (ex (on_image F u)) with
+Definition back_opt (M: t) (X: Type) (u: SPUF.t _ X) : option (M X) :=
+  match excluded_middle_informative (ex (on_image M u)) with
   | left pf => Some (proj1_sig (constructive_indefinite_description _ pf))
   | _ => None
   end.
 
-Definition map_none (T: Type) (t: T) (o: option T) : T :=
-  match o with None => t | Some e => e end.
+Definition back (M: t) (X: Type) (x: X) (u: SPUF.t _ X) : M X :=
+  match back_opt M u with None => M.(inh) x | Some e => e end.
 
-Definition back (F: t) (X: Type) (x: X) (u: SPUF.t _ X) : F X :=
-  map_none (F.(inh) x) (back_opt F u).
-
-Lemma back_opt_unique (F: t) (X: Type) (fx: F X):
-  @back_opt F X (F.(emb) _ fx) = Some fx.
+Lemma back_opt_unique (M: t) (X: Type) (fx: M X):
+  @back_opt M X (M.(emb) _ fx) = Some fx.
 Proof.
   unfold back_opt. destruct (excluded_middle_informative _) as [pf|pf].
-  - f_equal. eapply F.(inj). 
+  - f_equal. eapply M.(inj). 
     rewrite (proj2_sig (constructive_indefinite_description _ pf)). auto.
   - exfalso. eauto.
 Qed.
 
-Lemma back_unique (F: t) (X: Type) x (fx: F X):
-  @back F X x (F.(emb) _ fx) = fx.
+Lemma back_unique (M: t) (X: Type) x (fx: M X):
+  @back M X x (M.(emb) _ fx) = fx.
 Proof. unfold back. rewrite back_opt_unique. auto. Qed.
 
 Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
@@ -167,22 +164,22 @@ Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
   | _ => default a
   end.
 
-Lemma sig_on_image (F: t) A (P: A -> Prop) (m: F (sig P)):
-  ex (SSPF.on_image F (SPUF.map _ (@proj1_sig _ _) (F.(emb) _ m))).
+Lemma sig_on_image (M: t) A (P: A -> Prop) (m: M (sig P)):
+  ex (SSPF.on_image M (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m))).
 Proof.
-  eexists (F.(Functor.map) (@proj1_sig _ _) m). red.
-  rewrite (F.(emb).(NatTrans.map_nat)). eauto.  
+  eexists (M.(Functor.map) (@proj1_sig _ _) m). red.
+  rewrite (M.(emb).(NatTrans.map_nat)). eauto.  
 Qed.
 
-Lemma sig_all (F: t) A (P: A -> Prop) (m: F (sig P)):
-  SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (F.(emb) _ m)).
+Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
+  SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m)).
 Proof.
   red; intros. unfold SPUF.map, option_map in EQ.
-  destruct (emb F _ m a); [|inversion EQ].
+  destruct (emb M _ m a); [|inversion EQ].
   destruct s. inversion EQ. subst. auto.
 Qed.
 
-Lemma sig_back_proj (F: t) A (P: A -> Prop) def (m: SPUF.t F.(Sh) A)
+Lemma sig_back_proj (M: t) A (P: A -> Prop) def (m: SPUF.t M.(Sh) A)
     (ALL: SPUF.allP P m):
   SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back def) m) = m.
 Proof.
@@ -192,23 +189,23 @@ Proof.
   destruct (excluded_middle_informative _); [|exfalso]; auto.
 Qed.
 
-Lemma sig_back_commute (F: t) A (P: A -> Prop) def (m: F A)
-    (ALL: SPUF.allP P (F.(emb) _ m)):
-  SPUF.map _ (@proj1_sig _ P) (F.(emb) _ (F.(Functor.map) (sig_back def) m)) 
-  = F.(emb) _ m.
+Lemma sig_back_commute (M: t) A (P: A -> Prop) def (m: M A)
+    (ALL: SPUF.allP P (M.(emb) _ m)):
+  SPUF.map _ (@proj1_sig _ P) (M.(emb) _ (M.(Functor.map) (sig_back def) m)) 
+  = M.(emb) _ m.
 Proof.
-  rewrite (F.(emb).(NatTrans.map_nat)). simpl.
+  rewrite (M.(emb).(NatTrans.map_nat)). simpl.
   rewrite sig_back_proj; eauto.
 Qed.
 
-Lemma sig_back_all (F: t) A (P: A -> Prop) (Q: sig P -> Prop) def (m: F A)
-    (ALLP: SPUF.allP P (F.(emb) _ m))
+Lemma sig_back_all (M: t) A (P: A -> Prop) (Q: sig P -> Prop) def (m: M A)
+    (ALLP: SPUF.allP P (M.(emb) _ m))
     (ALLQ: SPUF.allP (fun a => forall (pf: P a), Q (exist _ _ pf)) 
-                     (F.(emb) _ m)):
-  SPUF.allP Q (F.(emb) _ (F.(Functor.map) (sig_back def) m)).
+                     (M.(emb) _ m)):
+  SPUF.allP Q (M.(emb) _ (M.(Functor.map) (sig_back def) m)).
 Proof.
   red. intros. specialize (ALLP a). specialize (ALLQ a).
-  rewrite (F.(emb).(NatTrans.map_nat)) in EQ.
+  rewrite (M.(emb).(NatTrans.map_nat)) in EQ.
   destruct x. apply ALLQ.
   simpl in *. unfold SPUF.map, option_map in *.
   match goal with [|- ?x = _] => destruct x end; [|inversion EQ].
@@ -218,10 +215,10 @@ Proof.
 Qed.
 
 (*
-Definition allP_sig (F: t) X (P: X -> Prop)
-    (u: SPUF.t F.(Sh) X)
+Definition allP_sig (M: t) X (P: X -> Prop)
+    (u: SPUF.t M.(Sh) X)
     (ALL: SPUF.allP P u):
-  SPUF.t F.(Sh) (sig P)
+  SPUF.t M.(Sh) (sig P)
 := fun a =>
      match u a as o
        return ((forall x, o = Some x -> P x) -> option {x : X | P x})
