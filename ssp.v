@@ -3,15 +3,6 @@ Require Import Program.
 Set Implicit Arguments.
 Set Automatic Coercions Import.
 
-Definition compose X Y Z (g: Y -> Z) (f: X -> Y) : X -> Z :=
-  fun x => g(f x).
-
-Notation "g @@ f" := (@compose _ _ _ g f) (at level 50).
-
-Lemma compose_fold X Y Z (g: Y -> Z) (f: X -> Y) x:
-   g (f x) = (g @@ f) x.
-Proof. reflexivity. Qed.
-
 (*
   Functor
  *)
@@ -24,10 +15,10 @@ Structure t_data := mk_data
 }.
 
 Structure t_prop (Fn: t_data) : Prop := mk_prop
-{ map_id: forall X, 
-    Fn.(map) (@id X) = @id _
-; map_comp: forall X Y Z (g: Y -> Z) (f: X -> Y), 
-    (Fn.(map) g) @@ (Fn.(map) f) = Fn.(map) (g @@ f)
+{ map_id: forall X x, 
+    Fn.(map) (@id X) x = x
+; map_comp: forall X Y Z (g: Y -> Z) (f: X -> Y) x, 
+    (Fn.(map) g) ((Fn.(map) f) x) = Fn.(map) (fun y => g (f y)) x
 }.
 
 Definition t := sig t_prop.
@@ -69,18 +60,18 @@ Arguments map Sh [X Y] f u.
 Definition allP Sh X (P: X -> Prop) (u: U Sh X) : Prop :=
   forall a x (EQ: u a = Some x), P x.
 
-Lemma map_id Sh : forall X, 
-  map Sh (@id X) = @id _.
+Lemma map_id Sh : forall X x, 
+  map Sh (@id X) x = x.
 Proof.
-  intros. extensionality x. extensionality a. 
-  unfold map. unfold id. destruct (x a); eauto.
+  intros. extensionality s. 
+  unfold map. unfold id. destruct (x s); eauto.
 Qed.
 
-Lemma map_comp Sh : forall X Y Z (g: Y -> Z) (f: X -> Y), 
-  (map Sh g) @@ (map Sh f) = map Sh (g @@ f).
+Lemma map_comp Sh : forall X Y Z (g: Y -> Z) (f: X -> Y) x, 
+  (map Sh g) ((map Sh f) x) = map Sh (fun y => g (f y)) x.
 Proof.
-  intros. extensionality x. extensionality a. 
-  unfold map, compose. destruct (x a); eauto.
+  intros. extensionality s. 
+  unfold map, compose. destruct (x s); eauto.
 Qed.
 
 Definition t Sh : Functor.t := 
@@ -92,9 +83,9 @@ Lemma map_injective Sh X Y u1 u2 (f: X -> Y)
     (EQ: map Sh f u1 = map Sh f u2):
   u1 = u2.
 Proof.
-  extensionality a. assert (EQ' := equal_f EQ a).
+  extensionality s. assert (EQ' := equal_f EQ s).
   unfold map, option_map in EQ'. 
-  destruct (u1 a), (u2 a); eauto; inversion EQ'.
+  destruct (u1 s), (u2 s); eauto; inversion EQ'.
   apply INJ in H0. subst; auto.
 Qed.
 
@@ -122,12 +113,11 @@ Structure t := mk
 Lemma functor_prop (F: t) : Functor.t_prop F.
 Proof.
   split.
-  - intros. extensionality a. apply F.(inj). unfold id. 
+  - intros. apply F.(inj). unfold id. 
     rewrite F.(tr).(NatTrans.map_nat).
     rewrite (SPUF.t _).(Functor.map_id). auto.
-  - intros. extensionality a. apply F.(inj). unfold compose.
+  - intros. apply F.(inj). unfold compose.
     repeat rewrite F.(tr).(NatTrans.map_nat).
-    rewrite (compose_fold (Functor.map _ _)). 
     rewrite (SPUF.t _).(Functor.map_comp). auto.
 Qed.
 
@@ -201,8 +191,8 @@ Lemma sig_back_proj (F: t) A (P: A -> Prop) def (m: SPUF.t F.(Sh) A)
     (ALL: SPUF.allP P m):
   SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back def) m) = m.
 Proof.
-  extensionality a. unfold SPUF.map, option_map. 
-  specialize (ALL a). destruct (m a); auto.
+  extensionality s. unfold SPUF.map, option_map. 
+  specialize (ALL s). destruct (m s); auto.
   unfold sig_back. 
   destruct (excluded_middle_informative _); [|exfalso]; auto.
 Qed.
