@@ -111,8 +111,8 @@ Module SSPF.
 Structure t := mk
 { Fn :> Functor.t_data
 ; Sh : Type
-; emb : NatTrans.t Fn (SPUF.t Sh)
-; inh : forall (X: Type), X -> Fn X
+; emb: NatTrans.t Fn (SPUF.t Sh)
+; inh: Fn unit
 
 ; inj: forall (X: Type) (x y: Fn X)
          (EQ: emb _ x = emb _ y),
@@ -143,7 +143,7 @@ Definition back_opt (M: t) (X: Type) (u: SPUF.t _ X) : option (M X) :=
   end.
 
 Definition back (M: t) (X: Type) (x: X) (u: SPUF.t _ X) : M X :=
-  match back_opt M u with None => M.(inh) x | Some e => e end.
+  match back_opt M u with None => M.(Functor.map) (fun _ => x) M.(inh) | Some e => e end.
 
 Lemma back_opt_unique (M: t) (X: Type) (fx: M X):
   @back_opt M X (M.(emb) _ fx) = Some fx.
@@ -391,7 +391,7 @@ Fixpoint embed X (l: list X) (s: list unit) : option X :=
 
 Program Definition t : SSPF.t := 
   @SSPF.mk (Functor.mk_data list List.map) (list unit) 
-          (NatTrans.mk _ _ embed _) (fun _ _ => nil) _.
+          (NatTrans.mk _ _ embed _) nil _.
 Next Obligation.
   induction x; eauto.
   extensionality s. simpl. rewrite IHx.
