@@ -51,14 +51,14 @@ End NatTrans.
 
 Module SPUF.
 
-Definition U (Sh: Type) (X: Type) := Sh -> option X.
+Definition U (Sh: Type) (X: Type) := Sh -> (X + bool).
 
 Definition map Sh X Y (f: X -> Y) (u: U Sh X): U Sh Y :=
-  fun a => option_map f (u a).
+  fun a => match u a with inl x => inl (f x) | inr b => inr b end.
 Arguments map Sh [X Y] f u.
 
 Definition allP Sh X (P: X -> Prop) (u: U Sh X) : Prop :=
-  forall a x (EQ: u a = Some x), P x.
+  forall a x (EQ: u a = inl x), P x.
 
 Lemma map_id Sh : forall X x, 
   map Sh (@id X) x = x.
@@ -84,8 +84,8 @@ Lemma map_injective Sh X Y u1 u2 (f: X -> Y)
   u1 = u2.
 Proof.
   extensionality s. assert (EQ' := equal_f EQ s).
-  unfold map, option_map in EQ'. 
-  destruct (u1 s), (u2 s); eauto; inversion EQ'.
+  unfold map in EQ'. 
+  destruct (u1 s), (u2 s); inversion EQ'; subst; eauto.
   apply INJ in H0. subst; auto.
 Qed.
 
@@ -112,7 +112,7 @@ Structure t := mk
 { Fn :> Functor.t_data
 ; Sh : Type
 ; emb: NatTrans.t Fn (SPUF.t Sh)
-; inh: Fn unit
+; inh: Fn unit (* equivalent to [Fn <> (fun X => Empty_set)] *)
 
 ; inj: forall (X: Type) (x y: Fn X)
          (EQ: emb _ x = emb _ y),
@@ -378,14 +378,14 @@ End Mlist.
 
 Module List_SSPF.
 
-Fixpoint embed X (l: list X) (s: list unit) : option X :=
+Fixpoint embed X (l: list X) (s: list unit) : X + bool :=
   match l with
-  | nil => None
+  | nil => inr false
   | cons hd tl => 
       match s with 
-      | cons _ nil => Some hd
+      | cons _ nil => inl hd
       | cons _ stl => embed tl stl
-      | _ => None
+      | _ => inr false
       end
   end.
 
