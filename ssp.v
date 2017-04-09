@@ -3,6 +3,8 @@ Require Import Program.
 Set Implicit Arguments.
 Set Automatic Coercions Import.
 
+Arguments proj1_sig {A P} e.
+
 (*
   Functor
  *)
@@ -163,23 +165,23 @@ Lemma back_unique (M: t) (X: Type) x (fx: M X):
   @back M X x (M.(emb) _ fx) = fx.
 Proof. unfold back. rewrite back_opt_unique. auto. Qed.
 
-Definition sig_back A (P: A -> Prop) (default: A -> sig P) (a: A) : sig P :=
+Definition sig_back A (P: A -> Prop) (inh: A -> sig P) (a: A) : sig P :=
   match excluded_middle_informative (P a) with
   | left pf => exist _ a pf
-  | _ => default a
+  | _ => inh a
   end.
 
 Lemma sig_on_image (M: t) A (P: A -> Prop) (m: M (sig P)):
-  ex (unique (SSPF.on_image M (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m)))).
+  ex (unique (SSPF.on_image M (SPUF.map _ proj1_sig (M.(emb) _ m)))).
 Proof.
-  eexists (M.(Functor.map) (@proj1_sig _ _) m). split.
+  eexists (M.(Functor.map) proj1_sig m). split.
   - red. rewrite (M.(emb).(NatTrans.map_nat)). eauto.  
   - intros. red in H. apply M.(SSPF.inj).
     rewrite <- H. rewrite M.(emb).(NatTrans.map_nat). auto.
 Qed.
 
 Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
-  SPUF.allP P (SPUF.map _ (@proj1_sig _ _) (M.(emb) _ m)).
+  SPUF.allP P (SPUF.map _ proj1_sig (M.(emb) _ m)).
 Proof.
   red; intros. unfold SPUF.map in EQ.
   destruct (emb M _ m a); [|inversion EQ].
@@ -188,7 +190,7 @@ Qed.
 
 Lemma sig_all2 (M: t) A (P: A -> Prop) (Q: sig P -> Prop) (m: M (sig P))
     (ALLQ: SPUF.allP (fun a => forall (pf: P a), Q (exist _ _ pf)) 
-                     (M.(emb) _ (M.(Functor.map) (@proj1_sig _ _) m))):
+                     (M.(emb) _ (M.(Functor.map) proj1_sig m))):
   SPUF.allP Q (M.(emb) _ m).
 Proof.
   red. intros. specialize (ALLQ a).
@@ -198,9 +200,9 @@ Proof.
   destruct x. eauto.
 Qed.
 
-Lemma sig_back_proj (M: t) A (P: A -> Prop) inh (m: SPUF.t M.(Sh) A)
+Lemma sig_back_proj (M: t) A (P: A -> Prop) (inh: A -> sig P) (m: SPUF.t M.(Sh) A)
     (ALL: SPUF.allP P m):
-  SPUF.map _ (@proj1_sig _ P) (SPUF.map _ (sig_back inh) m) = m.
+  SPUF.map _ proj1_sig (SPUF.map _ (sig_back inh) m) = m.
 Proof.
   extensionality s. unfold SPUF.map. 
   specialize (ALL s). destruct (m s); auto.
@@ -210,7 +212,7 @@ Qed.
 
 Lemma allP_project (M: t) A (P: A -> Prop) (m: M A)
     (ALLP: SPUF.allP P (M.(emb) _ m)):
-  exists m': M (sig P), m = M.(Functor.map) (@proj1_sig _ _) m'.
+  exists m': M (sig P), m = M.(Functor.map) proj1_sig m'.
 Proof.
   destruct (excluded_middle_informative (exists a, P a)) as [EXa|NEXa].
   - destruct EXa as [a Pa]. 
@@ -281,7 +283,7 @@ Definition Mlist := sig PMlist.
 Definition Mnil : Mlist := exist _ Mnil_ PMnil_.
 
 Definition Mcons (hd: M X) (tl: M Mlist) : Mlist :=
-  exist _ (Mcons_ hd (SPUF.map _ (@proj1_sig _ _) (M.(SSPF.emb) _ tl))) 
+  exist _ (Mcons_ hd (SPUF.map _ proj1_sig (M.(SSPF.emb) _ tl))) 
           (PMcons_ _ (SSPF.sig_on_image _ _ tl) (SSPF.sig_all _ _ tl)).
 
 Lemma Mcons_inj h1 t1 h2 t2
@@ -322,7 +324,7 @@ Proof.
   - dependent destruction pf.
     destruct OnHD as [y [OnHD UNQ]]. red in OnHD. subst.
     destruct (SSPF.allP_project _ y OnTL) as [y']; subst.
-    match goal with [|- appcontext[exist _ _ ?pf]] => generalize pf end.
+    match goal with [|- context[exist _ _ ?pf]] => generalize pf end.
     rewrite M.(SSPF.emb).(NatTrans.map_nat); intros.
     erewrite (proof_irrelevance _ _). 
     eapply STEP; eauto.
@@ -338,8 +340,8 @@ Fixpoint mfix T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (l: Mlist_) : T :
 Lemma mfix_unique T (tnil: T) (tcons: M X -> M Mlist_ -> M T -> T) (mfix': Mlist -> T)
     (NIL: mfix' Mnil = tnil)
     (CONS: forall hd tl,
-           mfix' (Mcons hd tl) = tcons hd (M.(Functor.map) (@proj1_sig _ _) tl) (M.(Functor.map) mfix' tl)):
-  forall l: Mlist, mfix tnil tcons (` l) = mfix' l. 
+           mfix' (Mcons hd tl) = tcons hd (M.(Functor.map) proj1_sig tl) (M.(Functor.map) mfix' tl)):
+  forall l: Mlist, mfix tnil tcons (proj1_sig l) = mfix' l. 
 Proof.
   intros. eapply (@Mlist_ind l); eauto.
   intros. rewrite CONS. simpl. f_equal. 
