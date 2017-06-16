@@ -15,6 +15,7 @@ Variable M: SSPF.t.
 Inductive Mfixpoint_ : Type :=
 | Mfix_mk_ : SPUF.U M.(SSPF.Sh) M.(SSPF.Ext) Mfixpoint_ -> Mfixpoint_.
 
+(* @jeehoonkang: why `unique` in OnHD? *)
 Inductive PMfixpoint : Mfixpoint_ -> Prop :=
 | PMfix_mk m (OnHD: ex (unique (SSPF.on_image M m))) (OnTL: SPUF.pmap PMfixpoint m)
   : PMfixpoint (Mfix_mk_ m).

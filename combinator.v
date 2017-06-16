@@ -34,6 +34,7 @@ Next Obligation.
   inversion EQ. auto.
 Qed.
 
+(* @jeehoonkang: consider Empty_set.. *)
 End Constant_SSPF.
 
 Section Identity_SSPF.
@@ -77,6 +78,7 @@ Inductive coprod_rel X : X -> (F X + G X) -> Prop :=
 Definition coprod_Fn :=
   (PFunctor.mk_data (fun X => sum (F X) (G X)) coprod_map coprod_rel).
 
+(* @jeehoonkang: consider `match x, s with | inl x', inl (inl _) => ... *)
 Definition coprod_embed X (x: sum (F X) (G X))
            (s: sum (sum unit F.(SSPF.Sh)) (sum unit G.(SSPF.Sh))) :=
   match x with
@@ -221,7 +223,8 @@ Next Obligation.
   - inversion H; subst.
     + apply (PNatTrans.rel_nat F.(SSPF.emb)) in RF.
       inversion RF.
-      subst.      
+      subst.
+      (* Set Printing All. idtac. *)
       apply (SPUF._u_rel _ (inl s)).
       rewrite EQ. auto.
     + apply (PNatTrans.rel_nat G.(SSPF.emb)) in RG.
@@ -470,6 +473,7 @@ Fixpoint list_embed X (l: list X) (s: list unit) : X + unit :=
       end
   end.
 
+(* @jeehoonkang: naming: List? FList? ... *)
 Program Definition List_sspf : SSPF.t := 
   @SSPF.mk (PFunctor.mk_data list List.map List.In) (list unit) unit 
           (PNatTrans.mk _ _ list_embed _ _) _ _.
@@ -592,6 +596,7 @@ Section Dependent_function_SSPF.
 
 Variable A: Type.
 Variable B: A -> SSPF.t.
+(* @jeehoonkang: excluded_middle_informative is strong; use A's decidability. *)
 
 Definition depfun_map X Y (f: X -> Y) (x: forall a : A, B a X) :=
   fun (a: A) => (B a).(PFunctor.map) f (x a).
