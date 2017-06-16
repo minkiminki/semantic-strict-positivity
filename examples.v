@@ -183,6 +183,8 @@ Proof.
   intros.
 Abort.
 
+(* @jeehoonkang: use `Program Definition` *)
+
 Definition fibonacci_gen (_: Option_sspf nat) 
            (x: Option_sspf (vfx Option_sspf Datatypes.nat)) :=
   match x with

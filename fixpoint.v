@@ -15,6 +15,7 @@ Variable M: SSPF.t.
 Inductive Mfixpoint_ : Type :=
 | Mfix_mk_ : SPUF.U M.(SSPF.Sh) M.(SSPF.Ext) Mfixpoint_ -> Mfixpoint_.
 
+(* @jeehoonkang: why `unique` in OnHD? *)
 Inductive PMfixpoint : Mfixpoint_ -> Prop :=
 | PMfix_mk m (OnHD: ex (unique (SSPF.on_image M m))) (OnTL: SPUF.pmap PMfixpoint m)
   : PMfixpoint (Mfix_mk_ m).
@@ -92,6 +93,7 @@ Proof.
   apply (Fix wf_order_Mfix _ STEP).
 Qed.
 
+(* @jeehoonkang: use standard library one.. *)
 Inductive s_order_Mfix : Mfixpoint -> Mfixpoint -> Prop :=
 | base_order x y (RE: order_Mfix x y) : s_order_Mfix x y
 | step_order x y z (Rxy: s_order_Mfix x y) (Ryz: order_Mfix y z) : s_order_Mfix x z.
@@ -161,6 +163,7 @@ Proof.
   apply (Mfixpoint_ind' x _ H).
 Qed.
 
+(* @jeehoonkang: don't use `P` for types *)
 Definition Mfixpoint_fn_depend (P: Mfixpoint -> Type)
     (FIX: forall m (FN: forall y, order_Mfix y m -> P y), P m) : forall x, P x :=
   Fix wf_order_Mfix _ FIX.

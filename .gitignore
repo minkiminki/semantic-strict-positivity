@@ -1,0 +1,9 @@
+*.vo
+*.vio
+*.v.d
+
+_CoqProject
+Makefile.coq
+
+*~
+*.swp

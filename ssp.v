@@ -11,7 +11,7 @@ Arguments proj1_sig {A P} e.
   Functor
  *)
 
-Module PFunctor.
+Module PFunctor. (* @jeehoonkang: name? *)
 
 Structure t_data := mk_data
 { Fn :> Type -> Type
@@ -134,8 +134,7 @@ Lemma u_rel_map Sh Ext X Y x u (f: X -> Y) (ORD: u_rel x u) :
   u_rel (f x) (SPUF.map Sh Ext f u).
 Proof.
   inversion ORD. subst.
-  apply (_u_rel _ s). unfold map.
-  rewrite EQ. auto.
+  econstructor. unfold map. rewrite EQ. auto.
 Qed.
 
 (*
@@ -205,10 +204,11 @@ Lemma map_pointwise Sh Ext X Y u (f g: X -> Y)
 Proof.
   extensionality s. specialize (ALL s). unfold map. 
   destruct (u s); eauto.
-  simpl. rewrite ALL; eauto.
+  rewrite ALL; eauto.
 Qed.
 
 
+(* @jeehoonkang: allP! *)
 Definition pmap Sh Ext X (P: X -> Prop) (u: U Sh Ext X) : Prop :=
   forall (x: X), u_rel x u -> P x.
 
@@ -222,6 +222,7 @@ End SPUF.
 
 Module SSPF.
 
+(* @jeehoonkang: data: lowercase letters, proof: uppercase letters? *)
 Structure t := mk
 { Fn :> PFunctor.t_data
 ; Sh : Type
@@ -298,6 +299,7 @@ Proof.
 Qed.
 *)
 
+(* @jeehoonkang: similar to u_rel?  consistency in naming? *)
 Definition on_image (M: t) X (u: SPUF.t _ _ X) (x: M X) : Prop := 
   u = M.(emb) _ x.
 Hint Unfold on_image.
