@@ -100,7 +100,7 @@ Proof.
     subst.
     apply (Mfix_mk_inj) in H1. inversion H1.
     auto.
-Qed.    
+Qed.
 
 Lemma wf2 : well_founded lt.
 Proof.
