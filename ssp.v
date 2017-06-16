@@ -16,7 +16,7 @@ Module PFunctor.
 Structure t_data := mk_data
 { Fn :> Type -> Type
 ; map : forall X Y (f: X -> Y), Fn X -> Fn Y
-; pmap : forall X (P: X -> Prop), Fn X -> Prop
+; rel : forall X, X -> Fn X -> Prop
 }.
 
 Structure t_prop (Fn: t_data) : Prop := mk_prop
@@ -26,7 +26,7 @@ Structure t_prop (Fn: t_data) : Prop := mk_prop
     (Fn.(map) g) ((Fn.(map) f) x) = Fn.(map) (fun y => g (f y)) x
 }.
 
-Definition id_data := mk_data (fun X => X) (fun X Y f => f) (fun X P => P).
+Definition id_data := mk_data (fun X => X) (fun X Y f => f) (fun _ => eq).
 
 Lemma id_prop : t_prop id_data.
 Proof.
@@ -40,9 +40,12 @@ Coercion prop (x: t) : t_prop (data x) := proj2_sig x.
 
 Definition id_functor : t := exist _ _ id_prop.
 
+Inductive comp_rel (F G: t_data) X : X -> F (G X) -> Prop :=
+| _comp_rel x gx fgx (HG : G.(rel) x gx) (HF : F.(rel) gx fgx) : comp_rel F G x fgx.
+
 Definition functor_comp_data (F G : t_data) := 
-  mk_data (fun X => F (G X)) (fun X Y (f: X -> Y) => F.(map) (G.(map) f)) 
-          (fun X P => F.(pmap) (G.(pmap) P)).
+  mk_data (fun X => F (G X)) (fun X Y (f: X -> Y) => F.(map) (G.(map) f))
+          (comp_rel F G).
 
 Lemma functor_comp_prop (F G : t) : t_prop (functor_comp_data F G).
 Proof.
@@ -72,8 +75,8 @@ Structure t (F G: PFunctor.t_data) := mk
 
 ; map_nat: forall X Y (f: X -> Y) x,
     Nt Y (F.(PFunctor.map) f x) = G.(PFunctor.map) f (Nt X x)
-; pmap_nat: forall X (P: X -> Prop) x,
-    F.(PFunctor.pmap) P x <-> G.(PFunctor.pmap) P (Nt X x)
+; rel_nat: forall X x fx,
+    F.(PFunctor.rel) x fx <-> G.(PFunctor.rel) x (Nt X fx)
 }.
 
 End PNatTrans.
@@ -109,12 +112,12 @@ Proof.
   unfold map, compose. destruct (x s); eauto.
 Qed.
 
-Definition pmap Sh Ext X (P: X -> Prop): U Sh Ext X -> Prop :=
-  fun u => (forall s x (EQ: u s = inl x), P x).
+Inductive u_rel Sh Ext X : X -> U Sh Ext X -> Prop :=
+| _u_rel u s x (EQ: u s = inl x) : u_rel x u.
 
 Definition t Sh Ext : PFunctor.t := 
   exist _ _
-        (PFunctor.mk_prop (PFunctor.mk_data (U Sh Ext) (map Sh Ext) (@pmap Sh Ext))
+        (PFunctor.mk_prop (PFunctor.mk_data (U Sh Ext) (map Sh Ext) (@u_rel Sh Ext))
                           (@map_id Sh Ext) (@map_comp Sh Ext)).
 
 Lemma map_injective Sh Ext X Y u1 u2 (f: X -> Y)
@@ -127,6 +130,15 @@ Proof.
   apply INJ in H0. subst; auto.
 Qed.
 
+Lemma u_rel_map Sh Ext X Y x u (f: X -> Y) (ORD: u_rel x u) :
+  u_rel (f x) (SPUF.map Sh Ext f u).
+Proof.
+  inversion ORD. subst.
+  apply (_u_rel _ s). unfold map.
+  rewrite EQ. auto.
+Qed.
+
+(*
 Lemma pmap_law1 Sh Ext X u (P: X -> Prop) (PT: forall x, P x):
   @pmap Sh Ext X P u.
 Proof.
@@ -161,6 +173,7 @@ Proof.
   destruct (u s); inversion EQ.
   subst. apply PI. eapply PU1. auto.
 Qed.  
+*)
 
 Lemma preserve_pullback Sh Ext P A B C pa f g
       (PULL: @PFunctor.pullback P A B C pa f g) :
@@ -185,6 +198,7 @@ Proof.
   symmetry; eauto.
 Qed.
 
+
 Lemma map_pointwise Sh Ext X Y u (f g: X -> Y)
     (ALL: allP (fun x => f x = g x) u):
   map Sh Ext f u = map Sh Ext g u.
@@ -193,6 +207,10 @@ Proof.
   destruct (u s); eauto.
   simpl. rewrite ALL; eauto.
 Qed.
+
+
+Definition pmap Sh Ext X (P: X -> Prop) (u: U Sh Ext X) : Prop :=
+  forall (x: X), u_rel x u -> P x.
 
 End SPUF.
 
@@ -232,6 +250,54 @@ Qed.
 
 Coercion to_functor (M: t) : PFunctor.t := exist _ _ (functor_prop M).
 
+(*
+Inductive on_image' (M: t) X : SPUF.t _ _ X -> M X -> Type :=
+| _on_image' x : on_image' M (M.(emb) _ x) x.
+
+Inductive sig' (A: Type) (P: A -> Type) : Type :=
+| exist' : forall x : A, P x -> sig' P.
+
+Definition proj1_sig' A (P: A -> Type) (x: sig' P) : A :=
+match x with
+| exist' _ a _ => a end.
+
+Inductive ex' (A : Type) (P : A -> Type) : Type :=
+| ex_intro' : forall x : A, P x -> ex' P.
+
+Lemma sig_on_image' (M: t) A (P: A -> Type) (m: M (sig' P)):
+  ex' (SSPF.on_image' M (@SPUF.map M.(Sh) M.(Ext) (sig' P) A (@proj1_sig' A P) (M.(emb) _ m))).
+Proof.
+  eexists (M.(PFunctor.map) (@proj1_sig' A P) m).
+  replace (SPUF.map (Sh M) (Ext M) (proj1_sig' (P:=P)) ((emb M) (sig' P) m))
+          with (M.(emb) _  (PFunctor.map M (proj1_sig' (P:=P)) m)).
+  constructor.
+  rewrite (M.(emb).(PNatTrans.map_nat)). auto.
+Defined.
+
+Lemma sig_all' (M: t) A (P: A -> Type) (m: M (sig' P)):
+  forall x, SPUF.u_rel x (@SPUF.map _ _ (sig' P) A (@proj1_sig' A P) (M.(emb) _ m))
+                  -> P x.
+Proof.
+  intros. simpl in H. 
+
+
+
+  red; intros. inversion H. unfold SPUF.map in EQ.
+  destruct (emb M _ m s); [|inversion EQ].
+  destruct s0. inversion EQ. subst. auto.
+Qed.
+
+
+
+Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
+  SPUF.pmap P (@SPUF.map _ _ (sig P) A proj1_sig (M.(emb) _ m)).
+Proof.
+  red; intros. inversion H. unfold SPUF.map in EQ.
+  destruct (emb M _ m s); [|inversion EQ].
+  destruct s0. inversion EQ. subst. auto.
+Qed.
+*)
+
 Definition on_image (M: t) X (u: SPUF.t _ _ X) (x: M X) : Prop := 
   u = M.(emb) _ x.
 Hint Unfold on_image.
@@ -257,8 +323,7 @@ Qed.
 
 Lemma back_unique (M: t) (X: Type) x (fx: M X):
   @back M X x (M.(emb) _ fx) = fx.
-Proof. unfold back. rewrite back_opt_unique. auto. Qed.
- 
+Proof. unfold back. rewrite back_opt_unique. auto. Qed. 
  
 Definition sig_back A (P: A -> Prop) (inh: A -> sig P) (a: A) : sig P :=
   match excluded_middle_informative (P a) with
@@ -278,7 +343,7 @@ Qed.
 Lemma sig_all (M: t) A (P: A -> Prop) (m: M (sig P)):
   SPUF.pmap P (@SPUF.map _ _ (sig P) A proj1_sig (M.(emb) _ m)).
 Proof.
-  red; intros. unfold SPUF.map in EQ.
+  red; intros. inversion H. unfold SPUF.map in EQ.
   destruct (emb M _ m s); [|inversion EQ].
   destruct s0. inversion EQ. subst. auto.
 Qed.
@@ -288,21 +353,31 @@ Lemma sig_all2 (M: t) A (P: A -> Prop) (Q: sig P -> Prop) (m: M (sig P))
                      (M.(emb) _ (M.(PFunctor.map) proj1_sig m))):
   @SPUF.pmap _ _ (sig P) Q (M.(emb) _ m).
 Proof.
-  red. intros. specialize (ALLQ s).
-  rewrite (M.(emb).(PNatTrans.map_nat)) in ALLQ.
-  simpl in ALLQ. unfold SPUF.map in ALLQ.
-  setoid_rewrite EQ in ALLQ.
-  destruct x. eauto.
+  red. intros.
+  destruct x.
+  unfold SPUF.pmap in ALLQ. specialize (ALLQ x).
+  apply ALLQ.
+  rewrite M.(emb).(PNatTrans.map_nat).
+  simpl.
+  unfold SPUF.map.
+  simpl.
+  inversion H.
+  subst.
+  apply (SPUF._u_rel _ s).
+  destruct ((emb M) {x : A | P x} m); inversion EQ.
+  auto.
 Qed.
 
 Lemma sig_back_proj (M: t) A (P: A -> Prop) (inh: A -> sig P) (m: SPUF.t M.(Sh) M.(Ext) A)
     (ALL: @SPUF.pmap _ _ A P m):
   SPUF.map _ _ proj1_sig (SPUF.map _ _ (sig_back inh) m) = m.
 Proof.
-  extensionality s. unfold SPUF.map. 
-  specialize (ALL s). destruct (m s); auto.
-  unfold sig_back. 
+  extensionality s. unfold SPUF.map. unfold SPUF.pmap in ALL.
+  destruct (m s) eqn : H; auto.
+  unfold sig_back.
   destruct (excluded_middle_informative _); [|exfalso]; auto.
+  apply n, ALL.
+  apply (SPUF._u_rel _ s). auto.
 Qed.
 
 Lemma allP_project (M: t) A (P: A -> Prop) (m: M A)
@@ -316,11 +391,12 @@ Proof.
     rewrite !M.(emb).(PNatTrans.map_nat).
     symmetry. apply sig_back_proj; eauto.
   - destruct (M.(uni) (M.(PFunctor.map) (fun _ => ()) m)) as [m' EQm].
-    + intros. specialize (ALLP s).
+    + intros. unfold SPUF.pmap in ALLP. 
       rewrite M.(emb).(PNatTrans.map_nat).
       simpl in *. unfold SPUF.map in *.
       destruct (emb M A m s) eqn: EQ.
-      * exfalso; eauto.
+      * exfalso. apply NEXa. exists a. apply ALLP.
+        apply (SPUF._u_rel _ s). auto.
       * setoid_rewrite EQ. intro FF; inversion FF. 
     + exists (M.(PFunctor.map) (False_rect _) m').
       apply M.(inj).
@@ -330,7 +406,7 @@ Proof.
       { intros. extensionality s.
         assert (EQf:= equal_f EQ s). unfold SPUF.map in EQf.
         destruct (M.(emb) A m s) eqn: EQ'.
-        - exfalso; eauto.
+        - exfalso. apply NEXa. exists a. apply ALLP. apply (SPUF._u_rel _ s EQ').
         - destruct (n s); inversion EQf; subst; eauto.
       }
       apply INJ. 
@@ -340,13 +416,17 @@ Proof.
 Qed.
 
 Lemma map_pointwise (M: t) X Y m (f g: X -> Y)
-    (ALL: M.(PFunctor.pmap) (fun x => f x = g x) m):
+    (ALL: forall x, M.(PFunctor.rel) x m -> f x = g x):
   M.(PFunctor.map) f m = M.(PFunctor.map) g m.
 Proof.
   apply inj.
-  apply (PNatTrans.pmap_nat M.(emb)) in ALL. simpl in ALL.
-  apply SPUF.map_pointwise in ALL.
-  repeat rewrite PNatTrans.map_nat. apply ALL.
+  repeat rewrite PNatTrans.map_nat.
+  apply SPUF.map_pointwise.
+  unfold SPUF.allP.
+  intros.
+  apply ALL.
+  apply (PNatTrans.rel_nat M.(emb)).
+  apply (SPUF._u_rel _ a EQ).
 Qed.
 
 Lemma map_injective (M: SSPF.t) X Y (f: X -> Y) m1 m2
@@ -431,45 +511,6 @@ Proof.
   apply (SPUF.preserve_pullback PULL) in EQ.
   destruct EQ.
   apply (embedded_pullback M a H).
-Qed.
-
-Lemma pmap_law1 (M: t) X m (P: X -> Prop) (PT: forall x, P x):
-  M.(PFunctor.pmap) P m.
-Proof.
-  apply (PNatTrans.pmap_nat M.(emb)).
-  apply (SPUF.pmap_law1 _ _ PT).
-Qed.
-
-Lemma pmap_law2 (M: t) X m (P1 P2: X -> Prop)
-      (PU1: M.(PFunctor.pmap) P1 m) (PU2: M.(PFunctor.pmap) P2 m):
-  M.(PFunctor.pmap) (fun x => P1 x /\ P2 x) m.
-Proof.
-  apply (PNatTrans.pmap_nat M.(emb)).
-  apply (PNatTrans.pmap_nat M.(emb)) in PU1.
-  apply (PNatTrans.pmap_nat M.(emb)) in PU2.
-  apply (SPUF.pmap_law2 PU1 PU2).
-Qed.
-
-Lemma pmap_law3 (M: t) X m (P1 P2: X -> Prop)
-      (PU1: M.(PFunctor.pmap) P1 m) (PI: forall x, P1 x -> P2 x):
-  M.(PFunctor.pmap) P2 m.
-Proof.
-  apply (PNatTrans.pmap_nat M.(emb)).
-  apply (PNatTrans.pmap_nat M.(emb)) in PU1.
-  apply (SPUF.pmap_law3 _ PU1 PI).
-Qed.
-
-Lemma pmap_law4 (M: t) X Y m P1 (P2: Y -> Prop) (f: X -> Y)
-      (PU1: M.(PFunctor.pmap) P1 m) (PI: forall x, P1 x -> P2 (f x)):
-  M.(PFunctor.pmap) P2 (M.(PFunctor.map) f m).
-Proof.
-  apply (PNatTrans.pmap_nat M.(emb)).
-  apply (PNatTrans.pmap_nat M.(emb)) in PU1.
-  rewrite PNatTrans.map_nat. simpl in *.
-  unfold SPUF.pmap, SPUF.map in *. intros.
-  specialize (PU1 s).
-  destruct ((emb M) X m); inversion EQ.
-  apply PI. apply PU1. auto.
 Qed.
 
 Inductive dep_sum A (B: A -> t) (C: t -> Type) :=

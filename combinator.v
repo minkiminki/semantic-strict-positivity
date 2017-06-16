@@ -13,7 +13,7 @@ Section Constant_SSPF.
 Variable A : Type.
 
 Definition const_Fn :=
-  (PFunctor.mk_data (fun X => A) (fun X Y (f: X -> Y) x => x) (fun _ _ _ => True)).
+  (PFunctor.mk_data (fun X => A) (fun X Y (f: X -> Y) x => x) (fun _ _ _ => False)).
 
 Definition const_embed X (a: A) (s: unit) : X + A := inr a.
 
@@ -21,10 +21,9 @@ Program Definition Const : SSPF.t :=
   @SSPF.mk const_Fn unit A 
           (PNatTrans.mk _ _ const_embed _ _) _ _.
 Next Obligation.
-  unfold SPUF.pmap. unfold const_embed.
-  split; intros.
-  - inversion EQ. 
-  - apply I.
+  unfold const_embed. split; intros.
+  - inversion H.
+  - inversion H. inversion EQ.
 Qed.
 Next Obligation.
   exists m. eauto.
@@ -45,11 +44,12 @@ Program Definition Ident : SSPF.t :=
   @SSPF.mk PFunctor.id_data unit unit
           (PNatTrans.mk _ _ ident_embed _ _) _ _.
 Next Obligation.
-  unfold SPUF.pmap. unfold ident_embed.
-  split; intros.
-  - inversion EQ. subst. apply H.
-  - apply (H tt). auto.
-Qed.
+  unfold ident_embed. split; intros.
+  - destruct H.
+    apply (SPUF._u_rel _ tt). auto.
+  - inversion H. inversion EQ.
+    constructor.
+Qed.  
 Next Obligation.
   exfalso. specialize (CONST m m). eauto.
 Qed.
@@ -70,14 +70,12 @@ Definition coprod_map X Y (f: X -> Y) x :=
   | inr xr => inr (G.(PFunctor.map) f xr)
   end.
 
-Definition coprod_pmap X (P: X -> Prop) x :=
-  match x with
-  | inl xl => F.(PFunctor.pmap) P xl
-  | inr xr => G.(PFunctor.pmap) P xr
-  end.
+Inductive coprod_rel X : X -> (F X + G X) -> Prop :=
+| _coprod_rell x fx (RF: F.(PFunctor.rel) x fx) : coprod_rel x (inl fx)
+| _coprod_relr x gx (RG: G.(PFunctor.rel) x gx) : coprod_rel x (inr gx).
 
 Definition coprod_Fn :=
-  (PFunctor.mk_data (fun X => sum (F X) (G X)) coprod_map coprod_pmap).
+  (PFunctor.mk_data (fun X => sum (F X) (G X)) coprod_map coprod_rel).
 
 Definition coprod_embed X (x: sum (F X) (G X))
            (s: sum (sum unit F.(SSPF.Sh)) (sum unit G.(SSPF.Sh))) :=
@@ -114,22 +112,24 @@ Next Obligation.
   [destruct ((SSPF.emb F) X f0) | destruct ((SSPF.emb G) X f0)]; eauto.
 Qed.
 Next Obligation.
-  unfold SPUF.pmap. split; intros.
-  - destruct x; simpl in *;
-    destruct s; destruct s; inversion EQ;
-    [ apply (PNatTrans.pmap_nat F.(SSPF.emb)) in H|
-    apply (PNatTrans.pmap_nat G.(SSPF.emb)) in H];
-    simpl in H; unfold SPUF.pmap in H; specialize (H s x0);
-    [destruct ((SSPF.emb F) X f) | destruct ((SSPF.emb G) X f)];
-    inversion H1;
-    apply H; subst; auto.
-  - unfold coprod_pmap. destruct x.
-    + apply (PNatTrans.pmap_nat F.(SSPF.emb)). simpl; unfold SPUF.pmap; intros.
-      specialize (H (inl (inr s))). simpl in H.
-      destruct ((SSPF.emb F) X f); inversion EQ. apply H. subst. auto.
-    + apply (PNatTrans.pmap_nat G.(SSPF.emb)). simpl; unfold SPUF.pmap; intros.
-      specialize (H (inr (inr s))). simpl in H.
-      destruct ((SSPF.emb G) X f); inversion EQ. apply H. subst. auto.
+  unfold coprod_embed. split; intros.
+  - destruct H.
+    + rewrite (PNatTrans.rel_nat F.(SSPF.emb)) in RF.
+      destruct RF.
+      apply (SPUF._u_rel _ (inl (inr s))).
+      destruct (u s); inversion EQ. auto.
+    + rewrite (PNatTrans.rel_nat G.(SSPF.emb)) in RG.
+      destruct RG.
+      apply (SPUF._u_rel _ (inr (inr s))).
+      destruct (u s); inversion EQ. auto.
+  - destruct fx; constructor;
+    inversion H; subst; destruct s; try destruct s; inversion EQ.
+    + apply (PNatTrans.rel_nat F.(SSPF.emb)).
+      apply (SPUF._u_rel _ s).
+      destruct ((SSPF.emb F) X f); inversion EQ. auto.
+    + apply (PNatTrans.rel_nat G.(SSPF.emb)).
+      apply (SPUF._u_rel _ s).
+      destruct ((SSPF.emb G) X f); inversion EQ. auto.
 Qed.
 Next Obligation.
   unfold coprod_embed in CONST.
@@ -184,11 +184,12 @@ Definition prod_map X Y (f: X -> Y) x :=
   | (xl, xr) => (F.(PFunctor.map) f xl, G.(PFunctor.map) f xr)
   end.
 
-Definition prod_pmap X (P: X -> Prop) x := 
-  match x with (xf, xg) => F.(PFunctor.pmap) P xf /\ G.(PFunctor.pmap) P xg end.
+Inductive prod_rel X : X -> (prod (F X) (G X)) -> Prop :=
+| _prod_rell x fx gx (RF: F.(PFunctor.rel) x fx) : prod_rel x (fx, gx)
+| _prod_relr x fx gx (RG: G.(PFunctor.rel) x gx) : prod_rel x (fx, gx).
 
 Definition prod_Fn :=
-  (PFunctor.mk_data (fun X => prod (F X) (G X)) prod_map prod_pmap).
+  (PFunctor.mk_data (fun X => prod (F X) (G X)) prod_map prod_rel).
 
 Definition prod_embed X (x: prod (F X) (G X)) (s: sum F.(SSPF.Sh) G.(SSPF.Sh)) :=
   match x with
@@ -216,22 +217,28 @@ Next Obligation.
   [destruct ((SSPF.emb F) X f0) | destruct ((SSPF.emb G) X f1)]; eauto.
 Qed.
 Next Obligation.
-  split; unfold prod_pmap; unfold SPUF.pmap; unfold prod_embed; intros.
-  - destruct H.
-    apply (PNatTrans.pmap_nat F.(SSPF.emb)) in H.
-    apply (PNatTrans.pmap_nat G.(SSPF.emb)) in H0. simpl in *. unfold SPUF.pmap in *.
+  unfold prod_embed. split; intros.
+  - inversion H; subst.
+    + apply (PNatTrans.rel_nat F.(SSPF.emb)) in RF.
+      inversion RF.
+      subst.      
+      apply (SPUF._u_rel _ (inl s)).
+      rewrite EQ. auto.
+    + apply (PNatTrans.rel_nat G.(SSPF.emb)) in RG.
+      inversion RG.
+      subst.      
+      apply (SPUF._u_rel _ (inr s)).
+      rewrite EQ. auto.
+  - inversion H. subst.
     destruct s.
-    + specialize (H s). apply H.
+    + apply _prod_rell.
+      apply (PNatTrans.rel_nat F.(SSPF.emb)).
+      apply (SPUF._u_rel _ s).
       destruct ((SSPF.emb F) X f); inversion EQ. auto.
-    + specialize (H0 s). apply H0.
+    + apply _prod_relr.
+      apply (PNatTrans.rel_nat G.(SSPF.emb)).
+      apply (SPUF._u_rel _ s).
       destruct ((SSPF.emb G) X f0); inversion EQ. auto.
-  - split.
-    + apply (PNatTrans.pmap_nat F.(SSPF.emb)). simpl. unfold SPUF.pmap. intros.
-      specialize (H (inl s)). apply H.
-      destruct ((SSPF.emb F) X f); inversion EQ; auto.
-    + apply (PNatTrans.pmap_nat G.(SSPF.emb)). simpl. unfold SPUF.pmap. intros.
-      specialize (H (inr s)). apply H.
-      destruct ((SSPF.emb G) X f0); inversion EQ; auto.
 Qed.
 Next Obligation.
   unfold prod_embed in CONST.
@@ -270,10 +277,10 @@ Variable A : Type.
 Definition exp_map X Y (f: X -> Y) (x: A -> X) :=
   fun (a: A) => f (x a).
 
-Definition exp_pmap X (P: X -> Prop) (x: A -> X) : Prop :=
-  forall a x', x a = x' -> P x'.
+Inductive exp_rel X : X -> (A -> X) -> Prop :=
+| _exp_rel f a : exp_rel (f a) f.
 
-Definition exp_Fn := (PFunctor.mk_data (fun X => A -> X) exp_map exp_pmap).
+Definition exp_Fn := (PFunctor.mk_data (fun X => A -> X) exp_map exp_rel).
 
 Definition exp_embed X (x: A -> X) (s: A) : (X + False) := inl (x s).
 
@@ -281,9 +288,11 @@ Program Definition Expn : SSPF.t :=
   @SSPF.mk exp_Fn _ _
           (PNatTrans.mk _ _ exp_embed _ _) _ _.
 Next Obligation.
-  split; unfold exp_pmap; unfold SPUF.pmap; unfold exp_embed; intros.
-  - inversion EQ. apply (H s (x s)). auto.
-  - apply (H a x'). f_equal. auto.
+  unfold exp_embed. split; intros.
+  - destruct H.
+    apply (SPUF._u_rel _ a). auto.
+  - inversion H. subst. inversion EQ.
+    constructor.
 Qed.
 Next Obligation.
   unfold exp_embed, exp_map in *.
@@ -305,9 +314,11 @@ Variable F G: SSPF.t.
 Definition comp_map X Y (f: X -> Y) (x: F (G X)) :=
   F.(PFunctor.map) (G.(PFunctor.map) f) x.
 
-Definition comp_pmap X (P: X -> Prop) x := F.(PFunctor.pmap) (G.(PFunctor.pmap) P) x.
+Inductive comp_rel X : X -> F (G X) -> Prop :=
+| _comp_rel x gx fgx (HG : G.(PFunctor.rel) x gx) (HF : F.(PFunctor.rel) gx fgx) :
+    comp_rel x fgx.
 
-Definition comp_Fn := (PFunctor.mk_data (fun X => F (G X)) comp_map comp_pmap).
+Definition comp_Fn := (PFunctor.mk_data (fun X => F (G X)) comp_map comp_rel).
 
 Definition comp_embed' X (x': F.(SSPF.Sh) -> (sum (G.(SSPF.Sh) ->
                                                  (sum X G.(SSPF.Ext))) F.(SSPF.Ext)))
@@ -408,22 +419,24 @@ Next Obligation.
   destruct ((SSPF.emb G) X f0); eauto.
 Qed.
 Next Obligation.
-  unfold comp_pmap, comp_embed. rewrite PNatTrans.map_nat. simpl.
-  unfold SPUF.map, SPUF.pmap, comp_embed'. split; intros.
-  - apply (PNatTrans.pmap_nat F.(SSPF.emb)) in H. simpl in H. unfold SPUF.pmap in H.
-    destruct s.
-    destruct ((SSPF.emb F) (G X) x) eqn : EQF; inversion EQ;
-    dependent destruction s; inversion EQ. 
-    apply H in EQF. apply (PNatTrans.pmap_nat G.(SSPF.emb)) in EQF.
-    simpl in EQF. unfold SPUF.pmap in EQF.
-    destruct ((SSPF.emb G) X f) eqn : EQG; inversion EQ.
-    apply EQF in EQG. subst. auto.
-  - apply (PNatTrans.pmap_nat F.(SSPF.emb)). simpl. unfold SPUF.pmap. intros.
-    apply (PNatTrans.pmap_nat G.(SSPF.emb)). simpl. unfold SPUF.pmap. intros.
-    specialize (H (inr s0, s) x1). simpl in H.
-    destruct ((SSPF.emb F) (G X) x); inversion EQ. subst.
-    destruct ((SSPF.emb G) X x0); inversion EQ0. subst.
-    apply H. auto.
+  unfold comp_embed, comp_embed'. split; intros.
+  - inversion H. subst.
+    apply (PNatTrans.rel_nat F.(SSPF.emb)) in HF.
+    apply (PNatTrans.rel_nat G.(SSPF.emb)) in HG.
+    inversion HG. inversion HF. subst.
+    apply (SPUF._u_rel _ (inr s, s0)).
+    repeat rewrite (PNatTrans.map_nat). simpl. unfold SPUF.map.
+    destruct ((SSPF.emb F) (G X) fx); inversion EQ0.
+    destruct ((SSPF.emb G) X gx); inversion EQ. auto.
+  - inversion H; clear H. subst.
+    repeat rewrite (PNatTrans.map_nat) in EQ. simpl in EQ. unfold SPUF.map in EQ.
+    destruct s. destruct s.
+    + destruct ((SSPF.emb F) (G X) fx); inversion EQ.
+    + destruct ((SSPF.emb F) (G X) fx) eqn : H; inversion EQ.
+      destruct ((SSPF.emb G) X f) eqn: H2; inversion EQ. subst. clear H1 EQ.
+      apply (_comp_rel _ f).
+      apply (PNatTrans.rel_nat G.(SSPF.emb)). simpl. apply (SPUF._u_rel _ s H2).
+      apply (PNatTrans.rel_nat F.(SSPF.emb)). simpl. apply (SPUF._u_rel _ s0 H).
 Qed.
 Next Obligation.
   apply comp_embed'_pullback in CONST.
@@ -443,6 +456,7 @@ Qed.
 
 End Composition_SSPF.
 
+
 Section List_SSPF.
 
 Fixpoint list_embed X (l: list X) (s: list unit) : X + unit :=
@@ -457,7 +471,7 @@ Fixpoint list_embed X (l: list X) (s: list unit) : X + unit :=
   end.
 
 Program Definition List_sspf : SSPF.t := 
-  @SSPF.mk (PFunctor.mk_data list List.map List.Forall) (list unit) unit 
+  @SSPF.mk (PFunctor.mk_data list List.map List.In) (list unit) unit 
           (PNatTrans.mk _ _ list_embed _ _) _ _.
 Next Obligation.
   induction x; eauto.
@@ -466,19 +480,23 @@ Next Obligation.
   destruct s; eauto.
 Qed.
 Next Obligation.
-  unfold SPUF.pmap; induction x; split; intros.
-  - inversion EQ.
-  - constructor.
-  - dependent destruction H.
-    destruct IHx, s; inversion EQ.
-    destruct s. inversion H4. subst. auto.
-    apply (H1 H0 (cons u0 s) _ EQ).
-  - constructor.
-    apply (H (cons tt nil)). auto.
-    apply IHx. intros.
-    apply (H (cons tt s)). simpl.
-    destruct s. destruct x; inversion EQ.
-    apply EQ.
+  split; intros.
+  - induction fx; destruct H.
+    + subst. apply (SPUF._u_rel _ (cons tt nil)). eauto.
+    + apply IHfx in H.
+      inversion H. subst.
+      apply (SPUF._u_rel _ (cons tt s)). simpl.
+      destruct s.
+      * destruct fx; inversion EQ.
+      * auto.
+  - induction fx.
+    + inversion H. subst. inversion EQ.
+    + inversion H. subst.
+      destruct s; inversion EQ. destruct s; inversion EQ.
+      * subst. simpl. auto.
+      * simpl. right.
+        apply IHfx.
+        apply (SPUF._u_rel _ (cons u0 s) EQ).
 Qed.
 Next Obligation.
   destruct m.
@@ -501,6 +519,75 @@ Qed.
 
 End List_SSPF.
 
+(*
+Section List_SSPF.
+
+Fixpoint list_embed X (l: list X) (s: list unit) : X + unit :=
+  match l with
+  | nil => inr tt
+  | cons hd tl => 
+      match s with 
+      | cons _ nil => inl hd
+      | cons _ stl => list_embed tl stl
+      | _ => inr tt
+      end
+  end.
+
+Inductive list_rel X : X -> list X -> Prop :=
+| _list_rel_hd x tl : list_rel x (cons x tl)
+| _list_rel_tl x hd tl (TL: list_rel x tl) : list_rel x (cons hd tl).
+
+Program Definition List_sspf : SSPF.t := 
+  @SSPF.mk (PFunctor.mk_data list List.map list_rel) (list unit) unit 
+          (PNatTrans.mk _ _ list_embed _ _) _ _.
+Next Obligation.
+  induction x; eauto.
+  extensionality s. simpl. rewrite IHx.
+  destruct s; eauto.
+  destruct s; eauto.
+Qed.
+Next Obligation.
+  split; intros.
+  - induction fx; inversion H; subst.
+    + apply (SPUF._u_rel _ (cons tt nil)). auto.
+    + apply IHfx in TL. clear IHfx. simpl.
+      inversion TL. subst.
+      apply (SPUF._u_rel _ (cons tt s)).
+      destruct s.
+      * destruct fx; simpl in EQ; inversion EQ.
+      * auto.
+  - induction fx.
+    + inversion H. subst. inversion EQ.
+    + inversion H. subst.
+      simpl in EQ.
+      destruct s; inversion EQ. destruct s; inversion EQ.
+      * subst. constructor.
+      * constructor.
+        apply IHfx.
+        apply (SPUF._u_rel _ (cons u0 s) EQ).
+Qed.
+Next Obligation.
+  destruct m.
+  - exists nil. eauto.
+  - exfalso. eapply (CONST (cons () nil)); simpl; eauto.
+Qed.
+Next Obligation.
+  assert (EQ' := equal_f EQ). clear EQ.
+  revert n EQ'. induction m; intros.
+  - destruct n; eauto. 
+    specialize (EQ' (cons tt nil)). inversion EQ'.
+  - destruct n.
+    + specialize (EQ' (cons tt nil)). inversion EQ'.
+    + rewrite (IHm n).
+      * specialize (EQ' (cons tt nil)). inversion EQ'; subst; auto.
+      * intros. specialize (EQ' (cons tt x0)). 
+        destruct x0; eauto.
+        destruct m, n; eauto.
+Qed.
+
+End List_SSPF.
+*)
+
 Section Dependent_function_SSPF.
 
 Variable A: Type.
@@ -509,13 +596,13 @@ Variable B: A -> SSPF.t.
 Definition depfun_map X Y (f: X -> Y) (x: forall a : A, B a X) :=
   fun (a: A) => (B a).(PFunctor.map) f (x a).
 
-Definition depfun_pmap X (P: X -> Prop) x := forall a, (B a).(PFunctor.pmap) P (x a).
+Inductive depfun_rel X : X -> (forall a : A, B a X) -> Prop :=
+| _depfun_rel x a f (RE: (B a).(PFunctor.rel) x (f a)) : depfun_rel x f.
 
 Definition depfun_Fn :=
-  (PFunctor.mk_data (fun X => forall a: A, B a X) depfun_map depfun_pmap).
+  (PFunctor.mk_data (fun X => forall a: A, B a X) depfun_map depfun_rel).
 
-Definition depfun_embed X (x: forall a : A, B a X) (s: SSPF.dep_sum B (SSPF.Sh)) 
-  : (X + (SSPF.dep_sum B (SSPF.Ext))) :=
+Definition depfun_embed X (x: forall a : A, B a X) (s: SSPF.dep_sum B (SSPF.Sh)) : (X + (SSPF.dep_sum B (SSPF.Ext))) :=
   match s with
   | SSPF.dep _ _ a sh =>
     match (B a).(SSPF.emb) _ (x a) sh with
@@ -533,16 +620,19 @@ Next Obligation.
   destruct ((SSPF.emb (B a)) X (x a)); auto.
 Qed.
 Next Obligation.
-  unfold depfun_pmap, depfun_embed, SPUF.pmap. split; intros; simpl.
-  - destruct s.
-    specialize (H a). apply (PNatTrans.pmap_nat (B a).(SSPF.emb)) in H.
-    simpl in H. unfold SPUF.pmap in H.
-    specialize (H c x0). apply H.
-    destruct ((SSPF.emb (B a)) X (x a)); inversion EQ. auto.
-  - apply (PNatTrans.pmap_nat (B a).(SSPF.emb)). simpl. unfold SPUF.pmap.
-    intros.
-    specialize (H (SSPF.dep _ _ _ s) x0). simpl in H. apply H.
-    destruct ((SSPF.emb (B a)) X (x a)); inversion EQ. auto.
+  unfold depfun_embed. split; intros.
+  - inversion H. subst.
+    apply (PNatTrans.rel_nat (B a).(SSPF.emb)) in RE.
+    inversion RE. subst.
+    apply (SPUF._u_rel _ (SSPF.dep _ _ a s)).
+    rewrite EQ. auto.
+  - inversion H. subst.
+    destruct s.
+    apply (_depfun_rel x a fx).
+    apply (PNatTrans.rel_nat (B a).(SSPF.emb)).
+    simpl.
+    apply (SPUF._u_rel _ c).
+    destruct ((SSPF.emb (B a)) X (fx a)); inversion EQ. auto.
 Qed.
 Next Obligation.
   unfold depfun_embed, depfun_map in *.
@@ -584,12 +674,11 @@ Definition depsum_map X Y (f: X -> Y) (x: dep_sum X) :=
   | dep _ a x' =>
     dep _ a ((B a).(PFunctor.map) f x') end.
 
-Definition depsum_pmap X (P: X -> Prop) x :=
-  match x with
-  | dep _ a x' => (B a).(PFunctor.pmap) P x' end.
+Inductive depsum_rel X : X -> dep_sum X -> Prop :=
+| _depsum_rel x a b (RE: (B a).(PFunctor.rel) x b) : depsum_rel x (dep _ a b).
 
 Definition depsum_Fn :=
-  (PFunctor.mk_data dep_sum depsum_map depsum_pmap).
+  (PFunctor.mk_data dep_sum depsum_map depsum_rel).
 
 Definition depsum_embed X (x: dep_sum X)
            (s: SSPF.dep_sum B (fun x => sum unit x.(SSPF.Sh))):
@@ -624,31 +713,25 @@ Proof.
   destruct ((SSPF.emb (B a)) X x'); auto.
 Qed.
 Next Obligation.
-  unfold SPUF.pmap, depsum_pmap. split; intros.
-  destruct s.
-  - destruct c; unfold depsum_embed in EQ.
-    + destruct x.
-      destruct (excluded_middle_informative (a0 = a)); inversion EQ.
-    + destruct x.
-      apply (PNatTrans.pmap_nat (B a0).(SSPF.emb)) in H.
-      simpl in H. unfold SPUF.pmap in H.
-      destruct (excluded_middle_informative (a0 = a)); inversion EQ.      
-      destruct e.
-      apply H with (s := s).
-      destruct ((SSPF.emb (B a0)) X x'); inversion EQ. auto.
-  - destruct x.
-    apply (PNatTrans.pmap_nat (B a).(SSPF.emb)). simpl. unfold SPUF.pmap.
-    intros.
-    unfold depsum_embed in H.
-    specialize (H (SSPF.dep _ _ a (inr s)) x).
-    simpl in H.
+  unfold depsum_embed. split; intros.
+  - inversion H. subst.
+    apply (PNatTrans.rel_nat (B a).(SSPF.emb)) in RE.
+    inversion RE. subst.
+    apply (SPUF._u_rel _ (SSPF.dep _ _ a (inr s))).
     destruct (excluded_middle_informative (a = a)).
-    + apply H.
-      assert ((eq_rect a (fun y : A => (B y) X) x' a e) = x').
-      rewrite <- eq_rect_eq. auto.
-      rewrite H0 in H. rewrite H0.
-      destruct ((SSPF.emb (B a)) X x'); inversion EQ. auto.
-    + exfalso. auto.
+    + rewrite <- eq_rect_eq.
+      destruct ((SSPF.emb (B a)) X b); inversion EQ. auto.
+    + destruct n. auto.
+  - destruct fx.
+    inversion H. subst. clear H.
+    destruct s. destruct c.
+    + destruct (excluded_middle_informative (a = a0)); inversion EQ.
+    + destruct (excluded_middle_informative (a = a0)); subst.
+      rewrite <- eq_rect_eq in EQ.
+      apply (_depsum_rel x a0 _). apply (PNatTrans.rel_nat (B a0).(SSPF.emb)). simpl.
+      apply (SPUF._u_rel _ s).
+      destruct ((SSPF.emb (B a0)) X x'); inversion EQ. auto.
+      inversion EQ.
 Qed.
 Next Obligation.
   destruct m.
@@ -695,14 +778,13 @@ End Dependent_sum_SSPF.
 
 Section Option_SSPF.
 
-Definition option_pmap X (P: X -> Prop) (x: option X) :=
-  match x with
-  | Some x' => P x'
-  | None => True
-  end.
+Definition option_rel X (x: X) (o: option X) : Prop :=
+  match o with
+  | Some x' => x = x'
+  | None => False end.
 
 Definition option_Fn :=
-  (PFunctor.mk_data option option_map option_pmap).
+  (PFunctor.mk_data option option_map option_rel).
 
 Definition option_embed X (x: option X) (s: unit) :=
   match x with
@@ -719,11 +801,12 @@ Proof.
 Qed.
 Next Obligation.
 Proof.
-  unfold option_pmap, option_embed, SPUF.pmap. split; intros.
-  - destruct x; inversion EQ; subst; auto.
-  - destruct x.
-    + apply (H tt x). auto.
-    + apply I.
+  unfold option_embed. split; intros.
+  - destruct fx; destruct H.
+    apply (SPUF._u_rel _ tt). auto.
+  - inversion H. subst.
+    destruct fx; inversion EQ.
+    simpl. auto.
 Qed.    
 Next Obligation.
   destruct m; simpl in CONST.
