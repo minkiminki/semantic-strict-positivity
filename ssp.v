@@ -3,6 +3,7 @@ Set Implicit Arguments.
 Set Automatic Coercions Import.
 
 Arguments proj1_sig {A P} e.
+Arguments projT1 {A P} x.
 
 (*
   Functor
@@ -12,11 +13,127 @@ Module PFunctor.
 
 Structure t_data := mk_data
 { Fn :> Type -> Type
-; rel : forall X, X -> Fn X -> Type
-; map : forall X Y (a : Fn X) (f: forall (x:X), rel x a -> Y), Fn Y
+; mem : forall X, Fn X -> X -> Type
+; eq : forall X (EQ: X -> X -> Prop), Fn X -> Fn X -> Prop
+; map : forall X Y (f: X -> Y), Fn X -> Fn Y
+
+; uni : forall X Y (a: Fn X) (ALL: forall x, mem a x -> Y), Fn Y
+; uni_correct : forall X Y (a: Fn X) (ALL: forall x, mem a x -> Y)
+                       (f: Y -> X) (INV: forall x r, f (ALL x r) = x),
+    map f (uni ALL) = a
 }.
 
+Structure t_prop (Fn: t_data) : Type := mk_prop
+{ map_id: forall X x, 
+    Fn.(map) (@id X) x = x
+; map_comp: forall X Y Z (g: Y -> Z) (f: X -> Y) x, 
+    (Fn.(map) g) ((Fn.(map) f) x) = Fn.(map) (fun y => g (f y)) x
+; map_mem: forall X Y (f: X -> Y) (a: Fn X) (x: X),
+    Fn.(mem) a x -> Fn.(mem) (Fn.(map) f a) (f x)
+}.
+
+Definition t := sigT t_prop.
+
+Coercion data (x: t) : t_data := projT1 x.
+Coercion prop (x: t) : t_prop (data x) := projT2 x.
+
 End PFunctor.
+
+
+Section Id_Functor.
+
+(*
+Inductive eqT X : X -> X -> Type :=
+| eq_reflT x : eqT x x.
+
+Hint Constructors eqT.
+*)
+
+Definition ident_uni X Y (x: X) (ALL: forall y, eq x y -> Y) : Y :=
+  (ALL x (eq_refl x)).
+
+Program Definition ident_Fn : PFunctor.t_data :=
+  (@PFunctor.mk_data (fun X => X) (fun X => @eq X) (fun X EQ => EQ)
+                     (fun X Y (f: X -> Y) x => f x) ident_uni _).
+
+Program Definition id_functor := existT _ ident_Fn (PFunctor.mk_prop _ _ _ _).
+
+End Id_Functor.
+
+
+Section Comp_Functor.
+
+Variable (F G: PFunctor.t).
+
+Definition comp_map X Y (f: X -> Y) (x: F (G X)) :=
+  F.(PFunctor.map) (G.(PFunctor.map) f) x.
+
+Inductive comp_mem X : F (G X) -> X -> Type :=
+  | _comp_mem x gx fgx (HG : G.(PFunctor.mem) gx x) (HF : F.(PFunctor.mem) fgx gx) :
+    comp_mem fgx x.
+
+Definition comp_eq X (EQ: X -> X -> Prop) : F (G X) -> F (G X) -> Prop
+  := F.(PFunctor.eq) (G.(PFunctor.eq) EQ).
+
+Definition comp_uni X Y (x: F (G X)) (ALL: forall y, comp_mem x y -> Y) : F (G Y) :=
+  (F.(PFunctor.uni) x (fun y r1 => 
+                         (G.(PFunctor.uni) y (fun z r2 =>
+                                                ALL _ (_comp_mem _ _ _ r2 r1))))).
+
+Program Definition comp_Fn : PFunctor.t_data :=
+  (@PFunctor.mk_data (fun X => F (G X)) comp_mem comp_eq comp_map comp_uni _).
+Next Obligation.
+Proof.
+  unfold comp_map, comp_uni.
+  apply F.(PFunctor.uni_correct).
+  intros.
+  apply G.(PFunctor.uni_correct).
+  intros. apply INV.
+Defined.
+
+Program Definition comp_functor := existT _ comp_Fn (PFunctor.mk_prop _ _ _ _).
+Next Obligation.
+Proof.
+  unfold comp_map. replace (PFunctor.map G id) with (@id (G X)).
+  apply F.(PFunctor.map_id).
+  extensionality s. symmetry. apply G.(PFunctor.map_id).
+Qed.
+Next Obligation.
+  unfold comp_map.
+  replace (PFunctor.map G (fun y : X => g (f y))) with
+      (fun x => PFunctor.map G g (PFunctor.map G f x)).
+  apply F.(PFunctor.map_comp).
+  extensionality s. apply G.(PFunctor.map_comp).
+Qed.
+Next Obligation.
+  inversion X0. subst.
+  econstructor.
+  apply G.(PFunctor.map_mem) with (f := f) in HG. apply HG.
+  unfold comp_map.
+  apply F.(PFunctor.map_mem) with (f := (PFunctor.map G f)) in HF. apply HF.
+Qed.
+
+End Comp_Functor.
+
+
+Module PNatTrans.
+
+Structure t (F G: PFunctor.t_data) := mk
+{ Nt :> forall (X: Type) (x: F X), G X
+
+; mem_nat1: forall X x fx,
+    F.(PFunctor.mem) fx x -> G.(PFunctor.mem) (Nt X fx) x
+; mem_nat2: forall X x fx,
+    G.(PFunctor.mem) (Nt X fx) x -> F.(PFunctor.mem) fx x
+; map_nat: forall X Y (f: X -> Y) x,
+    Nt Y (F.(PFunctor.map) f x) = G.(PFunctor.map) f (Nt X x)
+; eq_nat: forall X (EQ: X -> X -> Prop) fx1 fx2,
+    F.(PFunctor.eq) EQ fx1 fx2 <-> G.(PFunctor.eq) EQ (Nt X fx1) (Nt X fx2)
+(* eq_nat *)
+}.
+
+End PNatTrans.
+
 
 (*
   Strictly Positive Universal Functors
@@ -28,15 +145,125 @@ Module SPUF.
 
 Definition U (Sh: Type) (Ext: Type) (X: Type) := Sh -> (X + Ext).
 
-Inductive u_rel Sh Ext X : X -> U Sh Ext X -> Type :=
-| _u_rel u s x (EQ: u s = inl x) : u_rel x u.
+Inductive u_mem Sh Ext X : U Sh Ext X -> X -> Type :=
+  | _u_mem u s x (EQ: u s = inl x) : u_mem u x.
 
-Definition map Sh Ext X Y (u: U Sh Ext X) (f: forall (x:X), u_rel x u -> Y) (s : Sh) : Y + Ext.
-  destruct (u s) eqn : H.
-  - apply _u_rel in H. apply (inl (f _ H)).
+Definition u_eq Sh Ext X (EQ: X -> X -> Prop) (u1 u2 : U Sh Ext X) : Prop :=
+  (forall s e, u1 s = inr e <-> u2 s = inr e) /\
+  (forall s x1 x2, u1 s = inl x1 -> u2 s = inl x2 -> EQ x1 x2).
+ 
+Definition map Sh Ext X Y (f: X -> Y) (u: U Sh Ext X) (s : Sh) : Y + Ext :=
+  match u s with
+  | inl x => inl (f x)
+  | inr e => inr e end.
+
+Definition u_uni Sh Ext X Y (u: Sh -> (X + Ext)) (ALL: forall x, u_mem u x -> Y)
+  : Sh -> (Y + Ext).
+  intro.
+  destruct (u X0) eqn : EQ.
+  - apply (inl (ALL x (_u_mem _ _ EQ))).
   - apply (inr e).
 Defined.
 
+Lemma u_uni_correct Sh Ext X Y (u: Sh -> (X + Ext)) (ALL: forall x, u_mem u x -> Y)
+                       (f: Y -> X) (INV: forall x r, f (ALL x r) = x) :
+    map f (u_uni ALL) = u.
+Admitted.
+
+Definition u_Fn Sh Ext :=
+  (@PFunctor.mk_data (fun X => Sh -> (X + Ext)) (@u_mem Sh Ext) (@u_eq Sh Ext)
+                     (@map Sh Ext) (@u_uni Sh Ext) (@u_uni_correct Sh Ext)).
+
+Lemma map_id Sh Ext : forall X (x: Sh -> X + Ext), 
+  map (@id X) x = x.
+Proof.
+  intros. extensionality s. 
+  unfold map. destruct (x s); eauto.
+Qed.
+
+Lemma map_comp Sh Ext : forall X Y Z (g: Y -> Z) (f: X -> Y) (x: Sh -> X + Ext), 
+  (map g) ((map f) x) = map (fun y => g (f y)) x.
+Proof.
+  intros. extensionality s. 
+  unfold map. destruct (x s); eauto.
+Qed.
+
+Lemma map_mem Sh Ext : forall X Y (f: X -> Y) (u: Sh -> X + Ext) (x: X),
+    u_mem u x -> u_mem (map f u) (f x).
+Proof.
+  intros.
+  inversion X0. subst.
+  apply (_u_mem _ s). unfold map.
+  rewrite EQ. auto.
+Qed.
+
+Definition t Sh Ext : PFunctor.t := 
+  existT _ _ (PFunctor.mk_prop (u_Fn Sh Ext) (@map_id Sh Ext) (@map_comp Sh Ext)
+                              (@map_mem Sh Ext)).
+
+Lemma map_injective Sh Ext X Y (u1 u2: Sh -> X + Ext) (f: X -> Y)
+    (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
+    (EQ: map f u1 = map f u2):
+  u1 = u2.
+Proof.
+  extensionality s. apply equal_f with (x:=s) in EQ.  unfold map in EQ. 
+  destruct (u1 s), (u2 s); inversion EQ; subst; eauto.
+  apply INJ in H0. subst; auto.
+Qed.
+
+Lemma map_pointwise Sh Ext X Y (u: Sh -> X + Ext) (f g: X -> Y)
+    (ALL: forall x, u_mem u x -> f x = g x):
+  map f u = map g u.
+Proof.
+  extensionality s. unfold map.
+  destruct (u s) eqn : EQ; auto.
+  specialize (ALL x). f_equal. apply ALL.
+  econstructor. apply EQ.
+Qed.
+
+Lemma eq_symmetric Sh Ext X (EQ: X -> X -> Prop)
+      (SY: forall x1 x2, EQ x1 x2 -> EQ x2 x1) (u1 u2: Sh -> X + Ext)
+  : u_eq EQ u1 u2 -> u_eq EQ u2 u1.
+Proof.
+  intros. unfold u_eq in *. split; intros.
+  - split; intros; apply H in H0; auto.
+  - apply SY. destruct H. apply (H2 _ _ _ H1 H0).
+Qed.
+
+Lemma eq_reflexive Sh Ext X (EQ: X -> X -> Prop) (RE: forall x, EQ x x) 
+      (u: Sh -> X + Ext) : u_eq EQ u u.
+Proof.
+  split; intros.
+  - tauto.
+  - rewrite H in H0. inversion H0. apply RE.
+Qed.
+
+Lemma eq_transitive Sh Ext X (EQ: X -> X -> Prop)
+      (TR: forall x1 x2 x3, EQ x1 x2 -> EQ x2 x3 -> EQ x1 x3)
+      (u1 u2 u3: Sh -> X + Ext) : u_eq EQ u1 u2 -> u_eq EQ u2 u3 -> u_eq EQ u1 u3.
+Proof.
+  intros. unfold u_eq in *. split; intros.
+  - split; intros.
+    + apply H in H1. apply H0 in H1. auto.
+    + apply H0 in H1. apply H in H1. auto.
+  - destruct H, H0. destruct (u2 s) eqn : US.
+    + specialize (H3 _ _ _ H1 US). specialize (H4 _ _ _ US H2).
+      apply (TR _ _ _ H3 H4).
+    + apply H in US. rewrite US in H1. inversion H1.
+Qed.
+
+Lemma eq_identity Sh Ext X (EQ: X -> X -> Prop) (ID: forall x1 x2, EQ x1 x2 -> x1=x2)
+      (u1 u2: Sh -> X + Ext) : u_eq EQ u1 u2 -> u1 = u2.
+Proof.
+  intros. destruct H. extensionality s.
+  destruct (u1 s) eqn : EQ1; destruct (u2 s) eqn : EQ2.
+  - f_equal. apply ID.
+    apply (H0 _ _ _ EQ1 EQ2).
+  - apply H in EQ2. rewrite EQ1 in EQ2. inversion EQ2.
+  - apply H in EQ1. rewrite EQ1 in EQ2. inversion EQ2.
+  - apply H in EQ2. rewrite EQ1 in EQ2. inversion EQ2. auto.
+Qed.
+ 
 End SPUF.
 
 (*
@@ -53,396 +280,106 @@ Structure t := mk
 ; Ext : Type
 ; emb: forall (X: Type) (x : Fn X), (SPUF.U Sh Ext X)
 
-; rel_nat1: forall X x fx,
-    Fn.(PFunctor.rel) x fx -> SPUF.u_rel x (emb X fx)
-; rel_nat2: forall X x fx,
-    SPUF.u_rel x (emb X fx) -> Fn.(PFunctor.rel) x fx
+; mem_nat1: forall X x fx,
+    Fn.(PFunctor.mem) fx x -> SPUF.u_mem (emb X fx) x
+; mem_nat2: forall X x fx,
+    SPUF.u_mem (emb X fx) x -> Fn.(PFunctor.mem) fx x
+; map_nat: forall X Y (f: X -> Y) x s,
+    emb Y (Fn.(PFunctor.map) f x) s = SPUF.map f (emb X x) s
+; eq_nat: forall X (EQ: X -> X -> Prop) fx1 fx2,
+    Fn.(PFunctor.eq) EQ fx1 fx2 <-> SPUF.u_eq EQ (emb X fx1) (emb X fx2)
 
-(* Maybe needed for proof
-; rel_nat_c1: forall X x fx (r: SPUF.u_rel x (emb X fx)), @rel_nat1 X x fx (@rel_nat2 X x fx r) = r
-
-; rel_nat_c2: forall X x fx (r: Fn.(PFunctor.rel) x fx), @rel_nat2 X x fx (@rel_nat1 X x fx r) = r
-*)
-
-; map_nat: forall X Y (fx: Fn X) s (f: forall (x: X), Fn.(PFunctor.rel) x fx -> Y),
-    emb Y (Fn.(PFunctor.map) fx f) s = @SPUF.map Sh Ext _ _ (emb X fx)
-                                                (fun x r => f x (rel_nat2 r)) s
-(* Maybe needed for proof
 ; inj: forall (X: Type) (m n: Fn X)
          (EQ: emb _ m = emb _ n),
        m = n
-*)
 }.
 
+Lemma map_injective (M: SSPF.t) X Y (f: X -> Y) m1 m2
+    (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
+    (EQ: M.(PFunctor.map) f m1 = M.(PFunctor.map) f m2):
+  m1 = m2.
+Proof.
+  apply inj. apply (SPUF.map_injective INJ).
+  extensionality s.
+  repeat rewrite <- M.(map_nat).
+  f_equal. apply EQ.
+Qed.
+
+Lemma map_pointwise (M: SSPF.t) X Y (f g: X -> Y) m
+    (ALL: forall x, M.(PFunctor.mem) m x -> f x = g x):
+  M.(PFunctor.map) f m = M.(PFunctor.map) g m.
+Proof.
+  apply inj. extensionality s. repeat rewrite M.(map_nat).
+  apply equal_f. apply SPUF.map_pointwise.
+  intros.
+  apply ALL, mem_nat2, X0.
+Qed.
+
+Lemma eq_symmetric (M: SSPF.t) X (EQ: X -> X -> Prop)
+      (SY: forall x1 x2, EQ x1 x2 -> EQ x2 x1) (u1 u2: M X)
+  : M.(PFunctor.eq) EQ u1 u2 -> M.(PFunctor.eq) EQ u2 u1.
+Proof.
+  intros. rewrite eq_nat in *.
+  revert H. apply SPUF.eq_symmetric. apply SY.
+Qed.
+
+Lemma eq_reflexive (M: SSPF.t) X (EQ: X -> X -> Prop) (RE: forall x, EQ x x) 
+      (u: M X) : M.(PFunctor.eq) EQ u u.
+Proof.
+  apply eq_nat. apply SPUF.eq_reflexive. apply RE.
+Qed.
+
+Lemma eq_transitive (M: SSPF.t) X (EQ: X -> X -> Prop)
+      (TR: forall x1 x2 x3, EQ x1 x2 -> EQ x2 x3 -> EQ x1 x3)
+      (u1 u2 u3: M X) : M.(PFunctor.eq) EQ u1 u2 -> M.(PFunctor.eq) EQ u2 u3 -> M.(PFunctor.eq) EQ u1 u3.
+Proof.
+  intros. rewrite eq_nat in *.
+  apply (SPUF.eq_transitive TR H H0).
+Qed.
+
+Lemma eq_identity (M: SSPF.t) X (EQ: X -> X -> Prop) (ID: forall x1 x2, EQ x1 x2 -> x1=x2)
+      (u1 u2: M X) : M.(PFunctor.eq) EQ u1 u2 -> u1 = u2.
+Proof.
+  intros. apply eq_nat in H.
+  apply (SPUF.eq_identity ID) in H.
+  apply inj in H. auto.
+Qed.
+
+Lemma functor_prop (M: t) : PFunctor.t_prop M.
+Proof.
+  split; intros.
+  - apply M.(inj). extensionality s.
+    rewrite map_nat. rewrite SPUF.map_id. auto.
+  - apply M.(inj). extensionality s.
+    repeat rewrite map_nat. 
+    unfold SPUF.map. rewrite map_nat. unfold SPUF.map.
+    destruct (emb M X x s); auto.
+  - apply mem_nat1 in X0. apply mem_nat2.
+    inversion X0. subst.
+    apply (SPUF._u_mem _ s).
+    rewrite map_nat. unfold SPUF.map.
+    rewrite EQ. auto.
+Qed.    
+
+Coercion to_functor (M: t) : PFunctor.t := existT _ _ (functor_prop M).
+
+Program Definition to_nat_trans (M: t) : PNatTrans.t M (SPUF.t M.(Sh) M.(Ext))
+                                                  := PNatTrans.mk _ _ M.(emb) _ _ _ _.
+Next Obligation.
+Proof.
+  apply (M.(mem_nat1) _ _ X0).
+Qed.
+Next Obligation.
+Proof.
+  apply (M.(mem_nat2) _ X0).
+Qed.
+Next Obligation.
+Proof.
+  extensionality s. apply map_nat.
+Qed.
+Next Obligation.
+Proof.
+  apply SSPF.eq_nat.
+Qed.
+
 End SSPF.
-
-
-Section SSPF_Fixpoint.
-
-Variable M: SSPF.t.
-
-Inductive Mfixpoint_ : Type :=
-| Mfix_mk_ : SPUF.U M.(SSPF.Sh) M.(SSPF.Ext) Mfixpoint_ -> Mfixpoint_.
-
-Inductive PMfixpoint : Mfixpoint_ -> Type :=
-| PMfix_mk (m: M Mfixpoint_) (OnTL: forall x, SPUF.u_rel x (M.(SSPF.emb) _ m) -> PMfixpoint x) : PMfixpoint (Mfix_mk_ (M.(SSPF.emb) _ m)).
-
-
-(* ver 1
-Inductive PMfixpoint : Mfixpoint_ -> Type :=
-| PMfix_mk (m: M Mfixpoint_) (OnTL: forall x, M.(PFunctor.rel) x m -> PMfixpoint x)
-           : PMfixpoint (Mfix_mk_ (M.(SSPF.emb) _ m)).
-*)
-
-Inductive Mfixpoint : Type :=
-| Mfix_mk' (m: Mfixpoint_) (H: PMfixpoint m) : Mfixpoint.
-
-Definition Mfix_get (m : Mfixpoint) : Mfixpoint_ :=
-  match m with
-  | @Mfix_mk' m' _ => m' end.
-
-Program Definition Mfix_mk (m : M Mfixpoint) : Mfixpoint :=
-  @Mfix_mk' (Mfix_mk_ (M.(SSPF.emb) _ (M.(PFunctor.map) m (fun x _ => Mfix_get x)))) _.
-Next Obligation.
-  constructor. intros.
-  inversion X. subst.
-  rewrite SSPF.map_nat in EQ.
-  unfold SPUF.map in EQ.
-  destruct (SSPF.emb M Mfixpoint m s); inversion EQ.
-  destruct m0.
-  simpl.
-  apply H.
-Defined.
-
-Definition Mfix_destruct (x : Mfixpoint) : M Mfixpoint.
-  destruct x.
-  destruct m.
-  inversion H. rewrite <- H1 in *.
-  apply (@PFunctor.map M Mfixpoint_ Mfixpoint m 
-                       (fun x r => Mfix_mk' (OnTL x (@SSPF.rel_nat1 M _ _ _ r)))).
-Defined.
-
-Inductive order_Mfix_ : Mfixpoint_ -> Mfixpoint_ -> Prop:=
-| _order_Mfix_ x u : SPUF.u_rel x u -> order_Mfix_ x (Mfix_mk_ u).
-
-Lemma wf_order_Mfix_ : well_founded order_Mfix_.
-Proof.
-  unfold well_founded. fix 1. intro. destruct a.
-  constructor. intros.
-  inversion H. inversion X.
-  destruct (u s).
-  - specialize (wf_order_Mfix_ m). inversion EQ.
-    rewrite H5 in wf_order_Mfix_.
-    apply wf_order_Mfix_.
-  - inversion EQ.
-Defined.
-
-Inductive order_Mfix : Mfixpoint -> Mfixpoint -> Prop:=
-| _order_Mfix m1 p1 m2 p2 : order_Mfix_ m1 m2 -> order_Mfix (@Mfix_mk' m1 p1) (@Mfix_mk' m2 p2).
-
-Lemma order_Mfix_preserve m1 m2 (ORD: order_Mfix m1 m2) :
-  order_Mfix_ (Mfix_get m1) (Mfix_get m2).
-Proof.
-  inversion ORD. auto.
-Defined.
-
-
-(* ver 1 
-Inductive order_Mfix : Mfixpoint -> Mfixpoint -> Prop:=
-| _order_Mfix x m : M.(PFunctor.rel) x m -> order_Mfix x (Mfix_mk m).
-
-Lemma order_Mfix_preserve m1 m2 (ORD: order_Mfix m1 m2) :
-  order_Mfix_ (Mfix_get m1) (Mfix_get m2).
-Proof.
-  inversion ORD.
-  apply SSPF.rel_nat1 in X. simpl in *.
-  constructor. inversion X. subst. apply (SPUF._u_rel _ s).
-  rewrite SSPF.map_nat. simpl.
-  unfold SPUF.map. rewrite EQ. auto.
-Defined.
-
-*)
-
-Lemma acc_preserve X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
-      (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2)) (WF: well_founded Ry )y :
-  forall x, y = f x /\ Acc Ry y -> Acc Rx x.
-Proof.
-  apply (@Fix Y Ry WF (fun a =>  forall x : X, a = f x /\ Acc Ry a -> Acc Rx x)).
-  intros. destruct H1.
-  constructor. intros.
-  subst. specialize (H0 (f y0)).
-  specialize (H y0 x0). apply H in H3.
-  apply H0.
-  apply H3.
-  auto.
-Defined.
-
-Lemma sub_wellorder X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
-      (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2)) (WF: well_founded Ry) 
-  : well_founded Rx.
-Proof.
-  unfold well_founded. intros. apply (@acc_preserve _ _ f Rx _ H WF (f a)).
-  auto.
-Defined.
-
-Lemma wf_order_Mfix : well_founded order_Mfix.
-Proof.
-  apply (sub_wellorder Mfix_get _ order_Mfix_preserve wf_order_Mfix_).
-Defined.
-
-Inductive Mfix_with_order y : Type :=
-| morder x (OR: order_Mfix x y) : Mfix_with_order y.
-
-Lemma Mfixpoint_ind' x (P: Mfixpoint -> Prop)
-    (STEP: forall m (IND: forall y, order_Mfix y m -> P y), P m):
-  P x.
-Proof.
-  apply (Fix wf_order_Mfix _ STEP).
-Defined.
-
-Inductive s_order_Mfix : Mfixpoint -> Mfixpoint -> Prop :=
-| base_order x y (RE: order_Mfix x y) : s_order_Mfix x y
-| step_order x y z (Rxy: s_order_Mfix x y) (Ryz: order_Mfix y z) : s_order_Mfix x z.
-
-Lemma wf_s_order_Mfix : well_founded s_order_Mfix.
-Proof.
-  unfold well_founded. intro. apply (Mfixpoint_ind' a).
-  intros.
-  constructor. intros.
-  destruct H.
-  - apply IND, RE.
-  - specialize (IND y Ryz).
-    destruct IND. eauto.
-Defined.
-
-Lemma link_order x y z (Rxy: s_order_Mfix x y) (Ryz: s_order_Mfix y z) :
-  s_order_Mfix x z.
-Proof.
-  revert Ryz. revert Rxy.
-  apply (Mfixpoint_ind' z).
-  intros.
-  destruct Ryz.
-  - apply (step_order Rxy RE).
-  - specialize (IND _ Ryz0 Rxy Ryz).
-    apply (step_order IND Ryz0).
-Defined.
-
-Inductive Mfix_with_s_order y : Type :=
-| msorder x (OR: s_order_Mfix x y) : Mfix_with_s_order y.
-
-Definition Mfix_v_get y (x: Mfix_with_order y) : Mfixpoint :=
-match x with
-| @morder _ x' _ => x' end.
-
-Definition Mfix_s_v_get y (x: Mfix_with_s_order y) : Mfixpoint :=
-match x with
-| @msorder _ x' _ => x' end.
-
-Definition Mfixpoint_fn_depend (P: Mfixpoint -> Type)
-    (FIX: forall m (FN: forall y, order_Mfix y m -> P y), P m) : forall x, P x :=
-  Fix wf_order_Mfix _ FIX.
-
-Definition Mfixpoint_fn T
-    (FIX: forall m (FN: forall y, order_Mfix y m -> T), T) x : T :=
-  Fix wf_order_Mfix _ FIX x.
-
-Lemma Mfixpoint_s_ind x (P: Mfixpoint -> Prop)
-    (STEP: forall m (IND: forall y, s_order_Mfix y m -> P y), P m):
-  P x.
-Proof.
-  apply (Fix wf_s_order_Mfix _ STEP).
-Qed.
-
-Definition Mfixpoint_s_fn_depend (P: Mfixpoint -> Type)
-    (FIX: forall m (FN: forall y, s_order_Mfix y m -> P y), P m) : forall x, P x :=
-  Fix wf_s_order_Mfix _ FIX.
-
-Definition Mfixpoint_s_fn T
-    (FIX: forall m (FN: forall y, s_order_Mfix y m -> T), T) x : T :=
-  Fix wf_s_order_Mfix _ FIX x.
-
-Lemma Fix_F_eq A (R : A -> A -> Prop) (P : A -> Type) (F : forall x: A, (forall y:A, R y x -> P y) -> P x) :
-  forall (x : A) (r: Acc R x),
-  @F x (fun (y : A) (p : R y x) => @Fix_F A R P F y (@Acc_inv A R x r y p)) = Fix_F P F r.
-Proof.
-  intros. destruct r. simpl. auto.
-Qed.
-
-Lemma Fix_correct A (R : A -> A -> Prop) (P : A -> Type) (F : forall x: A, (forall y:A, R y x -> P y) -> P x) (W : well_founded R) :
-  forall x, F x (fun y _ => (Fix W P F y)) = Fix W P F x.
-Proof.
-  intros. unfold Fix.
-  rewrite <- (Fix_F_eq _ _ (W x)).
-  f_equal. extensionality s1. extensionality s2.
-  f_equal. apply proof_irrelevance.
-Qed.
-
-Lemma Mfixpoint_s_fn_correct T
-      (FIX: forall m (FN: forall y, s_order_Mfix y m -> T), T) x :
-  Mfixpoint_s_fn FIX x = FIX x (fun y _ => Mfixpoint_s_fn FIX y).
-Proof.
-  unfold Mfixpoint_s_fn. 
-  rewrite <- Fix_correct. auto.
-Qed.
-
-Lemma Mfixpoint_fn_correct T
-      (FIX: forall m (FN: forall y, order_Mfix y m -> T), T) x :
-  Mfixpoint_fn FIX x = FIX x (fun y _ => Mfixpoint_fn FIX y).
-Proof.
-  unfold Mfixpoint_fn. 
-  rewrite <- Fix_correct. auto.
-Qed.
-
-Lemma Mfixpoint_fn_d_correct (P: Mfixpoint -> Type)
-    (FIX: forall m (FN: forall y, order_Mfix y m -> P y), P m) x :
-  Mfixpoint_fn_depend P FIX x = FIX x (fun y _ => Mfixpoint_fn_depend P FIX y).
-Proof.
-  unfold Mfixpoint_fn_depend. 
-  rewrite <- Fix_correct. auto.
-Qed.
-
-Lemma Mfixpoint_s_fn_d_correct (P: Mfixpoint -> Type)
-    (FIX: forall m (FN: forall y, s_order_Mfix y m -> P y), P m) x :
-  Mfixpoint_s_fn_depend P FIX x = FIX x (fun y _ => Mfixpoint_s_fn_depend P FIX y).
-Proof.
-  unfold Mfixpoint_s_fn_depend. 
-  rewrite <- Fix_correct. auto.
-Qed.
-
-Definition ordered_destruct (x: Mfixpoint) : M (Mfix_with_order x).
-  destruct x. destruct H.
-
-  apply (@PFunctor.map M Mfixpoint_ (Mfix_with_order (Mfix_mk' (PMfix_mk m OnTL))) m 
-                       (fun (x : Mfixpoint_) (r: M.(PFunctor.rel) x m) => @morder _ 
- (Mfix_mk' (OnTL x (@SSPF.rel_nat1 M _ _ _ r))) (_order_Mfix (OnTL x (@SSPF.rel_nat1 M _ _ _ r)) (PMfix_mk m OnTL) (_order_Mfix_ (M.(SSPF.rel_nat1) _ _ r))))).
-Defined.
-
-
-Definition s_ordered_destruct (x: Mfixpoint) : M (Mfix_with_s_order x).
-  destruct x. destruct H.
-
-  apply (@PFunctor.map M Mfixpoint_ (Mfix_with_s_order (Mfix_mk' (PMfix_mk m OnTL))) m 
-                       (fun (x : Mfixpoint_) (r: M.(PFunctor.rel) x m) => @msorder _ 
- (Mfix_mk' (OnTL x (@SSPF.rel_nat1 M _ _ _ r))) (base_order (_order_Mfix (OnTL x (@SSPF.rel_nat1 M _ _ _ r)) (PMfix_mk m OnTL) (_order_Mfix_ (M.(SSPF.rel_nat1) _ _ r)))))).
-Defined.
-
-
-(* TODO part
-
-1. uniqueness of PMfixpoint
-
-2. forall x : Mfixpoint, exists m : M Mfixpoint, x = Mfix_mk m
-
-Lemma Mfixpoint_indr x (P: Mfixpoint -> Prop)
-    (STEP: forall m (IND: forall y, M.(PFunctor.rel) y m -> P y), P (Mfix_mk m)):
-  P x.
-Proof.
-  assert (H : forall m (IND: forall y, order_Mfix y m -> P y), P m). intros.
-  rewrite <- (destruct_correct1 m) in *. apply STEP.
-  intros. apply IND. constructor. apply X.
-  apply (Mfixpoint_ind' x _ H).
-Qed.
-
-Lemma Mfix_mk_inj (m1 m2: M Mfixpoint) (EQ: Mfix_mk m1 = Mfix_mk m2): m1 = m2.
-Proof.
-  unfold Mfix_mk in EQ.
-  inversion EQ. simpl in *.
-  apply inj_pair2_eq_dec in H2. subst. auto.
- subst.
-  assert (Mfix_mk_obligation_1 m1 = Mfix_mk_obligation_1 m2).
-  destruct Mfix_mk'.
-  inversion EQ. subst.
-
-Lemma mfix_destruct_correct1 x : Mfix_mk (mfix_destruct x) = x.
-Proof.
-Qed.
-
-Lemma mfix_destruct_correct2 mx : mfix_destruct (Mfix_mk mx) = mx.
-Proof.
-
-Lemma Mfix_with_order_correct x : M.(PFunctor.map) (@Mfix_get x) (ordered_destruct x) = Mfixpoint_destruct x.
-Admitted.
-
-Lemma Mfix_with_s_order_correct x : M.(PFunctor.map) (@Mfix_s_get x) (s_ordered_destruct x) = Mfixpoint_destruct x.
-Admitted.
-
-Qed.
-
-*)
-End SSPF_Fixpoint.
-
-Section Option_SSPF.
-
-Inductive option_rel X : X -> option X -> Type :=
-| _option_rel x : option_rel x (Some x).
-
-Definition opt_map X Y (a : option X) (f: forall (x:X), option_rel x a -> Y) : option Y.
-  destruct a eqn: EQ.
-  - apply (Some (f x (_option_rel x))).
-  - apply None.
-Defined.
-
-Definition option_Fn :=
-  (PFunctor.mk_data option option_rel opt_map).
-
-Definition option_embed X (x: option X) (s: unit) :=
-  match x with
-  | Some x' => inl x'
-  | None => inr tt
-  end.
-
-Program Definition Option_sspf : SSPF.t :=
-   @SSPF.mk option_Fn unit unit option_embed _ _ _.
-Next Obligation.
-  unfold option_embed.
-  destruct X0.
-  apply (SPUF._u_rel _ tt). auto.
-Defined.
-Next Obligation.
-  unfold option_embed in X0.
-  destruct fx.
-  - inversion X0. inversion EQ.
-    apply _option_rel.
-  - inversion X0. inversion EQ.
-Defined.  
-Next Obligation.
-  unfold option_embed, SPUF.map. unfold opt_map.
-  destruct fx; auto.
-Defined.
-
-End Option_SSPF.
-
-Section opt_nat.
-
-Definition nat := Mfixpoint Option_sspf.
-Definition O := Mfix_mk Option_sspf None.
-Definition S x := Mfix_mk Option_sspf (Some x).
-
-Arguments morder {M y} x OR.
-Arguments msorder {M y} x OR.
-
-Definition to_nat_gen (n: nat) (f: forall m, order_Mfix m n-> Datatypes.nat) :=
-match ordered_destruct n with
-| None => 0
-| Some (morder n' pf) => (f n' pf) + 1 end.
-
-Definition to_nat : nat -> Datatypes.nat := Mfixpoint_fn to_nat_gen. 
-
-Definition fibonacci_gen (n: nat) (f: forall m, s_order_Mfix m n-> Datatypes.nat) :=
-match s_ordered_destruct n with
-| None => 1
-| Some (msorder n' pf1) =>
-  match s_ordered_destruct n' with
-  | None => 1
-  | Some (msorder n'' pf2) => (f n' pf1) + (f n'' (link_order pf2 pf1)) end end.
-
-Definition fibonacci : nat -> Datatypes.nat := Mfixpoint_s_fn fibonacci_gen. 
-
-
-(*
-Eval compute in (fibonacci (S (S (S (S (S O)))))).
- = 8
-Eval compute in (to_nat (S (S (S (S O))))). 
- = 4
-*)
-

@@ -1,0 +1,55 @@
+Fixpoint foo (n: nat) : nat :=
+match n with
+| 0 => 0
+| 1 => 0
+| S (S n') => foo n'
+end.
+
+Fail Fixpoint foo2 (n: nat) : nat :=
+match n with
+| 0 => 0
+| 1 => 0
+| S (S n') => foo2 (S n')
+end.
+
+Inductive binary_tree : Type :=
+| leaf : binary_tree
+| node : binary_tree * binary_tree -> binary_tree.
+
+
+Fail Inductive Mlist (M: Type -> Type) (X: Type) : Type :=
+| Mnil : Mlist M X
+| Mcons : M X -> M (Mlist M X) -> Mlist M X.
+
+(* M := option *)
+Inductive opt_list (X: Type) : Type :=
+| Onil : opt_list X
+| Ocons : option X -> option (opt_list X) -> opt_list X.
+
+(* M := list *)
+Inductive list_list (X: Type) : Type :=
+| Lnil : list_list X
+| Lcons : list X -> list (list_list X) -> list_list X.
+
+(* M X := X -> nat*)
+Fail Inductive fun_list (X: Type) : Type :=
+| Fnil : fun_list X
+| Fcons : (X -> nat) -> (fun_list X -> nat) -> fun_list X.
+
+
+Inductive example : Type :=
+| e1 : (nat -> nat) -> example
+| e2 : (example * example + list example) -> example
+| e3 : (nat -> example) -> example -> example.
+
+Fail Inductive example_f : Type :=
+| f1 : example_f
+| f2 : (example_f -> bool) -> example_f.
+
+Fixpoint fibonacci (n : nat) : nat :=
+match n with
+| O => 1
+| S n' =>
+  match n' with
+  | O => 1
+  | S n'' => fibonacci n' + fibonacci n'' end end.

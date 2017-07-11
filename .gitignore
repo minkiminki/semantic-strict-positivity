@@ -1,9 +1,12 @@
 *.vo
 *.vio
 *.v.d
+*.glob
+*.aux
 
 _CoqProject
 Makefile.coq
+Makefile.coq.bak
 
 *~
 *.swp
