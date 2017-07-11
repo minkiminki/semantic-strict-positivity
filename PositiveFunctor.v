@@ -12,7 +12,7 @@ Set Automatic Coercions Import.
 Section UniversalFunctor.
   Variable (Sh1 Sh2: Type).
 
-  Definition UF T := Sh1 -> (T + Sh2).
+  Definition UF T := Sh1 -> T + Sh2.
 
    Definition UF_functorMixin :=
     function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
@@ -102,7 +102,7 @@ Section MFix.
     unfold function_map, functor_map in *.
     unfold coproduct_functorType, coproduct_functorMixin in *. simpl in *.
     unfold coproduct_map in *. simpl in *.
-    unfold function_ a
+
     , UF_functorMixin in *. simpl in *.
     unfold UF_FunctorType, UF_functorMixin in *. simpl in *.
     unfold UF_FunctorType, UF_functorMixin in *. simpl in *.

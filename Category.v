@@ -281,7 +281,7 @@ Program Definition option_pFunctorMixin :=
 Canonical Structure option_pFunctorType := PFunctorType _ option_pFunctorMixin.
 
 
-Definition coproduct_type (F1 F2: functorType) T := (F1 T + F2 T)%type.
+Definition coproduct_type (F1 F2: Type -> Type) T := (F1 T + F2 T)%type.
 
 Definition coproduct_map (F1 F2: functorType) T1 T2 (f:T1 -> T2) (fx: F1 T1 + F2 T1) :=
   match fx with
@@ -298,9 +298,9 @@ Definition coproduct_mem (F1 F2: pFunctorType) T (fx:coproduct_type F1 F2 T) x :
 Inductive coproduct_rel (F1 F2: pFunctorType) T1 T2 f:
   forall (fx1:coproduct_type F1 F2 T1) (fx2:coproduct_type F1 F2 T2), Prop :=
 | coproduct_rel_inl fx1 fx2 (REL: frel f fx1 fx2):
-    coproduct_rel f (inl fx1) (inl fx2)
+    coproduct_rel F1 F2 f (inl fx1) (inl fx2)
 | coproduct_rel_inr fx1 fx2 (REL: frel f fx1 fx2):
-    coproduct_rel f (inr fx1) (inr fx2)
+    coproduct_rel F1 F2 f (inr fx1) (inr fx2)
 .
 
 Program Definition coproduct_functorMixin (F1 F2: functorType) :=
