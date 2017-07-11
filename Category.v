@@ -5,9 +5,10 @@ Set Implicit Arguments.
 Set Automatic Coercions Import.
 
 
-(* Tactics.  MOVE IT! *)
+(* Tactics.  FIXME: move it! *)
 
 Ltac inv H := inversion H; subst; clear H.
+
 
 (* Categories *)
 
@@ -51,6 +52,7 @@ Notation functorType := Functor.type.
 Notation FunctorType := Functor.pack.
 Definition functor_map F := Functor.map (Functor.class F).
 Notation "'fmap' f" := (@functor_map _ _ _ f) (at level 0).
+Hint Unfold functor_map.
 
 
 Module NatTrans.
@@ -124,6 +126,8 @@ Definition functor_mem F := PFunctor.mem (PFunctor.class F).
 Definition functor_rel F := PFunctor.rel (PFunctor.class F).
 Notation "'fmem' fx" := (@functor_mem _ _ fx) (at level 0).
 Notation "'frel' rel" := (@functor_rel _ _ _ rel) (at level 0).
+Hint Unfold functor_mem.
+Hint Unfold functor_rel.
 
 
 Module PNatTrans.
@@ -194,31 +198,31 @@ Notation "p <3= q" :=
 (* Instances *)
 
 Program Definition id_functorMixin :=
-  Eval hnf in @Functor.Mixin id (fun _ _ => id) _ _.
+  @Functor.Mixin id (fun _ _ => id) _ _.
 Canonical Structure id_functorType := FunctorType id_functorMixin.
 
 Program Definition id_pFunctorMixin :=
-  Eval hnf in
-    @PFunctor.Mixin
-      id id_functorMixin.(Functor.map)
-      (fun _ fx x => fx = x)
-      (fun _ _ rel fx fy => rel fx fy)
-      _.
-Canonical Structure id_pFunctorType := Eval hnf in PFunctorType _ id_pFunctorMixin.
+  @PFunctor.Mixin
+    id id_functorMixin.(Functor.map)
+    (fun _ fx x => fx = x)
+    (fun _ _ rel fx fy => rel fx fy)
+    _.
+Canonical Structure id_pFunctorType := PFunctorType _ id_pFunctorMixin.
+
+Hint Unfold id.
 
 
 Program Definition const_functorMixin T :=
-  Eval hnf in @Functor.Mixin (fun _ => T) (fun _ _ _ => id) _ _.
-Canonical Structure const_functorType T := Eval hnf in FunctorType (const_functorMixin T).
+  @Functor.Mixin (fun _ => T) (fun _ _ _ => id) _ _.
+Canonical Structure const_functorType T := FunctorType (const_functorMixin T).
 
 Program Definition const_pFunctorMixin T :=
-  Eval hnf in
-    @PFunctor.Mixin
-      (fun _ => T) (const_functorMixin T).(Functor.map)
-      (fun _ _ _ => False)
-      (fun _ _ _ => eq)
-      _.
-Program Canonical Structure const_pFunctorType (T:Type) := Eval hnf in PFunctorType (FunctorType (const_functorMixin T)) (const_pFunctorMixin T).
+  @PFunctor.Mixin
+    (fun _ => T) (const_functorMixin T).(Functor.map)
+    (fun _ _ _ => False)
+    (fun _ _ _ => eq)
+    _.
+Program Canonical Structure const_pFunctorType (T:Type) := PFunctorType (FunctorType (const_functorMixin T)) (const_pFunctorMixin T).
 
 
 Definition function_map D (F: functorType) T1 T2 (f: T1 -> T2) (fx1: D -> F T1) :=
@@ -233,7 +237,7 @@ Definition function_rel D (F: pFunctorType) T1 T2
   forall d, frel f (fx1 d) (fx2 d).
 
 Program Definition function_functorMixin D (F: functorType) :=
-  Eval hnf in @Functor.Mixin (fun T => D -> F T) (@function_map _ _) _ _.
+  @Functor.Mixin (fun T => D -> F T) (@function_map _ _) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
   apply functional_extensionality. intro.
@@ -246,14 +250,16 @@ Qed.
 Canonical Structure function_functorType D F := FunctorType (function_functorMixin D F).
 
 Program Definition function_pFunctorMixin D (F: pFunctorType) :=
-  Eval hnf in
-    @PFunctor.Mixin (fun T => D -> F T) (@function_map _ _)
-                    (@function_mem _ _) (@function_rel _ _) _.
+  @PFunctor.Mixin (fun T => D -> F T) (@function_map _ _)
+                  (@function_mem _ _) (@function_rel _ _) _.
 Next Obligation.
   inversion MEM. econstructor.
   apply PFunctor.MEM. eauto.
 Qed.
-Canonical Structure function_pFunctorType D (F: pFunctorType) := Eval hnf in PFunctorType (FunctorType (function_functorMixin D F)) (function_pFunctorMixin D F).
+Canonical Structure function_pFunctorType D (F: pFunctorType) := PFunctorType (FunctorType (function_functorMixin D F)) (function_pFunctorMixin D F).
+
+Hint Unfold function_map.
+Hint Unfold function_rel.
 
 
 Program Definition option_functorMixin :=
@@ -276,13 +282,12 @@ Inductive option_frel X Y (rel: forall (x:X) (y:Y), Prop):
 .
 
 Program Definition option_pFunctorMixin :=
-  Eval hnf in
-    @PFunctor.Mixin
-      option option_functorMixin.(Functor.map)
-      (fun _ fx x => fx = Some x)
-      option_frel
-      _.
-Canonical Structure option_pFunctorType := Eval hnf in PFunctorType _ option_pFunctorMixin.
+  @PFunctor.Mixin
+    option option_functorMixin.(Functor.map)
+    (fun _ fx x => fx = Some x)
+    option_frel
+    _.
+Canonical Structure option_pFunctorType := PFunctorType _ option_pFunctorMixin.
 
 
 Definition coproduct_type (F1 F2: Type -> Type) T := (F1 T + F2 T)%type.
@@ -308,7 +313,7 @@ Inductive coproduct_rel (F1 F2: pFunctorType) T1 T2 f:
 .
 
 Program Definition coproduct_functorMixin (F1 F2: functorType) :=
-  Eval hnf in @Functor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2) _ _.
+  @Functor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
   destruct x; simpl.
@@ -320,41 +325,42 @@ Next Obligation.
   - f_equal. apply Functor.MAP_COMPOSE.
   - f_equal. apply Functor.MAP_COMPOSE.
 Qed.
-Canonical Structure coproduct_functorType F1 F2 := Eval hnf in FunctorType (coproduct_functorMixin F1 F2).
+Canonical Structure coproduct_functorType F1 F2 := FunctorType (coproduct_functorMixin F1 F2).
 
 Program Definition coproduct_pFunctorMixin (F1 F2: pFunctorType) :=
-  Eval hnf in
-    @PFunctor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2)
-                    (@coproduct_mem F1 F2) (@coproduct_rel F1 F2) _.
+  @PFunctor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2)
+                  (@coproduct_mem F1 F2) (@coproduct_rel F1 F2) _.
 Next Obligation.
   destruct fx; simpl in *.
   - apply PFunctor.MEM. auto.
   - apply PFunctor.MEM. auto.
 Qed.
-Canonical Structure coproduct_pFunctorType F1 F2 := Eval hnf in PFunctorType _ (coproduct_pFunctorMixin F1 F2).
+Canonical Structure coproduct_pFunctorType F1 F2 := PFunctorType _ (coproduct_pFunctorMixin F1 F2).
+
+Hint Unfold coproduct_map.
+Hint Unfold coproduct_mem.
 
 
 Program Definition compose_functorMixin (F1 F2: functorType) :=
-  Eval hnf in @Functor.Mixin (F2 ∘ F1) (fun _ _ f => fmap (fmap f)) _ _.
+  @Functor.Mixin (F2 ∘ F1) (fun _ _ f => fmap (fmap f)) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
   unfold functor_map. rewrite ? Functor.MAP_ID. auto.
 Qed.
 Next Obligation.
 Admitted.
-Canonical Structure compose_functorType F1 F2 := Eval hnf in FunctorType (compose_functorMixin F1 F2).
+Canonical Structure compose_functorType F1 F2 := FunctorType (compose_functorMixin F1 F2).
 
 Program Definition compose_pFunctorMixin (F1 F2: pFunctorType) :=
-  Eval hnf in
-    @PFunctor.Mixin
-      (F2 ∘ F1) (compose_functorMixin F1 F2).(Functor.map)
-      _
-      _
-      _.
+  @PFunctor.Mixin
+    (F2 ∘ F1) (compose_functorMixin F1 F2).(Functor.map)
+    _
+    _
+    _.
 Next Obligation.
 Admitted.
 Next Obligation.
 Admitted.
 Next Obligation.
 Admitted.
-Canonical Structure compose_pFunctorType F1 F2 := Eval hnf in PFunctorType _ (compose_pFunctorMixin F1 F2).
+Canonical Structure compose_pFunctorType F1 F2 := PFunctorType _ (compose_pFunctorMixin F1 F2).
