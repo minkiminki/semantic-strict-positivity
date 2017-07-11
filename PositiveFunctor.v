@@ -15,13 +15,13 @@ Section UniversalFunctor.
   Definition UF T := Sh1 -> T + Sh2.
 
    Definition UF_functorMixin :=
-    function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
+     Eval hnf in function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
    Definition UF_pFunctorMixin :=
-    function_pFunctorMixin Sh1 (coproduct_pFunctorType id_pFunctorType (const_pFunctorType Sh2)).
+     Eval hnf in function_pFunctorMixin Sh1 (coproduct_pFunctorType id_pFunctorType (const_pFunctorType Sh2)).
 End UniversalFunctor.
 
-Canonical Structure UF_FunctorType Sh1 Sh2 := FunctorType (UF_functorMixin Sh1 Sh2).
-Canonical Structure UF_pFunctorType Sh1 Sh2 := PFunctorType (UF_FunctorType Sh1 Sh2) (UF_pFunctorMixin Sh1 Sh2).
+Canonical Structure UF_FunctorType Sh1 Sh2 := Eval hnf in FunctorType (UF_functorMixin Sh1 Sh2).
+Canonical Structure UF_pFunctorType Sh1 Sh2 := Eval hnf in PFunctorType (UF_FunctorType Sh1 Sh2) (UF_pFunctorMixin Sh1 Sh2).
 
 
 Module PositiveFunctor.
@@ -84,47 +84,40 @@ Section MFix.
       range (Ufix (femb m))
   .
 
-  Inductive mfix: Type :=
-  | Mfix_ (m:ufix) (RANGE: range m)
-  .
+  Definition mfix := sig range.
 
-  Definition mfix_to_ufix (m:mfix): ufix :=
-    match m with @Mfix_ m _ => m end.
+  Definition mfix_to_ufix (m:mfix): ufix := proj1_sig m.
+
+  (* FIXME: move *)
+  Hint Unfold coproduct_map.
+  Hint Unfold coproduct_mem.
+  Hint Unfold function_map.
+  Hint Unfold function_rel.
+  Hint Unfold functor_map.
+  Hint Unfold functor_mem.
+  Hint Unfold functor_rel.
+  Hint Unfold functor_embedding.
+  Hint Unfold id.
 
   Program Definition Mfix (m: PF mfix) : mfix :=
-    @Mfix_ (Ufix (femb (fmap mfix_to_ufix m))) _.
+    @exist _ _ (Ufix (femb (fmap mfix_to_ufix m))) _.
   Next Obligation.
     constructor. intros. inv PR.
-    unfold functor_map, functor_mem, functor_embedding in *. simpl in *.
-    rewrite PositiveFunctor.NATURAL in MEM. unfold functor_map in *.
-    unfold coproduct_mem in *.
-    unfold UF_FunctorType, UF_functorMixin in *. simpl in *.
-    unfold function_map, functor_map in *.
-    unfold coproduct_functorType, coproduct_functorMixin in *. simpl in *.
-    unfold coproduct_map in *. simpl in *.
+    repeat (autounfold in *; simpl in *).
+    rewrite PositiveFunctor.NATURAL in MEM.
+    repeat (autounfold in *; simpl in *).
+    destruct (PositiveFunctor.embedding PF mfix m d) eqn:EQ; [|inv MEM].
+    subst. destruct m0. auto.
+  Qed.
 
-    , UF_functorMixin in *. simpl in *.
-    unfold UF_FunctorType, UF_functorMixin in *. simpl in *.
-    unfold UF_FunctorType, UF_functorMixin in *. simpl in *.
-    
-    inv MEM.
-    destruct x0.
-    
-    rewrite 
-    PFunctor.mixin_of
-    (* rewrite SSPF.map_nat in EQ. *)
-    (* unfold SPUF.map in EQ. *)
-    (* destruct (SSPF.emb M Mfixpoint m s); inversion EQ. *)
-    (* destruct m0. *)
-    (* simpl. *)
-    (* apply H. *)
-  Admitted.
+  (* Definition mfix_des (x: mfix) : PF mfix := *)
+  (*   (proj2_sig x). *)
 
-  Definition mfix_des (x:mfix): PF mfix.
-  Proof.
-    (* Mfix_destruct *)
-  Admitted.
-
+  (* Definition ufix_des (m: ufix) (R: range m) : PF ufix := *)
+  (*   match R with *)
+  (*   | Range m _ => m *)
+  (*   end. *)
+  
   Inductive ufix_order: forall (x y:ufix), Prop :=
   | Ufix_order x u (IN: functor_mem (UF_pFunctorType _ _) u x): ufix_order x (Ufix u)
   .
@@ -145,7 +138,7 @@ Section MFix.
   Defined.
 
   Inductive mfix_order: forall (x y:mfix), Prop :=
-  | Mfix_order x y PX PY (ORD: ufix_order x y): mfix_order (@Mfix_ x PX) (@Mfix_ y PY)
+  | Mfix_order x y PX PY (ORD: ufix_order x y): mfix_order (@exist _ _ x PX) (@exist _ _ y PY)
   .
 
   Lemma mfix_order_ufix_order x y (ORD: mfix_order x y):
@@ -167,8 +160,6 @@ Program Definition id_positiveFunctorMixin :=
 Next Obligation.
   eapply fapp in EQ; [|apply ()]. inversion EQ. auto.
 Qed.
-Next Obligation.
-Admitted.
 Canonical Structure id_positiveFunctorType := PositiveFunctorType _ id_positiveFunctorMixin.
 
 
@@ -189,5 +180,6 @@ Next Obligation.
   - eapply fapp in EQ; [|apply ()]. inversion EQ.
 Qed.
 Next Obligation.
-Admitted.
+  destruct fx1; auto.
+Qed.
 Canonical Structure option_positiveFunctorType := PositiveFunctorType _ option_positiveFunctorMixin.
