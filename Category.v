@@ -51,9 +51,7 @@ End Functor.
 
 Notation functorType := Functor.type.
 Notation FunctorType := Functor.pack.
-Definition functor_map F := Functor.map (Functor.class F).
-Notation "'fmap' f" := (@functor_map _ _ _ f) (at level 0).
-Hint Unfold functor_map.
+Notation "'fmap' f" := (@Functor.map _ (Functor.class _) _ _ f) (at level 0).
 
 
 Module NatTrans.
@@ -87,14 +85,14 @@ End NatTrans.
 End NatTrans.
 
 
-Module PFunctor.
+Module SFunctor.
   Record mixin_of (F: Type -> Type) (F_map: forall T1 T2 (f: forall (x1:T1), T2) (fx1:F T1), F T2): Type := Mixin {
     mem: forall X, F X -> X -> Type;
+    map_dep: forall X Y (fx:F X) (f: forall x (MEM:mem fx x), Y), F Y;
     rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
 
-    MEM: forall X Y (f: X -> Y) (fx: F X) (x: X)
-           (MEM: mem fx x),
-        mem (F_map _ _ f fx) (f x);
+    MEM: forall X Y (f: X -> Y) (fx: F X) (x: X) (MEM: mem fx x), mem (F_map _ _ f fx) (f x);
+    MAP_DEP: forall X Y (f:X -> Y) fx, @map_dep _ _ fx (fun x _ => f x) = F_map _ _ f fx;
   }.
 
   Record class_of (F: Type -> Type): Type := Class {
@@ -118,22 +116,19 @@ Module PFunctor.
     Functor.unpack _ k.
 
   Coercion functorType cF := Functor.Pack (class cF) cF.
-End PFunctor.
+End SFunctor.
 
-Notation pFunctorType := PFunctor.type.
-Notation PFunctorType := PFunctor.pack.
-Canonical Structure PFunctor.functorType.
-Definition functor_mem F := PFunctor.mem (PFunctor.class F).
-Definition functor_rel F := PFunctor.rel (PFunctor.class F).
-Notation "'fmem' fx" := (@functor_mem _ _ fx) (at level 0).
-Notation "'frel' rel" := (@functor_rel _ _ _ rel) (at level 0).
-Hint Unfold functor_mem.
-Hint Unfold functor_rel.
+Notation sFunctorType := SFunctor.type.
+Notation SFunctorType := SFunctor.pack.
+Canonical Structure SFunctor.functorType.
+Notation "'fmem' fx" := (@SFunctor.mem _ _ (SFunctor.ext (SFunctor.class _)) _ fx) (at level 0).
+Notation "'fmap_dep' fx" := (@SFunctor.map_dep _ _ (SFunctor.ext (SFunctor.class _)) _ _ fx) (at level 0).
+Notation "'frel' rel" := (@SFunctor.rel _ _ (SFunctor.ext (SFunctor.class _)) _ _ rel) (at level 0).
 
 
 Module PNatTrans.
 Section PNatTrans.
-  Variable (F G: pFunctorType).
+  Variable (F G: sFunctorType).
 
   Record mixin_of (NT: forall (X:Type) (fx:F X), G X): Type := Mixin {
     MEM1: forall X fx (x:X), fmem fx x -> fmem (NT _ fx) x;
@@ -203,13 +198,14 @@ Program Definition id_functorMixin :=
   @Functor.Mixin id (fun _ _ => id) _ _.
 Canonical Structure id_functorType := FunctorType id_functorMixin.
 
-Program Definition id_pFunctorMixin :=
-  @PFunctor.Mixin
+Program Definition id_sFunctorMixin :=
+  @SFunctor.Mixin
     id id_functorMixin.(Functor.map)
     (fun _ fx x => fx = x)
+    (fun _ _ fx FX => FX _ eq_refl)
     (fun _ _ rel fx fy => rel fx fy)
-    _.
-Canonical Structure id_pFunctorType := PFunctorType _ id_pFunctorMixin.
+    _ _.
+Canonical Structure id_sFunctorType := SFunctorType _ id_sFunctorMixin.
 
 Hint Unfold id.
 
@@ -218,50 +214,62 @@ Program Definition const_functorMixin T :=
   @Functor.Mixin (fun _ => T) (fun _ _ _ => id) _ _.
 Canonical Structure const_functorType T := FunctorType (const_functorMixin T).
 
-Program Definition const_pFunctorMixin T :=
-  @PFunctor.Mixin
+Program Definition const_sFunctorMixin T :=
+  @SFunctor.Mixin
     (fun _ => T) (const_functorMixin T).(Functor.map)
     (fun _ _ _ => False)
+    (fun _ _ fx _ => fx)
     (fun _ _ _ => eq)
-    _.
-Program Canonical Structure const_pFunctorType (T:Type) := PFunctorType (FunctorType (const_functorMixin T)) (const_pFunctorMixin T).
+    _ _.
+Program Canonical Structure const_sFunctorType (T:Type) := SFunctorType (FunctorType (const_functorMixin T)) (const_sFunctorMixin T).
 
 
 Definition function_map D (F: functorType) T1 T2 (f: T1 -> T2) (fx1: D -> F T1) :=
   (fmap f) ∘ fx1.
 
-Inductive function_mem D (F: pFunctorType) T (fx: D -> F T) x: Type :=
+Inductive function_mem D (F: sFunctorType) T (fx: D -> F T) x: Type :=
 | Function_mem d (MEM: fmem (fx d) x)
 .
 
-Definition function_rel D (F: pFunctorType) T1 T2
+Program Definition function_map_dep D (F: sFunctorType) T1 T2 (fx1: D -> F T1) (f: forall (x1:T1) (MEM: function_mem F fx1 x1), T2): D -> F T2 :=
+  fun X => fmap_dep (fx1 X) (fun x MEM => (f x _)).
+Next Obligation.
+  econstructor. eauto.
+Qed.
+
+Definition function_rel D (F: sFunctorType) T1 T2
            f (fx1:D -> F T1) (fx2:D -> F T2): Prop :=
   forall d, frel f (fx1 d) (fx2 d).
+
+Hint Unfold function_map.
+Hint Unfold function_map_dep.
+Hint Unfold function_rel.
 
 Program Definition function_functorMixin D (F: functorType) :=
   @Functor.Mixin (fun T => D -> F T) (@function_map _ _) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
   apply functional_extensionality. intro.
-  unfold function_map, functor_map. rewrite Functor.MAP_ID. auto.
+  simplify. rewrite Functor.MAP_ID. auto.
 Qed.
 Next Obligation.
   apply functional_extensionality. intro.
-  unfold function_map, functor_map, compose. rewrite Functor.MAP_COMPOSE. auto.
+  simplify. unfold compose. rewrite Functor.MAP_COMPOSE. auto.
 Qed.
 Canonical Structure function_functorType D F := FunctorType (function_functorMixin D F).
 
-Program Definition function_pFunctorMixin D (F: pFunctorType) :=
-  @PFunctor.Mixin (fun T => D -> F T) (@function_map _ _)
-                  (@function_mem _ _) (@function_rel _ _) _.
+Program Definition function_sFunctorMixin D (F: sFunctorType) :=
+  @SFunctor.Mixin (fun T => D -> F T) (@function_map _ _)
+                  (@function_mem _ _) (@function_map_dep _ _) (@function_rel _ _) _ _.
 Next Obligation.
   inversion MEM. econstructor.
-  apply PFunctor.MEM. eauto.
+  apply SFunctor.MEM. eauto.
 Qed.
-Canonical Structure function_pFunctorType D (F: pFunctorType) := PFunctorType (FunctorType (function_functorMixin D F)) (function_pFunctorMixin D F).
-
-Hint Unfold function_map.
-Hint Unfold function_rel.
+Next Obligation.
+  apply functional_extensionality. intro.
+  simplify. apply F.(SFunctor.MAP_DEP).
+Qed.
+Canonical Structure function_sFunctorType D (F: sFunctorType) := SFunctorType (FunctorType (function_functorMixin D F)) (function_sFunctorMixin D F).
 
 
 Program Definition option_functorMixin :=
@@ -283,13 +291,17 @@ Inductive option_frel X Y (rel: forall (x:X) (y:Y), Prop):
     option_frel rel None None
 .
 
-Program Definition option_pFunctorMixin :=
-  @PFunctor.Mixin
+Program Definition option_sFunctorMixin :=
+  @SFunctor.Mixin
     option option_functorMixin.(Functor.map)
     (fun _ fx x => fx = Some x)
+    (fun _ _ fx FX => match fx with | Some fx => Some (FX fx eq_refl) | None => None end)
     option_frel
-    _.
-Canonical Structure option_pFunctorType := PFunctorType _ option_pFunctorMixin.
+    _ _.
+Next Obligation.
+  destruct fx; eauto.
+Qed.
+Canonical Structure option_sFunctorType := SFunctorType _ option_sFunctorMixin.
 
 
 Definition coproduct_type (F1 F2: Type -> Type) T := (F1 T + F2 T)%type.
@@ -300,13 +312,13 @@ Definition coproduct_map (F1 F2: functorType) T1 T2 (f:T1 -> T2) (fx: F1 T1 + F2
   | inr fx => inr (fmap f fx)
   end.
 
-Definition coproduct_mem (F1 F2: pFunctorType) T (fx:coproduct_type F1 F2 T) x :=
+Definition coproduct_mem (F1 F2: sFunctorType) T (fx:coproduct_type F1 F2 T) x :=
   match fx with
   | inl fx => fmem fx x
   | inr fx => fmem fx x
   end.
 
-Inductive coproduct_rel (F1 F2: pFunctorType) T1 T2 f:
+Inductive coproduct_rel (F1 F2: sFunctorType) T1 T2 f:
   forall (fx1:coproduct_type F1 F2 T1) (fx2:coproduct_type F1 F2 T2), Prop :=
 | coproduct_rel_inl fx1 fx2 (REL: frel f fx1 fx2):
     coproduct_rel F1 F2 f (inl fx1) (inl fx2)
@@ -314,13 +326,16 @@ Inductive coproduct_rel (F1 F2: pFunctorType) T1 T2 f:
     coproduct_rel F1 F2 f (inr fx1) (inr fx2)
 .
 
+Hint Unfold coproduct_map.
+Hint Unfold coproduct_mem.
+
 Program Definition coproduct_functorMixin (F1 F2: functorType) :=
   @Functor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
   destruct x; simpl.
-  - unfold functor_map. rewrite ? Functor.MAP_ID. auto.
-  - unfold functor_map. rewrite ? Functor.MAP_ID. auto.
+  - rewrite ? Functor.MAP_ID. auto.
+  - rewrite ? Functor.MAP_ID. auto.
 Qed.
 Next Obligation.
   destruct x1; simpl.
@@ -329,40 +344,43 @@ Next Obligation.
 Qed.
 Canonical Structure coproduct_functorType F1 F2 := FunctorType (coproduct_functorMixin F1 F2).
 
-Program Definition coproduct_pFunctorMixin (F1 F2: pFunctorType) :=
-  @PFunctor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2)
-                  (@coproduct_mem F1 F2) (@coproduct_rel F1 F2) _.
+Program Definition coproduct_sFunctorMixin (F1 F2: sFunctorType) :=
+  @SFunctor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2)
+                  (@coproduct_mem F1 F2) (fun _ _ _ _ => _) (@coproduct_rel F1 F2) _ _.
+Next Obligation.
+Admitted.
 Next Obligation.
   destruct fx; simpl in *.
-  - apply PFunctor.MEM. auto.
-  - apply PFunctor.MEM. auto.
+  - apply SFunctor.MEM. auto.
+  - apply SFunctor.MEM. auto.
 Qed.
-Canonical Structure coproduct_pFunctorType F1 F2 := PFunctorType _ (coproduct_pFunctorMixin F1 F2).
-
-Hint Unfold coproduct_map.
-Hint Unfold coproduct_mem.
+Next Obligation.
+Admitted.
+Canonical Structure coproduct_sFunctorType F1 F2 := SFunctorType _ (coproduct_sFunctorMixin F1 F2).
 
 
 Program Definition compose_functorMixin (F1 F2: functorType) :=
   @Functor.Mixin (F2 ∘ F1) (fun _ _ f => fmap (fmap f)) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
-  unfold functor_map. rewrite ? Functor.MAP_ID. auto.
+  rewrite ? Functor.MAP_ID. auto.
 Qed.
 Next Obligation.
 Admitted.
 Canonical Structure compose_functorType F1 F2 := FunctorType (compose_functorMixin F1 F2).
 
-Program Definition compose_pFunctorMixin (F1 F2: pFunctorType) :=
-  @PFunctor.Mixin
+Program Definition compose_sFunctorMixin (F1 F2: sFunctorType) :=
+  @SFunctor.Mixin
     (F2 ∘ F1) (compose_functorMixin F1 F2).(Functor.map)
-    _
-    _
-    _.
+    _ _ _ _ _.
 Next Obligation.
 Admitted.
 Next Obligation.
 Admitted.
 Next Obligation.
 Admitted.
-Canonical Structure compose_pFunctorType F1 F2 := PFunctorType _ (compose_pFunctorMixin F1 F2).
+Next Obligation.
+Admitted.
+Next Obligation.
+Admitted.
+Canonical Structure compose_sFunctorType F1 F2 := SFunctorType _ (compose_sFunctorMixin F1 F2).
