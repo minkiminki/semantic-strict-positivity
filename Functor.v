@@ -126,8 +126,8 @@ Notation "'fmap_dep' fx" := (@SFunctor.map_dep _ _ (SFunctor.ext (SFunctor.class
 Notation "'frel' rel" := (@SFunctor.rel _ _ (SFunctor.ext (SFunctor.class _)) _ _ rel) (at level 0).
 
 
-Module PNatTrans.
-Section PNatTrans.
+Module SNatTrans.
+Section SNatTrans.
   Variable (F G: sFunctorType).
 
   Record mixin_of (NT: forall (X:Type) (fx:F X), G X): Type := Mixin {
@@ -159,8 +159,8 @@ Section PNatTrans.
     end.
 
   Definition pack F c := @Pack F c F.
-End PNatTrans.
-End PNatTrans.
+End SNatTrans.
+End SNatTrans.
 
 
 (* Lemmas *)

@@ -184,6 +184,37 @@ Section FFix.
   Proof.
     inv ORD. auto.
   Qed.
+
+  Lemma acc_preserve X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
+        (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2))
+        (WF: well_founded Ry) y
+    : forall x, y = f x /\ Acc Ry y -> Acc Rx x.
+  Proof.
+    apply (@Fix Y Ry WF (fun a =>  forall x : X, a = f x /\ Acc Ry a -> Acc Rx x)).
+    intros. destruct H1. subst.
+    constructor. intros. eauto.
+  Qed.
+
+  Lemma sub_wellorder X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
+        (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2)) (WF: well_founded Ry) 
+    : well_founded Rx.
+  Proof.
+    unfold well_founded. intros. apply (@acc_preserve _ _ f Rx _ H WF (f a)). auto.
+  Qed.
+
+  Lemma ffix_ord_wf: well_founded ffix_ord.
+  Proof.
+    apply (sub_wellorder _ _ ffix_ord_ufix_ord ufix_ord_wf).
+  Qed.
+
+  Lemma ffix_induction
+        (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord x y -> P x) -> P y)
+        x:
+    P x.
+  Proof.
+    apply (Fix ffix_ord_wf). apply STEP.
+  Qed.
 End FFix.
 
 
