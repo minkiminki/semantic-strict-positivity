@@ -2,7 +2,7 @@ Require Import FunctionalExtensionality.
 Require Import Program.
 Require Import ClassicalDescription.
 
-Require Import Category.
+Require Import Functor.
 
 Set Implicit Arguments.
 Set Automatic Coercions Import.
