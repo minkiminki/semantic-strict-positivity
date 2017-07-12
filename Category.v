@@ -8,6 +8,7 @@ Set Automatic Coercions Import.
 (* Tactics.  FIXME: move it! *)
 
 Ltac inv H := inversion H; subst; clear H.
+Ltac simplify := repeat (autounfold in *; simpl in *).
 
 
 (* Categories *)
@@ -88,7 +89,7 @@ End NatTrans.
 
 Module PFunctor.
   Record mixin_of (F: Type -> Type) (F_map: forall T1 T2 (f: forall (x1:T1), T2) (fx1:F T1), F T2): Type := Mixin {
-    mem: forall X, F X -> X -> Prop;
+    mem: forall X, F X -> X -> Type;
     rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
 
     MEM: forall X Y (f: X -> Y) (fx: F X) (x: X)
@@ -135,7 +136,8 @@ Section PNatTrans.
   Variable (F G: pFunctorType).
 
   Record mixin_of (NT: forall (X:Type) (fx:F X), G X): Type := Mixin {
-    MEM: forall X fx (x:X), fmem fx x <-> fmem (NT _ fx) x;
+    MEM1: forall X fx (x:X), fmem fx x -> fmem (NT _ fx) x;
+    MEM2: forall X fx (x:X), fmem (NT _ fx) x -> fmem fx x;
     REL: forall T1 T2 (rel: forall (x1:T1) (x2:T2), Prop) fx1 fx2,
         frel rel fx1 fx2 <-> frel rel (NT _ fx1) (NT _ fx2);
   }.
@@ -228,7 +230,7 @@ Program Canonical Structure const_pFunctorType (T:Type) := PFunctorType (Functor
 Definition function_map D (F: functorType) T1 T2 (f: T1 -> T2) (fx1: D -> F T1) :=
   (fmap f) ∘ fx1.
 
-Inductive function_mem D (F: pFunctorType) T (fx: D -> F T) x: Prop :=
+Inductive function_mem D (F: pFunctorType) T (fx: D -> F T) x: Type :=
 | Function_mem d (MEM: fmem (fx d) x)
 .
 
