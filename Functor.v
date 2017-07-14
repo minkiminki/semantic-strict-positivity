@@ -92,7 +92,7 @@ Module SFunctor.
     rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
 
     MEM: forall X Y (f: X -> Y) (fx: F X) (x: X) (MEM: mem fx x), mem (F_map _ _ f fx) (f x);
-    MAP_DEP: forall X Y (f:X -> Y) fx, @map_dep _ _ fx (fun x _ => f x) = F_map _ _ f fx;
+    MAP_DEP: forall X Y fx (f: forall x (MEM:mem fx x), Y) (g: Y -> X) (INV: forall x r, g (f x r) = x), F_map _ _ g (@map_dep _ _ fx f) = fx
   }.
 
   Record class_of (F: Type -> Type): Type := Class {
@@ -266,9 +266,7 @@ Next Obligation.
   apply SFunctor.MEM. eauto.
 Qed.
 Next Obligation.
-  apply functional_extensionality. intro.
-  simplify. apply F.(SFunctor.MAP_DEP).
-Qed.
+Admitted.
 Canonical Structure function_sFunctorType D (F: sFunctorType) := SFunctorType (FunctorType (function_functorMixin D F)) (function_sFunctorMixin D F).
 
 
@@ -299,8 +297,7 @@ Program Definition option_sFunctorMixin :=
     option_frel
     _ _.
 Next Obligation.
-  destruct fx; eauto.
-Qed.
+Admitted.
 Canonical Structure option_sFunctorType := SFunctorType _ option_sFunctorMixin.
 
 

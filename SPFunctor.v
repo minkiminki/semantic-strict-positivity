@@ -1,6 +1,7 @@
 Require Import FunctionalExtensionality.
 Require Import Program.
 Require Import ClassicalDescription.
+Require Import Coq.Relations.Relation_Operators.
 
 Require Import Functor.
 
@@ -40,16 +41,37 @@ Section UniversalFunctor.
 
   Definition UF T := Sh1 -> T + Sh2.
 
-   Definition UF_functorMixin: Functor.mixin_of UF :=
-     function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
-   Definition UF_sFunctorMixin: SFunctor.mixin_of UF UF_functorMixin.(Functor.map) :=
-     function_sFunctorMixin Sh1 (coproduct_sFunctorType id_sFunctorType (const_sFunctorType Sh2)).
-End UniversalFunctor.
+  Definition UF_functorMixin: Functor.mixin_of UF :=
+    function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
+  Definition UF_sFunctorMixin: SFunctor.mixin_of UF UF_functorMixin.(Functor.map) :=
+    function_sFunctorMixin Sh1 (coproduct_sFunctorType id_sFunctorType (const_sFunctorType Sh2)).
 
-Canonical Structure UF_FunctorType Sh1 Sh2 := FunctorType (UF_functorMixin Sh1 Sh2).
-Canonical Structure UF_SFunctorType Sh1 Sh2 := SFunctorType (UF_FunctorType Sh1 Sh2) (UF_sFunctorMixin Sh1 Sh2).
-Hint Unfold UF_FunctorType.
-Hint Unfold UF_SFunctorType.
+  Canonical Structure UF_FunctorType := FunctorType UF_functorMixin.
+  Canonical Structure UF_SFunctorType := SFunctorType UF_FunctorType UF_sFunctorMixin.
+  Hint Unfold UF_FunctorType.
+  Hint Unfold UF_SFunctorType.
+
+  Lemma UF_map_injective X Y (u1 u2: UF X) (f: X -> Y)
+        (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
+        (EQ: fmap f u1 = fmap f u2):
+    u1 = u2.
+  Proof.
+    extensionality s. apply equal_f with (x:=s) in EQ. simplify. 
+    destruct (u1 s), (u2 s); inv EQ; auto.
+    apply INJ in H0. subst; auto.
+  Qed.
+
+  Lemma UF_map_pointwise X Y (u: UF X) (f g: X -> Y)
+        (ALL: forall x, fmem u x -> f x = g x):
+    fmap f u = fmap g u.
+  Proof.
+    extensionality s. simplify.
+    destruct (u s) eqn : EQ; auto.
+    specialize (ALL x). f_equal. apply ALL.
+    econstructor. simplify. rewrite EQ. auto.
+  Qed.
+
+End UniversalFunctor.
 
 
 Module SPFunctor.
@@ -62,13 +84,13 @@ Module SPFunctor.
     Sh2: Type;
     embedding: forall T (x: F T), UF Sh1 Sh2 T;
 
-    INJECTIVE: forall T x1 x2 (EQ: @embedding T x1 = @embedding T x2), x1 = x2;
-    NATURAL_MAP:
+    _INJECTIVE: forall T x1 x2 (EQ: @embedding T x1 = @embedding T x2), x1 = x2;
+    _NATURAL_MAP:
       forall T1 T2 (f: T1 -> T2) fx1,
         embedding (F_map _ _ f fx1) = fmap f (embedding fx1);
-    NATURAL_MEM1: forall X fx x, F_mem X fx x -> fmem (embedding fx) x;
-    NATURAL_MEM2: forall X fx x, fmem (embedding fx) x -> F_mem X fx x;
-    NATURAL_REL:
+    _NATURAL_MEM1: forall X fx x, F_mem X fx x -> fmem (embedding fx) x;
+    _NATURAL_MEM2: forall X fx x, fmem (embedding fx) x -> F_mem X fx x;
+    _NATURAL_REL:
       forall T1 T2 (r: T1 -> T2 -> Prop) fx1 fx2,
         frel r (embedding fx1) (embedding fx2) <-> (F_rel _ _ r fx1 fx2);
   }.
@@ -96,6 +118,7 @@ Module SPFunctor.
 
   Coercion sFunctorType cF := SFunctor.Pack (class cF) cF.
   Coercion functorType cF := Functor.Pack (class cF).(base).(SFunctor.base) cF.
+
 End SPFunctor.
 
 Notation SPFunctorType := SPFunctor.type.
@@ -106,6 +129,62 @@ Definition functor_embedding F := SPFunctor.embedding (SPFunctor.class F).
 Notation "'femb' fx" := (@functor_embedding _ _ fx) (at level 0).
 Hint Unfold functor_embedding.
 
+Module SPFunctorFacts.
+
+  Lemma INJECTIVE (PF: SPFunctorType) T (x1 x2: PF T) (EQ: femb x1 = femb x2) :
+    x1 = x2.
+  Proof.
+    apply PF.(SPFunctor._INJECTIVE). apply EQ.
+  Qed.
+
+  Lemma NATURAL_MAP (PF: SPFunctorType) T1 T2 (f: T1 -> T2) (fx: PF T1) :
+    femb (fmap f fx) = fmap f (femb fx).
+  Proof.
+    apply SPFunctor._NATURAL_MAP.
+  Qed.
+
+  Lemma NATURAL_MEM1 (PF: SPFunctorType) X (fx: PF X) (x: X) :
+    fmem fx x -> fmem (femb fx) x.
+  Proof.
+    apply SPFunctor._NATURAL_MEM1.
+  Qed.
+
+  Lemma NATURAL_MEM2 (PF: SPFunctorType) X (fx: PF X) (x: X) :
+    fmem (femb fx) x -> fmem fx x.
+  Proof.
+    apply SPFunctor._NATURAL_MEM2.
+  Qed.
+
+  Lemma NATURAL_REL (PF: SPFunctorType) T1 T2 (r: T1 -> T2 -> Prop)
+        (fx1: PF T1) (fx2: PF T2) : 
+    frel r fx1 fx2 <-> frel r (femb fx1) (femb fx2).
+  Proof.
+    split; intros.
+    - apply SPFunctor._NATURAL_REL. apply H.
+    - apply SPFunctor._NATURAL_REL in H. apply H.
+  Qed.
+
+  Lemma map_injective (PF: SPFunctorType) X Y (u1 u2: PF X) (f: X -> Y)
+         (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
+         (EQ: fmap f u1 = fmap f u2):
+     u1 = u2.
+  Proof.
+    apply (SPFunctorFacts.INJECTIVE PF). apply (UF_map_injective INJ).
+    repeat rewrite <- SPFunctorFacts.NATURAL_MAP.
+    rewrite EQ. auto.
+  Qed.
+
+  Lemma map_pointwise (PF: SPFunctorType) X Y (f g: X -> Y) (m: PF X)
+        (ALL: forall x, fmem m x -> f x = g x):
+    fmap f m = fmap g m.
+  Proof.
+    apply SPFunctorFacts.INJECTIVE. 
+    repeat rewrite SPFunctorFacts.NATURAL_MAP.
+    apply UF_map_pointwise.
+    intros. apply ALL, NATURAL_MEM2, X0.
+  Qed.
+
+End SPFunctorFacts.
 
 (* Fixpoint *)
 
@@ -127,22 +206,30 @@ Section FFix.
 
   Definition ffix_to_ufix (x:ffix): ufix := projT1 x.
 
+(*
   Lemma range_injective x:
     exists! x', Ufix (femb x') = ffix_to_ufix x.
   Proof.
-    destruct x. destruct r. simplify.
+    destruct x. destruct r.
+    econstructor. econstructor.
     econstructor. econstructor; eauto.
     intros. inv H. eapply SPFunctor.INJECTIVE; eauto.
   Qed.
+*)
 
-  Program Definition Ffix (x: PF ffix) : ffix :=
-    @existT _ _ (Ufix (femb (fmap ffix_to_ufix x))) _.
-  Next Obligation.
-    constructor. intros. simplify.
-    rewrite SPFunctor.NATURAL_MAP in X. inv X. simplify.
-    destruct (SPFunctor.embedding PF ffix x d) eqn:EQ; [|inv MEM].
+
+  Lemma Ffix_range (x: PF ffix) : range (Ufix (femb (fmap ffix_to_ufix x))).
+  Proof.
+    constructor. intros.
+    rewrite SPFunctorFacts.NATURAL_MAP in X. inv X. simplify.
+    destruct (SPFunctor.embedding PF ffix x) eqn: EQ; [|inv MEM].
     subst. destruct f. auto.
-  Qed.
+  Defined. 
+
+  Definition Ffix (x: PF ffix) : ffix :=
+    @existT _ _ (Ufix (femb (fmap ffix_to_ufix x))) (Ffix_range x).
+
+
 
   Definition ffix_des0 u (R:range u): PF ufix :=
     match R with
@@ -152,7 +239,7 @@ Section FFix.
   Definition ffix_des1 u (R:range u) x (MEM: fmem (ffix_des0 R) x): ffix.
   Proof.
     econstructor. destruct R. simplify.
-    eapply SPFunctor.NATURAL_MEM1 in MEM. simplify.
+    eapply SPFunctorFacts.NATURAL_MEM1 in MEM. simplify.
     apply MEM0. apply MEM.
   Defined.
 
@@ -168,11 +255,10 @@ Section FFix.
     unfold well_founded. fix 1. intro. destruct a.
     constructor. intros.
     inv H. inversion IN. simplify.
-    destruct (u d).
-    - specialize (ufix_ord_wf u0).
-      rewrite MEM in ufix_ord_wf.
-      apply ufix_ord_wf.
-    - inv MEM.
+    destruct (u d); [| inv MEM].
+    specialize (ufix_ord_wf u0).
+    rewrite MEM in ufix_ord_wf.
+    apply ufix_ord_wf.
   Defined.
 
   Inductive ffix_ord: forall (x y:ffix), Prop :=
@@ -207,16 +293,282 @@ Section FFix.
     apply (sub_wellorder _ _ ffix_ord_ufix_ord ufix_ord_wf).
   Qed.
 
-  Lemma ffix_induction
+  Lemma ffix_ord_induction x
         (P: ffix -> Prop)
-        (STEP: forall y, (forall x, ffix_ord x y -> P x) -> P y)
-        x:
+        (STEP: forall y, (forall x, ffix_ord x y -> P x) -> P y) :
     P x.
   Proof.
     apply (Fix ffix_ord_wf). apply STEP.
   Qed.
+
+  Lemma range_unique x : forall (p1 p2: range x), p1 = p2.
+  Proof.
+    revert x.
+    apply (Fix ufix_ord_wf (fun x => forall p1 p2 : range x, p1 = p2)). intros.
+    dependent destruction p1. dependent destruction p2.
+    apply SPFunctorFacts.INJECTIVE in x0. subst.
+    assert (MEM = MEM0).
+    extensionality s. extensionality r.
+    apply (H s (Ufix_ord r)).
+    subst. auto.
+  Qed.
+
+  Lemma range_unique2 : forall (x1 x2: ufix) p1 p2,
+    x1 = x2 -> existT range x1 p1 = existT range x2 p2.
+  Proof.
+    intros. subst.
+    replace p1 with p2. auto.
+    apply range_unique.
+  Qed.
+
+  Lemma Ufix_inj u1 u2 (EQ: Ufix u1 = Ufix u2) : u1 = u2.
+  Proof.
+    inversion EQ. auto.
+  Qed.
+
+  Lemma Ffix_inj x1 x2 (EQ: Ffix x1 = Ffix x2) : x1 = x2.
+  Proof.
+    unfold Ffix in EQ.
+    apply eq_sigT_fst in EQ. apply Ufix_inj in EQ.
+    apply SPFunctorFacts.INJECTIVE.
+    extensionality s. apply equal_f with s in EQ.
+    repeat rewrite SPFunctorFacts.NATURAL_MAP in EQ.
+    simplify.
+    destruct (SPFunctor.embedding PF ffix x1 s);
+    destruct (SPFunctor.embedding PF ffix x2 s); inversion EQ; auto.
+    destruct f, f0. simpl in H0. subst.
+    f_equal. f_equal. apply range_unique.
+  Qed.
+
+  Lemma des_correct1 x: Ffix (ffix_des x) = x.
+  Proof.
+    destruct x. destruct r. unfold Ffix. simpl.
+    apply range_unique2.
+    f_equal. f_equal. apply SFunctor.MAP_DEP.
+    intros. auto.
+  Qed.
+
+  Lemma des_correct2 x: ffix_des (Ffix x) = x.
+  Proof.
+    apply Ffix_inj.
+    apply des_correct1.
+  Qed.
+
+  Definition ffix_ord_c := clos_trans_n1 ffix ffix_ord.
+
+  Lemma ffix_ord_c_wf : well_founded ffix_ord_c.
+  Proof.
+    unfold well_founded. intro. apply (ffix_ord_induction a).
+    intros.
+    constructor. intros.
+    destruct H0.
+    - apply H, H0.
+    - specialize (H y H0).
+      destruct H. eauto.
+  Qed.
+
+  Lemma ord_transtive x y z (Rxy: ffix_ord_c x y) (Ryz: ffix_ord_c y z) :
+    ffix_ord_c x z.
+  Proof.
+  revert Ryz. revert Rxy.
+  apply (ffix_ord_induction z).
+  intros.
+  destruct Ryz.
+  - apply (tn1_trans _ _ _ _ _ H0 Rxy).
+  - specialize (H _ H0 Rxy Ryz).
+    apply (tn1_trans _ _ _ _ _ H0 H).
+  Defined.
+
+  Inductive less_ones y : Type :=
+  | w_ord x (ORD: ffix_ord_c x y) : less_ones y.
+
+  Definition v_get y (x: less_ones y) : ffix :=
+    match x with
+    | @w_ord _ x' _ => x' end.
+
+  Lemma ffix_str_induction x
+        (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord_c x y -> P x) -> P y) :
+    P x.
+  Proof.
+    apply (Fix ffix_ord_c_wf). apply STEP.
+  Qed.
+
+  Definition frec_d (P: ffix -> Type)
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) : forall x, P x :=
+    Fix ffix_ord_c_wf _ FIX.
+
+  Definition frec T
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x : T :=
+    Fix ffix_ord_c_wf _ FIX x.
+
+  Lemma Fix_F_eq A (R : A -> A -> Prop) (P : A -> Type) (F : forall x: A, (forall y:A, R y x -> P y) -> P x) :
+    forall (x : A) (r: Acc R x),
+    @F x (fun (y : A) (p : R y x) => @Fix_F A R P F y (@Acc_inv A R x r y p)) = Fix_F P F r.
+  Proof.
+    intros. destruct r. simpl. auto.
+  Qed.
+
+  Lemma Fix_correct A (R : A -> A -> Prop) (P : A -> Type) (F : forall x: A, (forall y:A, R y x -> P y) -> P x) (W : well_founded R) :
+    forall x, F x (fun y _ => (Fix W P F y)) = Fix W P F x.
+  Proof.
+    intros. unfold Fix.
+    rewrite <- (Fix_F_eq _ _ (W x)).
+    f_equal. extensionality s1. extensionality s2.
+    f_equal. apply proof_irrelevance.
+  Qed.
+
+  Lemma frec_red T
+        (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x :
+    frec FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec FIX y).
+  Proof.
+    unfold frec. 
+    rewrite <- Fix_correct. auto.
+  Qed.
+
+  Lemma frec_d_red (P: ffix -> Type)
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) x :
+    frec_d P FIX (Ffix x) 
+    = FIX (Ffix x) (fun y _ => frec_d P FIX y).
+  Proof.
+    unfold frec_d. 
+    rewrite <- Fix_correct. auto.
+  Qed.
+
+  Definition mem_to_ord m x : fmem m x -> ffix_ord x (Ffix m).
+  Proof.
+    intros. destruct x.
+    constructor. constructor. rewrite SPFunctorFacts.NATURAL_MAP. simplify.
+    apply SPFunctorFacts.NATURAL_MEM1 in X.
+    inv X. simplify. destruct (SPFunctor.embedding PF _ m d) eqn : EQ; [| inv MEM].
+    apply (Function_mem _ _ _ d). simplify.
+    rewrite EQ. rewrite MEM. auto.
+  Defined.
+
+
+  Definition ord_to_mem m x (ORD: ffix_ord x (Ffix m))
+    : inhabited (fmem m x).
+  Proof.
+    inv ORD. inv ORD0. inv IN. rewrite SPFunctorFacts.NATURAL_MAP in MEM.  simplify.
+    constructor. apply SPFunctorFacts.NATURAL_MEM2.
+    apply (Function_mem _ _ _ d). simplify.
+    destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
+    subst. destruct f. f_equal.
+    apply range_unique.
+  Qed.
+
+  Lemma ffix_mem_induction x (P: ffix -> Prop)
+        (STEP: forall m (IND: forall y, fmem m y -> P y), P (Ffix m)):
+    P x.
+  Proof.
+    assert (H : forall m (IND: forall y, ffix_ord y m -> P y), P m). intros.
+    rewrite <- (des_correct1 m) in *. apply STEP.
+    intros. apply IND.
+    apply (mem_to_ord _ _ X).
+    apply (ffix_ord_induction x _ H).
+  Qed.
+
+  Definition ffix_des_ord' u (R: range u): forall x (MEM: fmem (ffix_des0 R) x),
+      less_ones (existT _ _ R).
+    intros.
+    destruct R. apply SPFunctorFacts.NATURAL_MEM1 in MEM.
+    apply (w_ord (tn1_step _ _ _ _ (Ffix_ord (MEM0 _ MEM) (Range m MEM0)
+                                             (Ufix_ord MEM)))).
+  Defined.
+
+  Definition ffix_des_ord (x: ffix) : PF (less_ones x) :=
+    match x with
+    | existT _ _ p => fmap_dep _ (ffix_des_ord' p) end.
+
+  Definition destruct_order m : forall x, fmem m x -> ffix_ord_c x (Ffix m).
+    intros. destruct x. unfold Ffix.
+    repeat constructor.
+    apply SPFunctorFacts.NATURAL_MEM1 in X. rewrite SPFunctorFacts.NATURAL_MAP.
+    inv X. simplify.
+    apply (Function_mem _ _ _ d). simplify.
+    destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
+    subst. auto.
+  Defined.
+
+  Lemma des_ord_correct m 
+    : ffix_des_ord (Ffix m) 
+      = fmap_dep m (fun x r => w_ord (destruct_order m x r)).
+  Proof.
+    apply SPFunctorFacts.map_injective with (f := (fun x => projT1 (v_get x))).
+    - intros. destruct x1, x2. destruct x, x0.
+      simpl in EQ. subst.
+      assert (EQ := range_unique r r0). subst.
+      f_equal. apply proof_irrelevance.
+    - simplify. rewrite SFunctor.MAP_DEP; [| intros; auto].
+      replace (Functor.map (SFunctor.base PF) (fun x : less_ones (Ffix m) => projT1 (v_get x))
+    (SFunctor.map_dep (SFunctor.ext PF) m
+       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
+        w_ord (destruct_order m x r)))) with
+          (Functor.map (SFunctor.base PF) (@projT1 _ _) (Functor.map (SFunctor.base PF) (@v_get _)
+                                               (SFunctor.map_dep (SFunctor.ext PF) m (fun x r =>
+                                                                    w_ord (destruct_order m x r))))); [| apply Functor.MAP_COMPOSE].
+      f_equal.
+      rewrite SFunctor.MAP_DEP; auto.
+  Qed.
+
+  Definition frec_p T (f: PF T -> T) : ffix -> T :=
+    frec (fun (m: ffix) g =>
+            let g' (m': less_ones m) : T :=
+                match m' with
+                | @w_ord _ m'' r => g m'' r end in
+            f (fmap g' (ffix_des_ord m))).
+
+  Lemma frec_p_red T (f: PF T -> T) m :
+    frec_p f (Ffix m) = f (fmap (frec_p f) m).
+  Proof.
+    unfold frec_p. rewrite frec_red.
+    f_equal. rewrite des_ord_correct.
+    remember (frec
+              (fun (m0 : ffix) (g : forall y : ffix, ffix_ord_c y m0 -> T) =>
+               f
+                 (fmap (fun m'0 : less_ones m0 =>
+                        match m'0 with
+                        | @w_ord _ m''0 r0 => g m''0 r0
+                        end) (ffix_des_ord m0)))) as g.
+    replace (fun m' : less_ones (Ffix m) => match m' with
+                                       | @w_ord _ m'' _ => g m''
+                                       end) with (fun m' => g (@v_get (Ffix m) m'));
+      [| extensionality s; destruct s; auto].
+    simplify.
+    replace (Functor.map (SFunctor.base PF) (fun m' : less_ones (Ffix m) => g (v_get m'))
+    (SFunctor.map_dep (SFunctor.ext PF) m
+       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
+        w_ord (destruct_order m x r)))) with
+        (Functor.map (SFunctor.base PF) g (Functor.map (SFunctor.base PF) (@v_get _)
+                                                       (SFunctor.map_dep (SFunctor.ext PF) m
+       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
+        w_ord (destruct_order m x r))))); [| apply Functor.MAP_COMPOSE].
+    f_equal. apply SFunctor.MAP_DEP. auto.
+  Qed.
+
 End FFix.
 
+Arguments w_ord {PF y} x ORD.
+
+Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d destruct_order.
+
+Ltac msimpl := repeat (autounfold;
+                       repeat rewrite frec_red;
+                       repeat rewrite frec_d_red;
+                       repeat rewrite frec_p_red;
+                       repeat rewrite des_ord_correct;
+                       repeat rewrite des_correct1;
+                       repeat rewrite des_correct2;
+                       simpl).
+
+Ltac msimpl_in H := repeat (autounfold;
+                            repeat rewrite frec_red in H;
+                            repeat rewrite frec_p_red in H;
+                            repeat rewrite frec_d_red in H;
+                            repeat rewrite des_ord_correct in H;
+                            repeat rewrite des_correct1 in H;
+                            repeat rewrite des_correct2 in H;
+                            simpl in H).
 
 (* Instances *)
 
@@ -282,3 +634,187 @@ Next Obligation.
   econstructor.
 Qed.
 Canonical Structure option_SPFunctorType := spFunctorType _ option_SPFunctorMixin.
+
+
+Module opt_nat.
+
+Definition nat := ffix option_SPFunctorType.
+Definition O := Ffix option_SPFunctorType None.
+Definition S x := Ffix option_SPFunctorType (Some x).
+
+Definition to_nat := frec (fun (n: nat) f =>
+match ffix_des_ord n with
+| None => 0
+| Some (w_ord n' pf) => (f n' pf) + 1 end).
+
+Lemma sssss : to_nat (S (S (S O))) = 3.
+Proof.
+  unfold S. unfold to_nat. unfold O.
+  msimpl. auto.
+Qed.
+
+Definition fibonacci := Mfixpoint_fn (fun (n: nat) f =>
+match Mfix_destruct_ord n with
+| None => 1
+| Some (morder n' pf1) =>
+  match Mfix_destruct_ord n' with
+  | None => 1
+  | Some (morder n'' pf2) => (f n' pf1) + (f n'' (link_order pf2 pf1)) end end).
+
+Fixpoint to_nat2 (n: Datatypes.nat) : nat :=
+match n with
+| Datatypes.O => O
+| Datatypes.S n' => S (to_nat2 n') end.
+
+Definition ackermann := Mfixpoint_fn (fun (n: nat) f =>
+match Mfix_destruct_ord n with
+| None => (fun m => Mfix_mk Option_sspf (Some m))
+| Some (morder n' pf1) =>
+  Mfixpoint_fn (fun (m: nat) g =>
+  match Mfix_destruct_ord m with
+  | None => f n' pf1 (Mfix_mk Option_sspf (Some (Mfix_mk Option_sspf None)))
+  | Some (morder m' pf2) => f n' pf1 (g m' pf2) end)
+end).
+
+(*
+Eval compute in (fibonacci (to_nat2 20)).
+
+Eval compute in (fibonacci (S (S (S (S (S O)))))).
+ = 8
+
+Eval compute in (to_nat (S (S (S (S O))))). 
+ = 4
+
+Eval compute in (to_nat (ackermann (S (S O)) (S (S O)))).
+Eval compute in (ack 2 2).
+
+*)
+
+Lemma fibonacci_c_2 : forall n, fibonacci (S (S n)) = fibonacci (S n) + fibonacci n.
+Proof.
+  intros. unfold fibonacci, S.
+  msimpl. auto.
+Qed.
+
+Lemma ackermann_c_1 : forall n, ackermann O n = S n.
+Proof.
+  intros. unfold ackermann, O, S.
+  msimpl. auto.
+Qed.
+
+Lemma ackermann_c_2 : forall m, ackermann (S m) O = ackermann m (S O).
+Proof.
+  intros. unfold ackermann, O, S.
+  msimpl. auto. 
+Qed.
+
+Lemma ackermann_c_3 : forall m n, ackermann (S m) (S n) = ackermann m (ackermann (S m) n).
+Proof.
+  intros. unfold ackermann, O, S.
+  msimpl. auto. 
+Qed.
+
+(* TODO induction and inversion tactic*)
+
+Definition pred (n: nat) :=
+match Mfix_destruct n with
+| None => Mfix_mk Option_sspf None
+| Some x => x end.
+
+Definition evenb := Mfixpoint_fn (fun (n:nat) f =>
+match Mfix_destruct_ord n with
+| None => true
+| Some (morder n' pf1) =>
+  match Mfix_destruct_ord n' with
+  | None => false
+  | Some (morder n'' pf2) => f n'' (link_order pf2 pf1) end end).
+
+Definition oddb (n:nat) : bool := negb (evenb n).
+
+Definition plus := Mfixpoint_fn (fun (n : nat) f =>
+(fun (m : nat) =>
+match Mfix_destruct_ord n with
+| None => m
+| Some (morder n' pf) => Mfix_mk Option_sspf (Some (f n' pf m)) end)).
+
+Definition mult := Mfixpoint_fn (fun (n: nat) f =>
+(fun (m : nat) =>
+match Mfix_destruct_ord n with
+| None => Mfix_mk Option_sspf None
+| Some (morder n' pf) => plus m (f n' pf m)
+end)).
+
+Definition minus := Mfixpoint_fn (fun (n: nat) f =>
+(fun (m: nat) => 
+match Mfix_destruct_ord n with
+| None => Mfix_mk Option_sspf None
+| Some (morder n' pf) =>
+  match Mfix_destruct m with
+  | None => n
+  | Some m' => f n' pf m' end end)).
+
+Definition exp (base: nat) := Mfixpoint_fn (fun (power : nat) f =>
+match Mfix_destruct_ord power with
+| None => Mfix_mk Option_sspf (Some (Mfix_mk Option_sspf None))
+| Some (morder p pf) => mult base (f p pf) end).
+
+Notation "x + y" := (plus x y)
+                       (at level 50, left associativity)
+                       : nat_scope.
+Notation "x - y" := (minus x y)
+                       (at level 50, left associativity)
+                       : nat_scope.
+Notation "x * y" := (mult x y)
+                       (at level 40, left associativity)
+                       : nat_scope.
+
+Theorem plus_n_O : forall n:nat, n = n + (Mfix_mk Option_sspf None).
+Proof.
+  intro n. minductionr n. destruct m; unfold plus in *; simpl in IND.
+  - specialize (IND m (eq_refl m)).
+    rewrite IND at 1. msimpl. auto.
+  - msimpl. auto.
+Qed.
+
+Theorem plus_n_Sm : forall n m : nat,
+  Mfix_mk Option_sspf (Some (n + m)) = n + (Mfix_mk Option_sspf (Some m)).
+Proof.
+  intro. minductionr n. destruct m; unfold plus in *.
+  - msimpl. intro.
+    specialize (IND m (eq_refl m) m0). msimpl_in IND.
+    rewrite IND. auto.
+  - msimpl. auto.
+Qed.
+
+Theorem plus_comm : forall n m : nat,
+  n + m = m + n.
+Proof.
+  intro. minductionr n; destruct m.
+  - intro. unfold plus. msimpl. fold plus.
+    rewrite IND.
+    apply plus_n_Sm.
+    constructor.
+  - intro. unfold plus. msimpl.
+    apply plus_n_O.
+Qed.
+
+Inductive lt : nat -> nat -> Prop :=
+| lt_base n : lt n (S n)
+| lt_stem n m : lt n m -> lt n (S m).
+
+Definition bbb (n: nat) :=
+match Mfix_destruct n with
+| None => 1
+| Some n' => 1 end.
+
+Lemma bbb1 n : bbb n = 1.
+Proof.
+  mdestruct n a. destruct a; unfold bbb; msimpl; auto.
+Qed.
+
+Lemma sss n : S (S n) = S O -> False.
+Proof.
+  intros. apply mfix_mk_inj in H.
+  inversion H.
+Qed.
+
