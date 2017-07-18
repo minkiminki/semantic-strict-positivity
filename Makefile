@@ -1,5 +1,5 @@
 COQMODULE    := ssp
-COQTHEORIES  := *.v
+COQTHEORIES  := *.v ./paco/*.v
 
 .PHONY: all theories clean
 
@@ -13,6 +13,7 @@ quick: Makefile.coq
 
 Makefile.coq: Makefile $(COQTHEORIES)
 	(echo "-R . ssp"; \
+	echo "-R ./paco Paco"; \
    \
    echo $(COQTHEORIES)) > _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
