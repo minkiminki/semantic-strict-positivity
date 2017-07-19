@@ -3,6 +3,7 @@
 *.vio
 *.v.d
 *.glob
+\#*\#
 
 _CoqProject
 Makefile.coq
