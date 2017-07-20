@@ -42,7 +42,7 @@ Section FCoFix.
   Lemma Fcofix_range (x: PF fcofix) : c_range (Ucofix (femb (fmap fcofix_to_ucofix x))).
   Proof.
     constructor. intros.
-    rewrite SPFunctorFacts.NATURAL_MAP in X. inv X. simplify.
+    rewrite SPFunctorFacts.NATURAL_MAP in H. inv H. simplify.
     destruct (SPFunctor.embedding PF fcofix x) eqn: EQ; [|inv MEM].
     subst. destruct f. auto.
   Defined. 
@@ -69,14 +69,14 @@ Section FCoFix.
                  (fcofix_des0' (c_Range m MEM0))) eqn : EQ.
     unfold proj1_sig in MEM.
     inversion e. apply SPFunctorFacts.INJECTIVE in H0. subst.
-    apply SPFunctorFacts.NATURAL_MEM1 in MEM. auto.
+    apply SPFunctorFacts.NATURAL_MEM in MEM. auto.
   Defined.
 
   Definition fcofix_des (f:fcofix): PF fcofix :=
     fmap_dep (fcofix_des0 (proj2_sig f)) (fcofix_des1 (proj2_sig f)).
 
-  Lemma c_range_unique2 : forall (x1 x2: ucofix) p1 p2,
-    x1 = x2 -> exist c_range x1 p1 = exist c_range x2 p2.
+  Lemma sig_unique : forall X (P: X -> Prop) (x1 x2: X) p1 p2,
+    x1 = x2 -> exist P x1 p1 = exist P x2 p2.
   Proof.
     intros. subst.
     replace p1 with p2. auto.
@@ -105,7 +105,7 @@ Section FCoFix.
   Lemma c_des_correct1 x: Fcofix (fcofix_des x) = x.
   Proof.
     destruct x. destruct c. unfold Fcofix.
-    apply c_range_unique2.
+    apply sig_unique.
     f_equal. f_equal. unfold fcofix_des.
     rewrite SFunctor.MAP_DEP.
     - unfold fcofix_des0.
@@ -155,48 +155,150 @@ Axiom BSM_eq : forall (x1 x2 : Mcofixpoint), BSM x1 x2 <-> x1 = x2.
   Admitted.
 *)
 
-  Inductive A_or_coinductive_ (A : Type) : Type :=
-  | _val_A : fcofix -> A_or_coinductive_ A
-  | _grd_A : UF PF.(SPFunctor.Sh1) PF.(SPFunctor.Sh2) (A_or_coinductive_ A) ->
-             A_or_coinductive_ A.
+  Inductive grd_ucofix (A : Type) : Type :=
+  | _val : fcofix -> grd_ucofix A
+  | _grd : UF PF.(SPFunctor.Sh1) PF.(SPFunctor.Sh2) (sum A (grd_ucofix A))
+             -> grd_ucofix A.
 
-  Inductive P_Aoc (A: Type) : A_or_coinductive_ A -> Prop :=
-  | 
+  Inductive grd_range (A: Type) : grd_ucofix A -> Prop :=
+  | _val_r x : grd_range (_val A x)
+  | _grd_r (m: PF (sum A (grd_ucofix A)))
+             (MEM: forall a, fmem (femb m) (inr a) -> grd_range a)
+    : grd_range (_grd (femb m)).
 
+  Definition grd_fcofix (A: Type) := sig (@grd_range A). 
 
-  CoInductive ucofix: Type :=
-  | Ucofix: UF PF.(SPFunctor.Sh1) PF.(SPFunctor.Sh2) ucofix -> ucofix
-  .
+  Definition val A (x: fcofix) : grd_fcofix A := exist _ _ (_val_r A x).
 
-  CoInductive c_range: forall (u:ucofix), Prop :=
-  | c_Range
-      (m: PF ucofix)
-      (MEM: forall u, fmem (femb m) u -> c_range u):
-      c_range (Ucofix (femb m))
-  .
+  Definition grd_fcofix_to_ucofix (A: Type) (x: sum A (grd_fcofix A))
+    : sum A (grd_ucofix A) :=
+    match x with
+    | inl a => inl a
+    | inr c => inr (proj1_sig c) end.
 
+  Lemma grd_fcofix_range A (x: PF (sum A (grd_fcofix A))) :
+                      grd_range (_grd (femb (fmap (@grd_fcofix_to_ucofix A) x))). 
+  Proof.
+    constructor. intros.
+    rewrite SPFunctorFacts.NATURAL_MAP in H. inv H. simplify.
+    unfold grd_fcofix_to_ucofix in MEM.
+    destruct (SPFunctor.embedding PF (A + grd_fcofix A) x d).
+    - destruct s; inversion MEM.
+      destruct g. auto.
+    - inversion MEM.
+  Defined.
 
-  Admitted.
+  Definition grd A (x: PF (sum A (grd_fcofix A))) : grd_fcofix A :=
+    exist _ _ (grd_fcofix_range A x).
 
-  Definition A_or_coinductive_inv (A : Type) (a: A_or_coinductive A)
-    : Mcofixpoint + M (sum A (A_or_coinductive A)).
-  Admitted.
+  Lemma grd_fcofix_des0' A u (R: grd_range (@_grd A u))
+    : ex (unique (fun m => u = femb m)).
+  Proof.
+    inv R. exists m. split; auto.
+    intros. apply SPFunctorFacts.INJECTIVE, H.
+  Defined.
 
-  Definition val_A A : Mcofixpoint -> A_or_coinductive A.
-  Admitted.
+  Definition grd_fcofix_des0 A u (R: grd_range (@_grd A u))
+    : PF (sum A (grd_ucofix A)) :=
+    proj1_sig (constructive_definite_description _ (grd_fcofix_des0' R)).
 
-  Definition grd_A A : M (sum A (A_or_coinductive A)) -> A_or_coinductive A.
-  Admitted.
+  Definition grd_fcofix_des1 A u (R: grd_range (@_grd A u)) x
+             (MEM: fmem (grd_fcofix_des0 R) x): sum A (grd_fcofix A).
+  Proof.
+    destruct x.
+    - apply (inl a).
+    - apply inr. exists g.
+      inversion R. apply MEM0.
+      unfold grd_fcofix_des0 in MEM.
+      destruct (constructive_definite_description
+                  (fun m : PF (A + grd_ucofix A)%type => u = femb (m))
+                  (grd_fcofix_des0' R)) eqn : EQ.
+      unfold proj1_sig in MEM.
+      subst. apply SPFunctorFacts.INJECTIVE in H0. subst.
+      apply SPFunctorFacts.NATURAL_MEM in MEM. auto.
+  Defined.
 
-  Lemma val_inv (A: Type) (x: Mcofixpoint) : A_or_coinductive_inv (val_A A x) = inl x.
-  Admitted.
+  Definition grd_fcofix_des A (f: grd_fcofix A)
+    : sum fcofix (PF (sum A (grd_fcofix A))).
+    destruct f.
+    destruct x.
+    - apply (inl f).
+    - apply inr.
+      apply (fmap_dep (grd_fcofix_des0 g) (grd_fcofix_des1 g)).
+  Defined.
 
-  Lemma grd_inv (A: Type) (m: M (sum A (A_or_coinductive A))) :
-    A_or_coinductive_inv (grd_A A m) = inr m.
-  Admitted.
+  Definition val_des_correct A (x: fcofix) : grd_fcofix_des (val A x) = inl x.
+  Proof.
+    auto.
+  Qed.
 
-  Definition to_coinductive A (f: A -> A_or_coinductive A)
-             (s: sum A (A_or_coinductive A)) : Mcofixpoint.
+  Definition grd_inj A x1 x2 (EQ: grd A x1 = grd A x2) : x1 = x2.
+  Proof.
+    unfold grd in EQ.
+    apply eq_sig_fst in EQ. inversion EQ.
+    apply SPFunctorFacts.INJECTIVE.
+    extensionality s. apply equal_f with s in H0.
+    repeat rewrite SPFunctorFacts.NATURAL_MAP in H0.
+    simplify.
+    destruct (SPFunctor.embedding PF (A + grd_fcofix A) x1 s);
+    destruct (SPFunctor.embedding PF (A + grd_fcofix A) x2 s); inversion H0; auto.
+    destruct s0, s1; inversion H1; eauto.
+    destruct g, g0. simpl in *. subst.
+    repeat apply f_equal. apply proof_irrelevance.
+  Qed.
+
+  Lemma grd_des_correct' A x f (EQ: grd_fcofix_des f = inr x) : grd A x = f.
+  Proof.
+    destruct f. inversion g.
+    - destruct x0; [inversion EQ| inversion H].
+    - destruct x0; inv H.
+      unfold grd. apply sig_unique.
+      f_equal. f_equal. simpl in *.
+      inv EQ.
+      rewrite SFunctor.MAP_DEP.
+      + unfold grd_fcofix_des0.
+        destruct (constructive_definite_description
+                    (fun m0 : PF (A + grd_ucofix A)%type => femb (m) = femb (m0))
+                    (grd_fcofix_des0' g)) eqn: EQ.
+        simpl.
+        apply SPFunctorFacts.INJECTIVE. auto.
+      + intros.
+        unfold grd_fcofix_to_ucofix.
+        destruct x; simpl; auto.
+  Qed.
+
+  Definition grd_des_correct A (f: PF (sum A (grd_fcofix A)))
+    : grd_fcofix_des (grd A f) = inr f.
+  Proof.
+    assert (grd_fcofix_des (grd A f) =
+            inr (SFunctor.map_dep PF (grd_fcofix_des0 (grd_fcofix_range A f))
+                                  (grd_fcofix_des1 (grd_fcofix_range A f)))); auto.
+    apply grd_des_correct' in H.
+    apply grd_inj in H.
+    simpl. f_equal. auto.
+  Qed.
+
+  Definition to_ucofix A (f: A -> grd_ucofix A)
+             (s: sum A (grd_ucofix A)) : ucofix.
+    revert s. cofix.
+    intro.
+    destruct s.
+    - specialize (f a). 
+      destruct f.
+      destruct x.
+      + destruct f. apply x.
+      + apply (Ucofix (fmap to_coinductive u)).
+
+        Guarded.
+
+    specialize (f  term+)
+    constructor. unfold UF.
+    intros.
+    
+    
+
+  Definition to_coinductive A (f: A -> grd_fcofix A)
+             (s: sum A (grd_fcofix A)) : fcofix.
   Admitted.
 
   Definition MCoFix A (f: A -> A_or_coinductive A) (a: A) : Mcofixpoint.
