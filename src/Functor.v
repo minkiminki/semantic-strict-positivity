@@ -87,7 +87,7 @@ End NatTrans.
 
 Module SFunctor.
   Record mixin_of (F: Type -> Type) (F_map: forall T1 T2 (f: forall (x1:T1), T2) (fx1:F T1), F T2): Type := Mixin {
-    mem: forall X, F X -> X -> Type;
+    mem: forall X, F X -> X -> Prop;
     map_dep: forall X Y (fx:F X) (f: forall x (MEM:mem fx x), Y), F Y;
     rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
 
@@ -131,8 +131,7 @@ Section SNatTrans.
   Variable (F G: sFunctorType).
 
   Record mixin_of (NT: forall (X:Type) (fx:F X), G X): Type := Mixin {
-    MEM1: forall X fx (x:X), fmem fx x -> fmem (NT _ fx) x;
-    MEM2: forall X fx (x:X), fmem (NT _ fx) x -> fmem fx x;
+    MEM: forall X fx (x:X), fmem fx x <-> fmem (NT _ fx) x;
     REL: forall T1 T2 (rel: forall (x1:T1) (x2:T2), Prop) fx1 fx2,
         frel rel fx1 fx2 <-> frel rel (NT _ fx1) (NT _ fx2);
   }.
@@ -227,7 +226,7 @@ Program Canonical Structure const_sFunctorType (T:Type) := SFunctorType (Functor
 Definition function_map D (F: functorType) T1 T2 (f: T1 -> T2) (fx1: D -> F T1) :=
   (fmap f) ∘ fx1.
 
-Inductive function_mem D (F: sFunctorType) T (fx: D -> F T) x: Type :=
+Inductive function_mem D (F: sFunctorType) T (fx: D -> F T) x: Prop :=
 | Function_mem d (MEM: fmem (fx d) x)
 .
 
