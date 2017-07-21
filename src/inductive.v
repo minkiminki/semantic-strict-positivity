@@ -306,7 +306,7 @@ Check inl.
     match x with
     | exist _ _ p => fmap_dep _ (ffix_des_ord' p) end.
 
-  Definition destruct_order m : forall x, fmem m x -> ffix_ord_c x (Ffix m).
+  Definition order_part m : forall x, fmem m x -> ffix_ord_c x (Ffix m).
     intros. destruct x. unfold Ffix.
     repeat constructor.
     apply SPFunctorFacts.NATURAL_MEM in H. rewrite SPFunctorFacts.NATURAL_MAP.
@@ -318,7 +318,7 @@ Check inl.
 
   Lemma des_ord_correct m 
     : ffix_des_ord (Ffix m) 
-      = fmap_dep m (fun x r => w_ord (destruct_order m x r)).
+      = fmap_dep m (fun x r => w_ord (order_part m x r)).
   Proof.
     apply SPFunctorFacts.map_injective with (f := (fun x => proj1_sig (v_get x))).
     - intros. destruct x1, x2. destruct x, x0.
@@ -330,10 +330,10 @@ Check inl.
       replace (Functor.map (SFunctor.base PF) (fun x : less_ones (Ffix m) => proj1_sig (v_get x))
     (SFunctor.map_dep (SFunctor.ext PF) m
        (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (destruct_order m x r)))) with
+        w_ord (order_part m x r)))) with
           (Functor.map (SFunctor.base PF) (@proj1_sig _ _) (Functor.map (SFunctor.base PF) (@v_get _)
                                                (SFunctor.map_dep (SFunctor.ext PF) m (fun x r =>
-                                                                    w_ord (destruct_order m x r))))); [| apply Functor.MAP_COMPOSE].
+                                                                    w_ord (order_part m x r))))); [| apply Functor.MAP_COMPOSE].
       f_equal.
       rewrite SFunctor.MAP_DEP; auto.
   Qed.
@@ -365,11 +365,11 @@ Check inl.
     replace (Functor.map (SFunctor.base PF) (fun m' : less_ones (Ffix m) => g (v_get m'))
     (SFunctor.map_dep (SFunctor.ext PF) m
        (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (destruct_order m x r)))) with
+        w_ord (order_part m x r)))) with
         (Functor.map (SFunctor.base PF) g (Functor.map (SFunctor.base PF) (@v_get _)
                                                        (SFunctor.map_dep (SFunctor.ext PF) m
        (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (destruct_order m x r))))); [| apply Functor.MAP_COMPOSE].
+        w_ord (order_part m x r))))); [| apply Functor.MAP_COMPOSE].
     f_equal. apply SFunctor.MAP_DEP. auto.
   Qed.
 
@@ -377,7 +377,7 @@ End FFix.
 
 Arguments w_ord {PF y} x ORD.
 
-Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d destruct_order.
+Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
 
 Ltac msimpl := repeat (autounfold;
                        repeat rewrite frec_red;
