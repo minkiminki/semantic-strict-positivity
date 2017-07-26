@@ -440,93 +440,94 @@ Section FCoFix.
     destruct s0; auto.
   Qed.
 
-
-  Definition bsm_fold_ (bsm : fcofix -> fcofix -> Prop) (x1 x2 : PF fcofix) :=
+  Definition _bsm_fold (bsm : fcofix -> fcofix -> Prop) (x1 x2 : PF fcofix) :=
     frel bsm (femb x1) (femb x2).
 
-  CoInductive bsm : fcofix -> fcofix -> Prop :=
-  | bsm_fold : forall (x1 x2 : PF fcofix), frel bsm (femb x1) (femb x2) ->
-                                             bsm (Fcofix x1) (Fcofix x2).
+  Inductive bsm_gen bsm : fcofix -> fcofix -> Prop :=
+  | _bsm_gen : forall (x1 x2 : PF fcofix) (R: _bsm_fold bsm x1 x2),
+      bsm_gen bsm (Fcofix x1) (Fcofix x2).
+  Hint Constructors bsm_gen.
 
-  CoInductive u_bsm : ucofix -> ucofix -> Prop :=
-  | u_bsm_fold : forall u1 u2, frel u_bsm u1 u2 -> u_bsm (Ucofix u1) (Ucofix u2).
+  Definition bsm x1 x2 := paco2 bsm_gen bot2 x1 x2.
+  Hint Unfold bsm.
+  Lemma bsm_gen_mon : monotone2 bsm_gen.
+  Proof.
+    unfold monotone2. intros. inv IN. constructor.
+    unfold rel2 in r. unfold _bsm_fold in *.
+    apply (UF_rel_monotone _ LE R).
+  Qed.
+  Hint Resolve bsm_gen_mon : paco.
+
+  Inductive u_bsm_gen u_bsm : ucofix -> ucofix -> Prop :=
+  | _u_bsm_gen : forall u1 u2 (R: frel u_bsm u1 u2),
+      u_bsm_gen u_bsm (Ucofix u1) (Ucofix u2).
+  Hint Constructors u_bsm_gen.
+
+  Definition u_bsm u1 u2 := paco2 u_bsm_gen bot2 u1 u2.
+  Hint Unfold u_bsm.
+  Lemma u_bsm_gen_mon : monotone2 u_bsm_gen.
+  Proof.
+    unfold monotone2. intros. inv IN. constructor.
+    apply (UF_rel_monotone _ LE R).
+  Qed.
+  Hint Resolve u_bsm_gen_mon : paco.
+
+  Lemma _bsm_fold_eq x1 x2 : _bsm_fold bsm x1 x2 <-> frel bsm x1 x2.
+  Proof.
+    unfold _bsm_fold; split; intros;
+    apply SPFunctorFacts.NATURAL_REL; auto.
+  Qed.
 
   Lemma eq_u_bsm : forall u1 u2, u1 = u2 -> u_bsm u1 u2.
   Proof.
-    cofix.
-    intros. subst.
-    destruct u2. constructor.
-    simplify. intros.
-    destruct (u d); constructor.
-    - apply eq_u_bsm. auto.
-    - constructor.
-  Defined.
+    pcofix CIH.
+    intros. subst. pfold.
+    destruct u2. constructor. simplify.
+    intros. destruct (u d);
+    constructor; simplify; auto.
+  Qed.
 
   Axiom u_bsm_eq : forall u1 u2, u_bsm u1 u2 -> u1 = u2.
 
-  Lemma u_bsm_equiv x1 x2
-    : bsm x1 x2 <-> u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2).
+  Lemma bsm_u_bsm x1 x2 (BSM: bsm x1 x2)
+    : u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2).
   Proof.
-    split; revert x2; revert x1.
-    - cofix.
-      intros.
-      destruct x1, x2. inversion c. inversion c0. inv H.
-      constructor. simplify.
-      intros. inversion H2. inversion H3. clear H2 H3.
-      rewrite H0. rewrite H1.
-      destruct (SPFunctor.embedding PF ucofix m d) eqn : EQ1;
-      destruct (SPFunctor.embedding PF ucofix m0 d) eqn : EQ2;
-      rewrite <- H0 in EQ1; rewrite <- H1 in EQ2.
-      + constructor. simpl.
-        
-        
+    revert x1 x2 BSM. pcofix CIH.
+    intros. pfold.
+    destruct x1, x2. destruct x, x0.
+    constructor. simplify. intros.
+    destruct (u d) eqn : EQ1; destruct (u0 d) eqn : EQ2.
+    - constructor. simplify.
+      punfold BSM.
+      inv BSM. unfold _bsm_fold in R. simplify.
+      specialize (R d). inv R.
+      simplify. destruct REL.
+      specialize (CIH _ _ H1).
+      right.
+      replace (fcofix_to_ucofix fx1) with u1 in CIH.
+      replace (fcofix_to_ucofix fx2) with u2 in CIH.
+      auto.
+      admit.
+      admit.
+      inversion H1.
+      simplify. subst.
+  Admitted.
 
-  Inductive u_bsm_gen1 u_bsm1 : ucofix -> ucofix -> Prop :=
-  | _u_bsm_gen1 : forall u1 u2 (R : frel u_bsm1 u1 u2 : Prop),
-      u_bsm_gen1 u_bsm1 (Ucofix u1) (Ucofix u2).
-
-  CoInductive u_bsm1 : ucofix -> ucofix -> Prop :=
-  | u_bsm_fold1 : forall u1 u2, u_bsm_gen1 u_bsm1 u1 u2 -> u_bsm1 u1 u2.
-
-  Definition bsm1 (x1: fcofix) (x2:  fcofix) : Prop :=
-    match x1, x2 with
-    | (exist _ u1 _), (exist _ u2 _) => u_bsm1 u1 u2 end.
-
-
-
-
-  Lemma bsm1_unfold x1 x2: bsm1 x1 x2 -> frel bsm1 (fcofix_des x1) (fcofix_des x2).
+  Lemma u_bsm_bsm x1 x2 (BSM: u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2))
+    : bsm x1 x2.
   Proof.
-    intros. destruct x1, x2. inversion c. inversion c0. subst.
-    simpl in H. destruct H. inversion H. subst.
-    apply SPFunctorFacts.NATURAL_REL.
-    
+  Admitted.
 
-    constructor.
+  Lemma bsm_eq x1 x2 : bsm x1 x2 <-> x1 = x2.
+  Proof.
+    split; intros.
+    - apply bsm_u_bsm in H. apply u_bsm_eq in H.
+      destruct x1, x2. apply sig_unique. auto.
+    - apply u_bsm_bsm. apply eq_u_bsm.
+      subst. auto.
+  Qed.
 
-
-    assert (ssH := femb (fcofix_des (exist c_range (Ucofix u0) c))).
-
-    replace (femb (fcofix_des (exist c_range (Ucofix u0) c))) with u0.
-    simpl.
-    
-
-    
-
-unfold bsm1 in H.
-    
-
-
-Inductive seq_gen seq : stream → stream → Prop :=
-  | _seq_gen : ∀ n s1 s2 (R : seq s1 s2 : Prop), seq_gen seq (cons n s1) (cons n s2).
-Hint Constructors seq_gen.
-
-CoInductive seq : stream → stream → Prop :=
-  | seq_fold : ∀ s1 s2, seq_gen seq s1 s2 → seq s1 s2.
-
-
-
-Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec.
+  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec _bsm_fold.
 
   Definition fcorec_p A (f: A -> PF A) : A -> fcofix :=
     fcorec (fun a: A => grd A (fmap inl (f a))).

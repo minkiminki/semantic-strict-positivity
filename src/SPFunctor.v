@@ -71,6 +71,21 @@ Section UniversalFunctor.
     econstructor. simplify. rewrite EQ. auto.
   Qed.
 
+  Lemma UF_rel_monotone X (u1 u2: UF X) (r r': X -> X -> Prop)
+        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: frel r u1 u2)
+        : frel r' u1 u2.
+  Proof.
+    simplify. intros. specialize (R d).
+    inv R; constructor; simplify; auto.
+  Qed.
+
+  Lemma UF_map_mem X Y (f: X -> Y) (u: UF X) (x: X) (MEM: fmem u x)
+        : fmem (fmap f u) (f x).
+  Proof.
+    inv MEM. econstructor. instantiate (1:=d). simplify.
+    destruct (u d); inversion MEM0. auto.
+  Qed.
+
 End UniversalFunctor.
 
 
@@ -162,8 +177,8 @@ Module SPFunctorFacts.
          (EQ: fmap f u1 = fmap f u2):
      u1 = u2.
   Proof.
-    apply (SPFunctorFacts.INJECTIVE PF). apply (UF_map_injective INJ).
-    repeat rewrite <- SPFunctorFacts.NATURAL_MAP.
+    apply (INJECTIVE PF). apply (UF_map_injective INJ).
+    repeat rewrite <- NATURAL_MAP.
     rewrite EQ. auto.
   Qed.
 
@@ -171,10 +186,26 @@ Module SPFunctorFacts.
         (ALL: forall x, fmem m x -> f x = g x):
     fmap f m = fmap g m.
   Proof.
-    apply SPFunctorFacts.INJECTIVE. 
-    repeat rewrite SPFunctorFacts.NATURAL_MAP.
+    apply INJECTIVE. 
+    repeat rewrite NATURAL_MAP.
     apply UF_map_pointwise.
     intros. apply ALL, NATURAL_MEM, H.
+  Qed.
+
+  Lemma rel_monotone {PF: SPFunctorType} {X} {u1 u2: PF X} {r r': X -> X -> Prop}
+        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: frel r u1 u2)
+        : frel r' u1 u2.
+  Proof.
+    apply NATURAL_REL. apply NATURAL_REL in R.
+    apply (UF_rel_monotone _ LE). auto.
+  Qed.
+
+  Lemma map_mem (PF: SPFunctorType) X Y (f: X -> Y) (u: PF X) (x: X) (MEM: fmem u x)
+        : fmem (fmap f u) (f x).
+  Proof.
+    apply NATURAL_MEM. apply NATURAL_MEM in MEM.
+    rewrite NATURAL_MAP.
+    apply UF_map_mem. auto.
   Qed.
 
 End SPFunctorFacts.
