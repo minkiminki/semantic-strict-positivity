@@ -461,21 +461,3 @@ Qed.
 Canonical Structure option_SPFunctorType := spFunctorType _ option_SPFunctorMixin.
 
 
-Module opt_nat.
-
-Definition nat := ffix option_SPFunctorType.
-Definition O := Ffix option_SPFunctorType None.
-Definition S x := Ffix option_SPFunctorType (Some x).
-
-Definition to_nat := frec (fun (n: nat) f =>
-match ffix_des_ord n with
-| None => 0
-| Some (w_ord n' pf) => (f n' pf) + 1 end).
-
-Lemma sssss : to_nat (S (S (S O))) = 3.
-Proof.
-  unfold S. unfold to_nat. unfold O.
-  msimpl. auto.
-Qed.
-
-End opt_nat.

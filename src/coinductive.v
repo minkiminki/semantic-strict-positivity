@@ -440,6 +440,92 @@ Section FCoFix.
     destruct s0; auto.
   Qed.
 
+
+  Definition bsm_fold_ (bsm : fcofix -> fcofix -> Prop) (x1 x2 : PF fcofix) :=
+    frel bsm (femb x1) (femb x2).
+
+  CoInductive bsm : fcofix -> fcofix -> Prop :=
+  | bsm_fold : forall (x1 x2 : PF fcofix), frel bsm (femb x1) (femb x2) ->
+                                             bsm (Fcofix x1) (Fcofix x2).
+
+  CoInductive u_bsm : ucofix -> ucofix -> Prop :=
+  | u_bsm_fold : forall u1 u2, frel u_bsm u1 u2 -> u_bsm (Ucofix u1) (Ucofix u2).
+
+  Lemma eq_u_bsm : forall u1 u2, u1 = u2 -> u_bsm u1 u2.
+  Proof.
+    cofix.
+    intros. subst.
+    destruct u2. constructor.
+    simplify. intros.
+    destruct (u d); constructor.
+    - apply eq_u_bsm. auto.
+    - constructor.
+  Defined.
+
+  Axiom u_bsm_eq : forall u1 u2, u_bsm u1 u2 -> u1 = u2.
+
+  Lemma u_bsm_equiv x1 x2
+    : bsm x1 x2 <-> u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2).
+  Proof.
+    split; revert x2; revert x1.
+    - cofix.
+      intros.
+      destruct x1, x2. inversion c. inversion c0. inv H.
+      constructor. simplify.
+      intros. inversion H2. inversion H3. clear H2 H3.
+      rewrite H0. rewrite H1.
+      destruct (SPFunctor.embedding PF ucofix m d) eqn : EQ1;
+      destruct (SPFunctor.embedding PF ucofix m0 d) eqn : EQ2;
+      rewrite <- H0 in EQ1; rewrite <- H1 in EQ2.
+      + constructor. simpl.
+        
+        
+
+  Inductive u_bsm_gen1 u_bsm1 : ucofix -> ucofix -> Prop :=
+  | _u_bsm_gen1 : forall u1 u2 (R : frel u_bsm1 u1 u2 : Prop),
+      u_bsm_gen1 u_bsm1 (Ucofix u1) (Ucofix u2).
+
+  CoInductive u_bsm1 : ucofix -> ucofix -> Prop :=
+  | u_bsm_fold1 : forall u1 u2, u_bsm_gen1 u_bsm1 u1 u2 -> u_bsm1 u1 u2.
+
+  Definition bsm1 (x1: fcofix) (x2:  fcofix) : Prop :=
+    match x1, x2 with
+    | (exist _ u1 _), (exist _ u2 _) => u_bsm1 u1 u2 end.
+
+
+
+
+  Lemma bsm1_unfold x1 x2: bsm1 x1 x2 -> frel bsm1 (fcofix_des x1) (fcofix_des x2).
+  Proof.
+    intros. destruct x1, x2. inversion c. inversion c0. subst.
+    simpl in H. destruct H. inversion H. subst.
+    apply SPFunctorFacts.NATURAL_REL.
+    
+
+    constructor.
+
+
+    assert (ssH := femb (fcofix_des (exist c_range (Ucofix u0) c))).
+
+    replace (femb (fcofix_des (exist c_range (Ucofix u0) c))) with u0.
+    simpl.
+    
+
+    
+
+unfold bsm1 in H.
+    
+
+
+Inductive seq_gen seq : stream → stream → Prop :=
+  | _seq_gen : ∀ n s1 s2 (R : seq s1 s2 : Prop), seq_gen seq (cons n s1) (cons n s2).
+Hint Constructors seq_gen.
+
+CoInductive seq : stream → stream → Prop :=
+  | seq_fold : ∀ s1 s2, seq_gen seq s1 s2 → seq s1 s2.
+
+
+
 Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec.
 
   Definition fcorec_p A (f: A -> PF A) : A -> fcofix :=
