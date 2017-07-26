@@ -472,7 +472,7 @@ Section FCoFix.
   Qed.
   Hint Resolve u_bsm_gen_mon : paco.
 
-  Lemma _bsm_fold_eq x1 x2 : _bsm_fold bsm x1 x2 <-> frel bsm x1 x2.
+  Lemma _bsm_fold_eq r x1 x2 : _bsm_fold r x1 x2 <-> frel r x1 x2.
   Proof.
     unfold _bsm_fold; split; intros;
     apply SPFunctorFacts.NATURAL_REL; auto.
@@ -539,10 +539,9 @@ Section FCoFix.
     simplify. apply Functor.MAP_COMPOSE. 
   Qed.
 
+  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p_red.
+
 End FCoFix.
-
-
-Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p_red.
 
 Ltac csimpl := repeat (repeat rewrite c_des_correct1;
                        repeat rewrite c_des_correct2;
@@ -553,6 +552,7 @@ Ltac csimpl := repeat (repeat rewrite c_des_correct1;
                        repeat rewrite to_fcofix_correct1;
                        repeat rewrite to_fcofix_correct2;
                        repeat rewrite to_fcofix_correct3;
+                       repeat rewrite drop_id;
                        simpl).
 
 Ltac csimpl_in H := repeat (repeat rewrite c_des_correct1 in H;
@@ -564,4 +564,5 @@ Ltac csimpl_in H := repeat (repeat rewrite c_des_correct1 in H;
                             repeat rewrite to_fcofix_correct1 in H;
                             repeat rewrite to_fcofix_correct2 in H;
                             repeat rewrite to_fcofix_correct3 in H;
+                            repeat rewrite drop_id in H;
                             simpl in H).

@@ -355,6 +355,54 @@ Admitted.
 Canonical Structure coproduct_sFunctorType F1 F2 := SFunctorType _ (coproduct_sFunctorMixin F1 F2).
 
 
+Definition product_type (F1 F2: Type -> Type) T := (F1 T * F2 T)%type.
+
+Definition product_map (F1 F2: functorType) T1 T2 (f:T1 -> T2) (fx: F1 T1 * F2 T1) :=
+  match fx with
+  | (f1x, f2x) => (fmap f f1x, fmap f f2x)
+  end.
+
+Definition product_mem (F1 F2: sFunctorType) T (fx:product_type F1 F2 T) x :=
+  match fx with
+  | (f1x, f2x) => (fmem f1x x) \/ (fmem f2x x)
+  end.
+
+Definition product_rel (F1 F2: sFunctorType) T1 T2 f
+           (fx1:product_type F1 F2 T1) (fx2:product_type F1 F2 T2) : Prop :=
+  match fx1, fx2 with
+  | (f1x1, f2x1), (f1x2, f2x2) => (frel f f1x1 f1x2) /\ (frel f f2x1 f2x2) 
+  end.
+
+Hint Unfold product_map.
+Hint Unfold product_mem.
+
+Program Definition product_functorMixin (F1 F2: functorType) :=
+  @Functor.Mixin (product_type F1 F2) (product_map F1 F2) _ _.
+Next Obligation.
+  apply functional_extensionality. intro.
+  destruct x; simpl.
+  rewrite ? Functor.MAP_ID. auto.
+Qed.
+Next Obligation.
+  destruct x1; simpl.
+  f_equal; apply Functor.MAP_COMPOSE.
+Qed.
+Canonical Structure product_functorType F1 F2 := FunctorType (product_functorMixin F1 F2).
+
+Program Definition product_sFunctorMixin (F1 F2: sFunctorType) :=
+  @SFunctor.Mixin (product_type F1 F2) (product_map F1 F2)
+                  (@product_mem F1 F2) (fun _ _ _ _ => _) (@product_rel F1 F2) _ _.
+Next Obligation.
+Admitted.
+Next Obligation.
+  destruct fx; simpl in *.
+  destruct MEM; [left | right];
+  apply SFunctor.MEM; auto.
+Qed.
+Next Obligation.
+Admitted.
+Canonical Structure product_sFunctorType F1 F2 := SFunctorType _ (product_sFunctorMixin F1 F2).
+
 Program Definition compose_functorMixin (F1 F2: functorType) :=
   @Functor.Mixin (F2 ∘ F1) (fun _ _ f => fmap (fmap f)) _ _.
 Next Obligation.
@@ -380,3 +428,8 @@ Admitted.
 Next Obligation.
 Admitted.
 Canonical Structure compose_sFunctorType F1 F2 := SFunctorType _ (compose_sFunctorMixin F1 F2).
+
+Lemma drop_id X (x: X) : id x = x.
+Proof.
+  auto.
+Qed.

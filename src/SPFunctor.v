@@ -192,7 +192,7 @@ Module SPFunctorFacts.
     intros. apply ALL, NATURAL_MEM, H.
   Qed.
 
-  Lemma rel_monotone {PF: SPFunctorType} {X} {u1 u2: PF X} {r r': X -> X -> Prop}
+  Lemma rel_monotone (PF: SPFunctorType) X (u1 u2: PF X) (r r': X -> X -> Prop)
         (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: frel r u1 u2)
         : frel r' u1 u2.
   Proof.

@@ -26,18 +26,6 @@ Section FFix.
 
   Definition ffix_to_ufix (x:ffix): ufix := proj1_sig x.
 
-(*
-  Lemma range_injective x:
-    exists! x', Ufix (femb x') = ffix_to_ufix x.
-  Proof.
-    destruct x. destruct r.
-    econstructor. econstructor.
-    econstructor. econstructor; eauto.
-    intros. inv H. eapply SPFunctor.INJECTIVE; eauto.
-  Qed.
-*)
-
-
   Lemma Ffix_range (x: PF ffix) : range (Ufix (femb (fmap ffix_to_ufix x))).
   Proof.
     constructor. intros.
@@ -373,11 +361,11 @@ Check inl.
     f_equal. apply SFunctor.MAP_DEP. auto.
   Qed.
 
+  Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
+
 End FFix.
 
 Arguments w_ord {PF y} x ORD.
-
-Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
 
 Ltac msimpl := repeat (autounfold;
                        repeat rewrite frec_red;
@@ -386,6 +374,7 @@ Ltac msimpl := repeat (autounfold;
                        repeat rewrite des_ord_correct;
                        repeat rewrite des_correct1;
                        repeat rewrite des_correct2;
+                       repeat rewrite drop_id;
                        simpl).
 
 Ltac msimpl_in H := repeat (autounfold;
@@ -395,69 +384,7 @@ Ltac msimpl_in H := repeat (autounfold;
                             repeat rewrite des_ord_correct in H;
                             repeat rewrite des_correct1 in H;
                             repeat rewrite des_correct2 in H;
+                            repeat rewrite drop_id in H;
                             simpl in H).
 
 (* Instances *)
-
-Program Definition id_SPFunctorMixin :=
-  @SPFunctor.Mixin
-    id id_functorMixin.(Functor.map) id_sFunctorMixin.(SFunctor.mem) id_sFunctorMixin.(SFunctor.rel)
-    () Empty_set
-    (fun _ x _ => inl x)
-    _ _ _ _.
-Next Obligation.
-  eapply fapp in EQ; [|apply ()]. inv EQ. auto.
-Qed.
-Next Obligation.
-  split; intros.
-  - econstructor; [apply ()|].
-    subst. constructor.
-  - inv H. inv MEM. auto.
-Qed.
-Next Obligation.
-  simplify. constructor; intros.
-  - specialize (H ()). inv H. auto.
-  - econstructor. auto.
-Qed.
-Canonical Structure id_SPFunctorType := spFunctorType _ id_SPFunctorMixin.
-
-
-Program Definition option_SPFunctorMixin :=
-  @SPFunctor.Mixin
-    option option_functorMixin.(Functor.map) option_sFunctorMixin.(SFunctor.mem) option_sFunctorMixin.(SFunctor.rel)
-    () ()
-    (fun _ x _ =>
-       match x with
-       | Some x => inl x
-       | None => inr ()
-       end)
-    _ _ _ _.
-Next Obligation.
-  destruct x1, x2; simplify; auto.
-  - eapply fapp in EQ; [|apply ()]. inv EQ. auto.
-  - eapply fapp in EQ; [|apply ()]. inv EQ.
-  - eapply fapp in EQ; [|apply ()]. inv EQ.
-Qed.
-Next Obligation.
-  destruct fx1; auto.
-Qed.
-Next Obligation.
-  split; intros.
-  - econstructor; [apply ()|].
-    subst. constructor.
-  - inv H. destruct fx; simplify; inv MEM; auto.
-Qed.
-Next Obligation.
-  destruct fx1, fx2; simplify; auto; constructor; intros;
-    repeat (match goal with
-            | [H: () -> _ |- _] => specialize (H ())
-            | [H: option_frel _ _ _ |- _] => inv H
-            | [H: coproduct_rel _ _ _ _ _ |- _] => inv H
-            | [|- option_frel _ _ _] => econstructor
-            | [|- coproduct_rel _ _ _ _ _] => econstructor
-            end; auto).
-  econstructor.
-Qed.
-Canonical Structure option_SPFunctorType := spFunctorType _ option_SPFunctorMixin.
-
-
