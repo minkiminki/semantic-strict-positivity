@@ -440,11 +440,8 @@ Section FCoFix.
     destruct s0; auto.
   Qed.
 
-  Definition _bsm_fold (bsm : fcofix -> fcofix -> Prop) (x1 x2 : PF fcofix) :=
-    frel bsm (femb x1) (femb x2).
-
   Inductive bsm_gen bsm : fcofix -> fcofix -> Prop :=
-  | _bsm_gen : forall (x1 x2 : PF fcofix) (R: _bsm_fold bsm x1 x2),
+  | _bsm_gen : forall (x1 x2 : PF fcofix) (R: frel bsm x1 x2),
       bsm_gen bsm (Fcofix x1) (Fcofix x2).
   Hint Constructors bsm_gen.
 
@@ -453,8 +450,8 @@ Section FCoFix.
   Lemma bsm_gen_mon : monotone2 bsm_gen.
   Proof.
     unfold monotone2. intros. inv IN. constructor.
-    unfold rel2 in r. unfold _bsm_fold in *.
-    apply (UF_rel_monotone _ LE R).
+    unfold rel2 in r.
+    apply (SPFunctorFacts.rel_monotone _ _ _ _ _ LE R).
   Qed.
   Hint Resolve bsm_gen_mon : paco.
 
@@ -471,12 +468,6 @@ Section FCoFix.
     apply (UF_rel_monotone _ LE R).
   Qed.
   Hint Resolve u_bsm_gen_mon : paco.
-
-  Lemma _bsm_fold_eq r x1 x2 : _bsm_fold r x1 x2 <-> frel r x1 x2.
-  Proof.
-    unfold _bsm_fold; split; intros;
-    apply SPFunctorFacts.NATURAL_REL; auto.
-  Qed.
 
   Lemma eq_u_bsm : forall u1 u2, u1 = u2 -> u_bsm u1 u2.
   Proof.
@@ -495,28 +486,95 @@ Section FCoFix.
     revert x1 x2 BSM. pcofix CIH.
     intros. pfold.
     destruct x1, x2. destruct x, x0.
-    constructor. simplify. intros.
-    destruct (u d) eqn : EQ1; destruct (u0 d) eqn : EQ2.
-    - constructor. simplify.
-      punfold BSM.
-      inv BSM. unfold _bsm_fold in R. simplify.
-      specialize (R d). inv R.
-      simplify. destruct REL.
-      specialize (CIH _ _ H1).
-      right.
-      replace (fcofix_to_ucofix fx1) with u1 in CIH.
-      replace (fcofix_to_ucofix fx2) with u2 in CIH.
-      auto.
-      admit.
-      admit.
-      inversion H1.
-      simplify. subst.
-  Admitted.
+    constructor. simplify.
+
+    punfold BSM. inv BSM.
+    inv c. inv c0. apply SPFunctorFacts.NATURAL_REL in R.
+    rewrite SPFunctorFacts.NATURAL_MAP in H0.
+    rewrite SPFunctorFacts.NATURAL_MAP in H1.
+
+    rewrite H0. rewrite H1. rewrite H0 in MEM. rewrite H1 in MEM0. clear H0 H1 m m0.
+
+    intro. specialize (R d). simplify.
+
+    destruct (SPFunctor.embedding PF fcofix x1 d);
+    destruct (SPFunctor.embedding PF fcofix x2 d); inv R.
+    - simplify. constructor. destruct REL; [| inversion H].
+      simplify. right. apply CIH, H.
+    - simplify. subst. constructor. simplify. auto.
+  Qed.
 
   Lemma u_bsm_bsm x1 x2 (BSM: u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2))
     : bsm x1 x2.
   Proof.
-  Admitted.
+    revert x1 x2 BSM. pcofix CIH.
+    intros. pfold.
+    rewrite <- (c_des_correct1 x1). rewrite <- (c_des_correct1 x2).
+    constructor.
+
+    apply SPFunctorFacts.NATURAL_REL. simplify. intro.
+
+    assert (H : forall x y, fmap fcofix_to_ucofix (SPFunctor.embedding PF fcofix (fcofix_des (exist c_range (Ucofix femb x) y))) = femb x).
+    { intros. replace (SPFunctor.embedding PF fcofix (fcofix_des (exist c_range (Ucofix femb (x)) y))) with (femb (fcofix_des (exist c_range (Ucofix femb (x)) y))); auto.
+      rewrite <- SPFunctorFacts.NATURAL_MAP.
+      unfold fcofix_des. rewrite SFunctor.MAP_DEP.
+      unfold fcofix_des0. simpl.
+      destruct (constructive_definite_description
+                  (fun m1 : PF ucofix => Ucofix femb (x) = Ucofix femb (m1))
+                  (fcofix_des0' y)) eqn : EQ.
+      inversion e. apply SPFunctorFacts.INJECTIVE in H0. subst. eauto.
+      intros. auto.
+    }
+    
+    punfold BSM. inv BSM. simplify. specialize (R d). inv R.
+
+
+    - simplify. destruct REL; [|inversion H0].
+      destruct x1. destruct x2. simplify. subst.
+      inversion c. inversion c0. subst.
+
+      assert (c_range fx1).
+      { apply MEM. apply (Function_mem _ _ _ d). simplify. rewrite <- H3. auto. }
+      assert (c_range fx2).
+      { apply MEM0. apply (Function_mem _ _ _ d). simplify. rewrite <- H4. auto. }
+      replace (SPFunctor.embedding PF fcofix (fcofix_des (exist c_range (Ucofix femb (m)) c))
+       d) with (@inl _ (SPFunctor.Sh2 PF) (exist _ _ H1)).
+      replace (SPFunctor.embedding PF fcofix (fcofix_des (exist c_range (Ucofix femb (m0)) c0))
+       d) with (@inl _ (SPFunctor.Sh2 PF) (exist _ _ H2)).
+      constructor. simplify.
+      right. apply CIH. apply H0.
+
+      specialize (H m0 c0). apply equal_f with d in H. setoid_rewrite <- H4 in H.
+      simplify.
+      destruct (SPFunctor.embedding PF fcofix
+           (fcofix_des
+              (exist c_range (Ucofix (SPFunctor.embedding PF ucofix m0)) c0)) d);
+      inversion H. subst. destruct f. simpl. f_equal. apply sig_unique. auto.
+
+      specialize (H m c). apply equal_f with d in H. setoid_rewrite <- H3 in H.
+      simplify.
+      destruct (SPFunctor.embedding PF fcofix
+           (fcofix_des
+              (exist c_range (Ucofix (SPFunctor.embedding PF ucofix m)) c)) d);
+      inversion H. subst. destruct f. simpl. f_equal. apply sig_unique. auto.
+      
+    - simplify. subst.
+      replace (SPFunctor.embedding PF fcofix (fcofix_des x1) d) with (@inr fcofix _ fx2).
+      replace (SPFunctor.embedding PF fcofix (fcofix_des x2) d) with (@inr fcofix _ fx2).
+      constructor. simplify. auto.
+
+      destruct x2. inversion c. simplify. inv H2. inv H0.
+      specialize (H m c). apply equal_f with d in H. rewrite <- H4 in H.
+      destruct (SPFunctor.embedding PF fcofix
+          (fcofix_des (exist c_range (Ucofix (SPFunctor.embedding PF ucofix m)) c))
+          d); inversion H. auto.
+
+      destruct x1. inversion c. simplify. inv H2. inv H0.
+      specialize (H m c). apply equal_f with d in H. rewrite <- H3 in H.
+      destruct (SPFunctor.embedding PF fcofix
+          (fcofix_des (exist c_range (Ucofix (SPFunctor.embedding PF ucofix m)) c))
+          d); inversion H. auto.
+  Qed.
 
   Lemma bsm_eq x1 x2 : bsm x1 x2 <-> x1 = x2.
   Proof.
@@ -527,7 +585,7 @@ Section FCoFix.
       subst. auto.
   Qed.
 
-  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec _bsm_fold.
+  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec.
 
   Definition fcorec_p A (f: A -> PF A) : A -> fcofix :=
     fcorec (fun a: A => grd A (fmap inl (f a))).
