@@ -10,6 +10,8 @@ Set Automatic Coercions Import.
 Ltac inv H := inversion H; subst; clear H.
 Ltac simplify := repeat (autounfold in *; simpl in *).
 
+Lemma drop_id X (x: X) : id x = x.
+Proof. auto. Qed.
 
 (* Categories *)
 
@@ -265,7 +267,10 @@ Next Obligation.
   apply SFunctor.MEM. eauto.
 Qed.
 Next Obligation.
-Admitted.
+  simplify. extensionality s.
+  apply SFunctor.MAP_DEP.
+  intros. apply INV.
+Qed.
 Canonical Structure function_sFunctorType D (F: sFunctorType) := SFunctorType (FunctorType (function_functorMixin D F)) (function_sFunctorMixin D F).
 
 
@@ -296,7 +301,9 @@ Program Definition option_sFunctorMixin :=
     option_frel
     _ _.
 Next Obligation.
-Admitted.
+  destruct fx; auto.
+  simpl. f_equal. apply INV.
+Qed.
 Canonical Structure option_sFunctorType := SFunctorType _ option_sFunctorMixin.
 
 
@@ -329,9 +336,8 @@ Program Definition coproduct_functorMixin (F1 F2: functorType) :=
   @Functor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2) _ _.
 Next Obligation.
   apply functional_extensionality. intro.
-  destruct x; simpl.
-  - rewrite ? Functor.MAP_ID. auto.
-  - rewrite ? Functor.MAP_ID. auto.
+  destruct x; simpl;
+  rewrite Functor.MAP_ID; auto.
 Qed.
 Next Obligation.
   destruct x1; simpl.
@@ -344,14 +350,19 @@ Program Definition coproduct_sFunctorMixin (F1 F2: sFunctorType) :=
   @SFunctor.Mixin (coproduct_type F1 F2) (coproduct_map F1 F2)
                   (@coproduct_mem F1 F2) (fun _ _ _ _ => _) (@coproduct_rel F1 F2) _ _.
 Next Obligation.
-Admitted.
+  destruct H1.
+  - apply (inl (F1.(SFunctor.map_dep) s H2)).
+  - apply (inr (F2.(SFunctor.map_dep) s H2)).
+Defined.
 Next Obligation.
   destruct fx; simpl in *.
   - apply SFunctor.MEM. auto.
   - apply SFunctor.MEM. auto.
 Qed.
 Next Obligation.
-Admitted.
+  destruct fx; simplify; f_equal;
+  apply SFunctor.MAP_DEP; auto.
+Qed.
 Canonical Structure coproduct_sFunctorType F1 F2 := SFunctorType _ (coproduct_sFunctorMixin F1 F2).
 
 
@@ -393,14 +404,19 @@ Program Definition product_sFunctorMixin (F1 F2: sFunctorType) :=
   @SFunctor.Mixin (product_type F1 F2) (product_map F1 F2)
                   (@product_mem F1 F2) (fun _ _ _ _ => _) (@product_rel F1 F2) _ _.
 Next Obligation.
-Admitted.
+  destruct H1.
+  apply (F1.(SFunctor.map_dep) s (fun x r => H2 _ (or_introl r)),
+        F2.(SFunctor.map_dep) s0 (fun x r => H2 _ (or_intror r))).
+Defined.
 Next Obligation.
   destruct fx; simpl in *.
   destruct MEM; [left | right];
   apply SFunctor.MEM; auto.
 Qed.
 Next Obligation.
-Admitted.
+  destruct fx. simplify. f_equal;
+  apply SFunctor.MAP_DEP; auto.
+Qed.
 Canonical Structure product_sFunctorType F1 F2 := SFunctorType _ (product_sFunctorMixin F1 F2).
 
 Program Definition compose_functorMixin (F1 F2: functorType) :=
@@ -410,26 +426,129 @@ Next Obligation.
   rewrite ? Functor.MAP_ID. auto.
 Qed.
 Next Obligation.
-Admitted.
+  repeat rewrite Functor.MAP_COMPOSE.
+  f_equal. extensionality s. apply Functor.MAP_COMPOSE.
+Qed.
 Canonical Structure compose_functorType F1 F2 := FunctorType (compose_functorMixin F1 F2).
+
+Inductive comp_mem (F1 F2: sFunctorType) X : F2 (F1 X) -> X -> Prop :=
+| _comp_mem x gx fgx (HG : F1.(SFunctor.mem) gx x) (HF : F2.(SFunctor.mem) fgx gx) :
+    comp_mem F1 F2 fgx x.
+
+Definition comp_rel (F1 F2: sFunctorType) X Y (RE: X -> Y -> Prop) : F2 (F1 X) -> F2 (F1 Y) -> Prop
+  := F2.(SFunctor.rel) (F1.(SFunctor.rel) RE).
+
+Hint Unfold comp_rel.
 
 Program Definition compose_sFunctorMixin (F1 F2: sFunctorType) :=
   @SFunctor.Mixin
     (F2 ∘ F1) (compose_functorMixin F1 F2).(Functor.map)
-    _ _ _ _ _.
+    (@comp_mem F1 F2) _ (@comp_rel F1 F2) _ _.
 Next Obligation.
-Admitted.
+  apply (F2.(SFunctor.map_dep)
+              fx (fun y r1 => (F1.(SFunctor.map_dep) y (fun z r2 => f _ (_comp_mem F1 F2 _ _ _ r2 r1))))).
+Defined.
 Next Obligation.
-Admitted.
+  inv MEM. eapply _comp_mem.
+  apply (SFunctor.MEM _ f _ _ HG). 
+  apply (SFunctor.MEM _ (Functor.map F1 f) _ _ HF).
+Qed.
 Next Obligation.
-Admitted.
-Next Obligation.
-Admitted.
-Next Obligation.
-Admitted.
+  apply F2.(SFunctor.MAP_DEP).
+  intros. apply SFunctor.MAP_DEP. auto.
+Qed.
 Canonical Structure compose_sFunctorType F1 F2 := SFunctorType _ (compose_sFunctorMixin F1 F2).
 
-Lemma drop_id X (x: X) : id x = x.
-Proof.
-  auto.
+
+Definition dep_prod_type A (B: A -> Type -> Type) X := (forall a: A, B a X).
+
+Definition dep_prod_map A (B: A -> functorType) X Y (f: X-> Y)
+           (x : forall a: A, B a X) : (forall a: A, B a Y) :=
+  fun (a: A) => fmap f (x a).
+
+Definition dep_prod_mem A (B: A -> sFunctorType) X (fx: dep_prod_type B X) x :=
+  exists (a: A), fmem (fx a) x.
+
+Definition dep_prod_rel A (B: A -> sFunctorType) X Y (RE: X -> Y -> Prop)
+           (fx: dep_prod_type B X) (fy: dep_prod_type B Y) : Prop :=
+  forall a : A, frel RE (fx a) (fy a).
+
+Program Definition dep_prod_functorMixin A (B: A -> functorType) := 
+  @Functor.Mixin (dep_prod_type B) (dep_prod_map B) _ _.
+Next Obligation.
+  unfold dep_prod_map.
+  extensionality s. extensionality a.
+  rewrite ? Functor.MAP_ID. auto.
 Qed.
+Next Obligation.
+  unfold dep_prod_map.
+  extensionality s.
+  eapply Functor.MAP_COMPOSE.
+Qed.
+Canonical Structure dep_prod_functorType A (B: A -> functorType) := FunctorType (dep_prod_functorMixin B).
+
+Program Definition dep_prod_sFunctorMixin A (B: A -> sFunctorType) :=
+  @SFunctor.Mixin (dep_prod_type B) (dep_prod_map B)
+                  (dep_prod_mem B) (fun _ _ _ _ => _) (dep_prod_rel B) _ _.
+Next Obligation.
+  intro.
+  apply ((B a).(SFunctor.map_dep) (H1 a) 
+      (fun y r => H2 y (ex_intro (fun a => (B a).(SFunctor.mem) (H1 a) y) _ r))).
+Defined.
+Next Obligation.
+  inv MEM.
+  exists x0. unfold dep_prod_map.
+  apply (SFunctor.MEM _ f _ _ H).
+Qed.
+Next Obligation.
+  unfold dep_prod_map. extensionality a.
+  apply SFunctor.MAP_DEP. eauto.
+Qed.
+Canonical Structure dep_prod_sFunctorType A (B: A -> sFunctorType) := SFunctorType _ (dep_prod_sFunctorMixin B).
+
+
+Definition dep_sum_type A (B: A -> Type -> Type) X := sigT (fun a => B a X).
+
+Definition dep_sum_map A (B: A -> functorType) X Y (f: X-> Y)
+           (fx : dep_sum_type B X) : dep_sum_type B Y :=
+  match fx with
+  | existT _ a fx' => existT _ a (fmap f fx') end. 
+
+Definition dep_sum_mem A (B: A -> sFunctorType) X (fx: dep_sum_type B X) x :=
+  match fx with
+  | existT _ a fx => fmem fx x end. 
+
+Inductive dep_sum_rel A (B: A -> sFunctorType) X Y (RE: X -> Y -> Prop) :
+  dep_sum_type B X -> dep_sum_type B Y -> Prop :=
+| _dep_sum_rel a (x: B a X) (y: B a Y)(r: frel RE x y)
+  : dep_sum_rel B RE (existT _ a x) (existT _ a y).
+
+Program Definition dep_sum_functorMixin A (B: A -> functorType) := 
+  @Functor.Mixin (dep_sum_type B) (dep_sum_map B) _ _.
+Next Obligation.
+  extensionality x. destruct x.
+  simplify. f_equal.
+  rewrite ? Functor.MAP_ID. auto.
+Qed.
+Next Obligation.
+  destruct x1. simplify. f_equal.
+  apply Functor.MAP_COMPOSE.
+Qed.
+Canonical Structure dep_sum_functorType A (B: A -> functorType) := FunctorType (dep_sum_functorMixin B).
+
+Program Definition dep_sum_sFunctorMixin A (B: A -> sFunctorType) :=
+  @SFunctor.Mixin (dep_sum_type B) (dep_sum_map B)
+                  (dep_sum_mem B) (fun _ _ _ _ => _) (dep_sum_rel B) _ _.
+Next Obligation.
+  destruct H1.
+  apply (existT _ x ((B x).(SFunctor.map_dep) s (fun x0 r => H2 _ r))).
+Defined.
+Next Obligation.
+  destruct fx. simplify.
+  apply SFunctor.MEM. auto.
+Qed.
+Next Obligation.
+  destruct fx. simplify. f_equal.
+  apply SFunctor.MAP_DEP. auto.
+Qed.
+Canonical Structure dep_sum_sFunctorType A (B: A -> sFunctorType) := SFunctorType _ (dep_sum_sFunctorMixin B).
