@@ -4,6 +4,7 @@
 *.v.d
 *.glob
 \#*\#
+.*.v
 
 _CoqProject
 Makefile.coq

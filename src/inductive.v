@@ -78,7 +78,7 @@ Section FFix.
     specialize (ufix_ord_wf u0).
     rewrite MEM in ufix_ord_wf.
     apply ufix_ord_wf.
-  Defined.
+  Qed.
 
   Inductive ffix_ord: forall (x y:ffix), Prop :=
   | Ffix_ord x y PX PY (ORD: ufix_ord x y): ffix_ord (@exist _ _ x PX) (@exist _ _ y PY)
@@ -193,7 +193,7 @@ Section FFix.
   - apply (tn1_trans _ _ _ _ _ H0 Rxy).
   - specialize (H _ H0 Rxy Ryz).
     apply (tn1_trans _ _ _ _ _ H0 H).
-  Defined.
+  Qed.
 
   Inductive less_ones y : Type :=
   | w_ord x (ORD: ffix_ord_c x y) : less_ones y.
@@ -266,9 +266,7 @@ Section FFix.
       destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
       subst. destruct f. f_equal.
       apply proof_irrelevance.
-  Defined.
-
-Check inl.
+  Qed.
 
   Lemma ffix_mem_induction x (P: ffix -> Prop)
         (STEP: forall m (IND: forall y, fmem m y -> P y), P (Ffix m)):
@@ -302,7 +300,7 @@ Check inl.
     apply (Function_mem _ _ _ d). simplify.
     destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
     subst. auto.
-  Defined.
+  Qed.
 
   Lemma des_ord_correct m 
     : ffix_des_ord (Ffix m) 
@@ -361,7 +359,7 @@ Check inl.
     f_equal. apply SFunctor.MAP_DEP. auto.
   Qed.
 
-  Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
+  Global Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
 
 End FFix.
 
@@ -372,7 +370,6 @@ Ltac msimpl := repeat (autounfold;
                        repeat rewrite frec_d_red;
                        repeat rewrite frec_p_red;
                        repeat rewrite des_ord_correct;
-                       repeat rewrite des_correct1;
                        repeat rewrite des_correct2;
                        repeat rewrite drop_id;
                        simpl).
@@ -382,9 +379,118 @@ Ltac msimpl_in H := repeat (autounfold;
                             repeat rewrite frec_p_red in H;
                             repeat rewrite frec_d_red in H;
                             repeat rewrite des_ord_correct in H;
-                            repeat rewrite des_correct1 in H;
                             repeat rewrite des_correct2 in H;
                             repeat rewrite drop_id in H;
                             simpl in H).
 
 (* Instances *)
+
+
+
+(* constructor and destructor *)
+
+  Definition ffix : Type. (* inductive type *)
+
+  Definition Ffix : PF ffix -> ffix. (* constructor *)
+
+  Definition ffix_des : PF ffix -> ffix. (* destructor *)
+
+
+(* for inversion *)
+
+  Lemma Ffix_inj x1 x2 (EQ: Ffix x1 = Ffix x2) : x1 = x2. (* constructors are injective *)
+
+  Lemma des_correct1 x: Ffix (ffix_des x) = x.
+
+  Lemma des_correct2 x: ffix_des (Ffix x) = x.
+  (* these say that destructors are the inverse of constructors *)
+
+
+(* order and induction principle *)
+
+  Inductive ffix_ord : ffix -> ffix -> Prop. (* order on ffix *)
+
+  Definition ffix_ord_c := clos_trans_n1 ffix ffix_ord. (* closure of ffix_ord *)
+
+  Definition ord_correct m x : fmem m x <-> ffix_ord x (Ffix m).
+  (* membership relations in SPFunctor became order on ffix *)
+
+  Lemma ord_transtive x y z (Rxy: ffix_ord_c x y) (Ryz: ffix_ord_c y z) : ffix_ord_c x z.
+
+  Lemma ffix_ord_wf: well_founded ffix_ord.
+
+  Lemma ffix_ord_c_wf : well_founded ffix_ord_c.
+  (* well order *)
+
+
+  Inductive less_ones y :=
+  | w_ord x (ORD: ffix_ord_c x y) : less_ones y.
+  (* type of smaller ones than y. it's necessary for defining recursive functions *)
+
+  Definition ffix_des_ord (x: ffix) : PF (less_ones x). (* destruct with order *)
+
+  Lemma des_ord_correct m (* it allows to *)
+    : ffix_des_ord (Ffix m) 
+      = fmap_dep m (fun x r => w_ord (order_part m x r)).
+
+
+(* induction principles with different forms *)
+
+  Lemma ffix_ord_induction x (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord x y -> P x) -> P y) :
+    P x.
+
+  Lemma ffix_str_induction x (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord_c x y -> P x) -> P y) :
+    P x.
+    (* strong induction *)
+
+  Lemma ffix_mem_induction x (P: ffix -> Prop)
+        (STEP: forall m (IND: forall y, fmem m y -> P y), P (Ffix m)):
+    P x.
+
+
+(* recursive function *)
+
+  Definition frec T
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x : T.
+
+  Definition frec_d (P: ffix -> Type)
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) : forall x, P x.
+  (* dependent functions *)
+
+  Definition frec_p T (f: PF T -> T) : ffix -> T.
+  (* primitive recursion : simple but not general *)
+
+
+(* reduction rules for recursive functions *)
+
+  Lemma frec_red T
+        (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x :
+    frec FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec FIX y).
+
+  Lemma frec_d_red (P: ffix -> Type)
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) x :
+    frec_d P FIX (Ffix x) 
+    = FIX (Ffix x) (fun y _ => frec_d P FIX y).
+
+  Lemma frec_p_red T (f: PF T -> T) m :
+    frec_p f (Ffix m) = f (fmap (frec_p f) m).
+
+Ltac msimpl := repeat (autounfold;
+                       repeat rewrite frec_red;
+                       repeat rewrite frec_d_red;
+                       repeat rewrite frec_p_red;
+                       repeat rewrite des_ord_correct;
+                       repeat rewrite des_correct2;
+                       repeat rewrite drop_id;
+                       simpl).
+
+Ltac msimpl_in H := repeat (autounfold;
+                            repeat rewrite frec_red in H;
+                            repeat rewrite frec_p_red in H;
+                            repeat rewrite frec_d_red in H;
+                            repeat rewrite des_ord_correct in H;
+                            repeat rewrite des_correct2 in H;
+                            repeat rewrite drop_id in H;
+                            simpl in H).
