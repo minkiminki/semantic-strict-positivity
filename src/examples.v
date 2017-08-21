@@ -32,7 +32,7 @@ Variable A: Type.
 
 Definition stream_gen := (prod_SPFunctorType (const_SPFunctorType A) id_SPFunctorType).
 
-Definition stream := fcofix stream_gen.
+Definition stream := fcofix stream_genx.
 
 Definition Cons n x := Fcofix stream_gen (n, x).
 
