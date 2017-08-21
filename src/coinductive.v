@@ -597,7 +597,7 @@ Section FCoFix.
     simplify. apply Functor.MAP_COMPOSE. 
   Qed.
 
-  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p_red.
+  Global Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p fcorec_p_red.
 
 End FCoFix.
 
