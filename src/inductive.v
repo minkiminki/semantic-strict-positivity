@@ -6,41 +6,46 @@ Require Import Coq.Relations.Relation_Operators.
 Set Implicit Arguments.
 Set Automatic Coercions Import.
 
-Require Import Functor SPFunctor.
+Require Import Functor SPFunctor spec.
+
+Module RINDUCTIVE : INDUCTIVE.
 
 Section FFix.
-  Variable PF: SPFunctorType.
+  Variable PF : Type -> Type.
+  Context `{SPF : SPFunctor PF}.
 
   Inductive ufix: Type :=
-  | Ufix: UF PF.(SPFunctor.Sh1) PF.(SPFunctor.Sh2) ufix -> ufix
+  | Ufix: UF (@Sh1 _ _ _ SPF) (@Sh2 _ _ _ SPF) ufix -> ufix
   .
 
   Inductive range: forall (u:ufix), Prop :=
   | Range
       (m: PF ufix)
-      (MEM: forall u, fmem (femb m) u -> range u):
-      range (Ufix (femb m))
+      (MEM: forall u, mem (NT _ m) u -> range u):
+      range (Ufix (NT _ m))
   .
 
   Definition ffix := sig range.
 
   Definition ffix_to_ufix (x:ffix): ufix := proj1_sig x.
 
-  Lemma Ffix_range (x: PF ffix) : range (Ufix (femb (fmap ffix_to_ufix x))).
+  Arguments NT {F} G {NatTransData} {X} fx.
+
+  Lemma Ffix_range (x: PF ffix) : range (Ufix (NT _ (map ffix_to_ufix x))).
   Proof.
     constructor. intros.
-    rewrite SPFunctorFacts.NATURAL_MAP in H. inv H. simplify.
-    destruct (SPFunctor.embedding PF ffix x) eqn: EQ; [|inv MEM].
-    subst. destruct f. auto.
+    rewrite MAP_COMMUTE in H1. inv H1. simplify.
+    destruct (NT (UF Sh1 Sh2) x d) eqn : EQ; [| inv MEM]; simplify.
+    subst. destruct i. auto.
   Defined. 
 
   Definition Ffix (x: PF ffix) : ffix :=
-    @exist _ _ (Ufix (femb (fmap ffix_to_ufix x))) (Ffix_range x).
+    @exist _ _ (Ufix (NT _ (map ffix_to_ufix x))) (Ffix_range x).
 
-  Lemma ffix_des0' u (R:range u): ex (unique (fun m => u = Ufix (femb m))).
+  Lemma ffix_des0' u (R:range u): ex (unique (fun m => u = Ufix (NT _ m))).
   Proof.
     inv R. exists m. split; auto.
-    intros. inversion H. apply (SPFunctorFacts.INJECTIVE _ _ _ H1).
+    intros. inversion H1. apply INJECTIVE. auto.
   Qed.
 
   Definition ffix_des0 u (R:range u) : PF ufix :=
@@ -50,32 +55,32 @@ Section FFix.
   Proof.
     unfold ffix_des0.
     destruct (constructive_definite_description
-                 (fun m0 : PF ufix => Ufix femb (m) = Ufix femb (m0))
+                 (fun m0 : PF ufix => Ufix (NT _ m) = Ufix (NT _ m0))
                  (ffix_des0' (Range m f))) eqn : EQ.
-    inversion e. apply SPFunctorFacts.INJECTIVE in H0. eauto.
+    inversion e. apply INJECTIVE in H2. eauto.
   Defined.
 
-  Definition ffix_des1 u (R:range u) x (MEM: fmem (ffix_des0 R) x): ffix.
+  Definition ffix_des1 u (R:range u) x (MEM: mem (ffix_des0 R) x): ffix.
   Proof.
     exists x.
     destruct R. apply MEM0. rewrite ffix_des0_correct in MEM.
-    apply SPFunctorFacts.NATURAL_MEM in MEM. auto.
+    apply MEM_COMMUTE in MEM. auto.
   Defined.
 
   Definition ffix_des (f:ffix): PF ffix :=
-    fmap_dep (ffix_des0 (proj2_sig f)) (ffix_des1 (proj2_sig f)).
+    map_dep (ffix_des0 (proj2_sig f)) (ffix_des1 (proj2_sig f)).
 
   Inductive ufix_ord: forall (x y:ufix), Prop :=
-  | Ufix_ord x u (IN: fmem u x): ufix_ord x (Ufix u)
+  | Ufix_ord x u (IN: mem u x): ufix_ord x (Ufix u)
   .
 
   Lemma ufix_ord_wf: well_founded ufix_ord.
   Proof.
     unfold well_founded. fix 1. intro. destruct a.
     constructor. intros.
-    inv H. inversion IN. simplify.
+    inv H1. inversion IN. simplify.
     destruct (u d); [| inv MEM].
-    specialize (ufix_ord_wf u0).
+    specialize (ufix_ord_wf i).
     rewrite MEM in ufix_ord_wf.
     apply ufix_ord_wf.
   Qed.
@@ -91,20 +96,20 @@ Section FFix.
   Qed.
 
   Lemma acc_preserve X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
-        (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2))
+        (SUB: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2))
         (WF: well_founded Ry) y
     : forall x, y = f x /\ Acc Ry y -> Acc Rx x.
   Proof.
     apply (@Fix Y Ry WF (fun a =>  forall x : X, a = f x /\ Acc Ry a -> Acc Rx x)).
-    intros. destruct H1. subst.
+    intros. destruct H2. subst.
     constructor. intros. eauto.
   Qed.
 
   Lemma sub_wellorder X Y (f: X -> Y) (Rx : X -> X -> Prop) (Ry : Y -> Y -> Prop)
-        (H: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2)) (WF: well_founded Ry) 
+        (SUB: forall x1 x2 (RE: Rx x1 x2), Ry (f x1) (f x2)) (WF: well_founded Ry) 
     : well_founded Rx.
   Proof.
-    unfold well_founded. intros. apply (@acc_preserve _ _ f Rx _ H WF (f a)). auto.
+    unfold well_founded. intros. apply (@acc_preserve _ _ f Rx _ SUB WF (f a)). auto.
   Qed.
 
   Lemma ffix_ord_wf: well_founded ffix_ord.
@@ -137,13 +142,13 @@ Section FFix.
   Proof.
     unfold Ffix in EQ.
     apply eq_sig_fst in EQ. apply Ufix_inj in EQ.
-    apply SPFunctorFacts.INJECTIVE.
+    apply INJECTIVE.
     extensionality s. apply equal_f with s in EQ.
-    repeat rewrite SPFunctorFacts.NATURAL_MAP in EQ.
+    repeat rewrite MAP_COMMUTE in EQ.
     simplify.
-    destruct (SPFunctor.embedding PF ffix x1 s);
-    destruct (SPFunctor.embedding PF ffix x2 s); inversion EQ; auto.
-    destruct f, f0. simpl in H0. subst.
+    destruct (NT (UF Sh1 Sh2) x1 s);
+    destruct (NT (UF Sh1 Sh2) x2 s); inversion EQ; auto.
+    destruct i, i0. simplify. subst.
     f_equal. f_equal. apply proof_irrelevance.
   Qed.
 
@@ -152,16 +157,15 @@ Section FFix.
     destruct x. destruct r. unfold Ffix.
     apply range_unique2.
     f_equal. f_equal. unfold ffix_des.
-    rewrite SFunctor.MAP_DEP.
-    - unfold ffix_des0.
-      destruct (constructive_definite_description
-     (fun m0 : PF ufix =>
-      ` (exist range (Ufix femb (m)) (Range m MEM)) = Ufix femb (m0))
-     (ffix_des0' (proj2_sig (exist range (Ufix femb (m)) (Range m MEM)))))
-               eqn : EQ.
-      unfold proj1_sig in *. inversion e.
-      apply SPFunctorFacts.INJECTIVE in H0. auto.
-    - auto.
+    rewrite MAP_DEP; auto.
+    unfold ffix_des0.
+    destruct (constructive_definite_description
+                (fun m0 : PF ufix =>
+                   ` (exist range (Ufix (NT _ m)) (Range m MEM)) = Ufix (NT _ m0))
+                (ffix_des0' (proj2_sig (exist range (Ufix (NT _ m)) (Range m MEM)))))
+             eqn : EQ.
+    unfold proj1_sig in *. inversion e.
+    apply INJECTIVE in H2. auto.
   Qed.
 
   Lemma des_correct2 x: ffix_des (Ffix x) = x.
@@ -170,17 +174,17 @@ Section FFix.
     apply des_correct1.
   Qed.
 
-  Definition ffix_ord_c := clos_trans_n1 ffix ffix_ord.
+  Definition ffix_ord_c := clos_trans_n1 ffix_ord.
 
   Lemma ffix_ord_c_wf : well_founded ffix_ord_c.
   Proof.
     unfold well_founded. intro. apply (ffix_ord_induction a).
     intros.
     constructor. intros.
-    destruct H0.
-    - apply H, H0.
-    - specialize (H y H0).
-      destruct H. eauto.
+    destruct H2.
+    - apply H1, H2.
+    - specialize (H1 y H2).
+      destruct H1. eauto.
   Qed.
 
   Lemma ord_transtive x y z (Rxy: ffix_ord_c x y) (Ryz: ffix_ord_c y z) :
@@ -190,17 +194,14 @@ Section FFix.
   apply (ffix_ord_induction z).
   intros.
   destruct Ryz.
-  - apply (tn1_trans _ _ _ _ _ H0 Rxy).
-  - specialize (H _ H0 Rxy Ryz).
-    apply (tn1_trans _ _ _ _ _ H0 H).
+  - apply (tn1_trans _ _ _ _ _ H2 Rxy).
+  - specialize (H1 _ H2 Rxy Ryz).
+    apply (tn1_trans _ _ _ _ _ H2 H1).
   Qed.
 
-  Inductive less_ones y : Type :=
-  | w_ord x (ORD: ffix_ord_c x y) : less_ones y.
-
-  Definition v_get y (x: less_ones y) : ffix :=
+  Definition v_get y (x: @less_ones _ ffix_ord_c y) : ffix :=
     match x with
-    | @w_ord _ x' _ => x' end.
+    | @w_ord _ _ _ x' _ => x' end.
 
   Lemma ffix_str_induction x
         (P: ffix -> Prop)
@@ -251,134 +252,115 @@ Section FFix.
     rewrite <- Fix_correct. auto.
   Qed.
 
-  Definition ord_correct m x : fmem m x <-> ffix_ord x (Ffix m).
+  Definition ord_correct m x : mem m x <-> ffix_ord x (Ffix m).
   Proof.
     split; intros.
     - destruct x.
-      constructor. constructor. rewrite SPFunctorFacts.NATURAL_MAP. simplify.
-      apply SPFunctorFacts.NATURAL_MEM in H.
-      inv H. simplify. destruct (SPFunctor.embedding PF _ m d) eqn : EQ; [| inv MEM].
-      apply (Function_mem _ _ _ d). simplify.
-      rewrite EQ. rewrite MEM. auto.
-    - inv H. inv ORD. inv IN. rewrite SPFunctorFacts.NATURAL_MAP in MEM. simplify.
-      apply SPFunctorFacts.NATURAL_MEM.
-      apply (Function_mem _ _ _ d). simplify.
-      destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
-      subst. destruct f. f_equal.
+      constructor. constructor. rewrite MAP_COMMUTE. simplify.
+      apply MEM_COMMUTE in H1.
+      inv H1. simplify. destruct (NT (UF Sh1 Sh2) m d) eqn : EQ; [| inv MEM].
+      apply (Function_mem _ _ d). simplify.
+      rewrite EQ. rewrite MEM. simplify. auto.
+    - inv H1. inv ORD. inv IN. rewrite MAP_COMMUTE in MEM. simplify.
+      apply MEM_COMMUTE.
+      apply (Function_mem _ _ d). simplify.
+      destruct (NT (UF Sh1 Sh2) m d); inversion MEM.
+      subst. destruct i. simplify. f_equal.
       apply proof_irrelevance.
   Qed.
 
   Lemma ffix_mem_induction x (P: ffix -> Prop)
-        (STEP: forall m (IND: forall y, fmem m y -> P y), P (Ffix m)):
+        (STEP: forall m (IND: forall y, mem m y -> P y), P (Ffix m)):
     P x.
   Proof.
-    assert (H : forall m (IND: forall y, ffix_ord y m -> P y), P m). intros.
+    assert (H1 : forall m (IND: forall y, ffix_ord y m -> P y), P m). intros.
     rewrite <- (des_correct1 m) in *. apply STEP.
     intros. apply IND.
-    apply ord_correct, H.
-    apply (ffix_ord_induction x _ H).
+    apply ord_correct, H1.
+    apply (ffix_ord_induction x _ H1).
   Qed.
 
-  Definition ffix_des_ord' u (R: range u): forall x (MEM: fmem (ffix_des0 R) x),
-      less_ones (exist _ _ R).
+  Definition ffix_des_ord' u (R: range u): forall x (MEM: mem (ffix_des0 R) x),
+      @less_ones _ ffix_ord_c (exist _ _ R).
+  Proof.
     intros.
-    apply (@w_ord _ (ffix_des1 R x MEM)).
+    apply (@w_ord _ _ _ (ffix_des1 R x MEM)).
     destruct R. apply tn1_step. constructor. constructor.
-    apply SPFunctorFacts.NATURAL_MEM.
+    rewrite <- MEM_COMMUTE.
     rewrite ffix_des0_correct in MEM. auto.
   Defined.
 
   Definition ffix_des_ord (x: ffix) : PF (less_ones x) :=
     match x with
-    | exist _ _ p => fmap_dep _ (ffix_des_ord' p) end.
+    | exist _ _ p => map_dep _ (ffix_des_ord' p) end.
 
-  Definition order_part m : forall x, fmem m x -> ffix_ord_c x (Ffix m).
+  Definition order_part m : forall x, mem m x -> ffix_ord_c x (Ffix m).
     intros. destruct x. unfold Ffix.
     repeat constructor.
-    apply SPFunctorFacts.NATURAL_MEM in H. rewrite SPFunctorFacts.NATURAL_MAP.
-    inv H. simplify.
-    apply (Function_mem _ _ _ d). simplify.
-    destruct (SPFunctor.embedding PF ffix m d); inversion MEM.
-    subst. auto.
+    rewrite MEM_COMMUTE in H1. rewrite MAP_COMMUTE.
+    inv H1. simplify.
+    apply (Function_mem _ _ d). simplify.
+    destruct (NT (UF Sh1 Sh2) m d); inversion MEM. simplify. auto.
   Qed.
 
   Lemma des_ord_correct m 
     : ffix_des_ord (Ffix m) 
-      = fmap_dep m (fun x r => w_ord (order_part m x r)).
+      = map_dep m (fun x r => w_ord _ (order_part m x r)).
   Proof.
-    apply SPFunctorFacts.map_injective with (f := (fun x => proj1_sig (v_get x))).
+    apply (map_injective (fun x => proj1_sig (v_get x))).
     - intros. destruct x1, x2. destruct x, x0.
       simpl in EQ. subst.
       assert (EQ := proof_irrelevance _ r r0). subst.
       f_equal. apply proof_irrelevance.
-    - simplify. rewrite SFunctor.MAP_DEP; [| intros; auto].
-      unfold Ffix_range. rewrite (ffix_des0_correct (fmap (ffix_to_ufix) m) _). 
-      replace (Functor.map (SFunctor.base PF) (fun x : less_ones (Ffix m) => proj1_sig (v_get x))
-    (SFunctor.map_dep (SFunctor.ext PF) m
-       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (order_part m x r)))) with
-          (Functor.map (SFunctor.base PF) (@proj1_sig _ _) (Functor.map (SFunctor.base PF) (@v_get _)
-                                               (SFunctor.map_dep (SFunctor.ext PF) m (fun x r =>
-                                                                    w_ord (order_part m x r))))); [| apply Functor.MAP_COMPOSE].
-      f_equal.
-      rewrite SFunctor.MAP_DEP; auto.
+    - simplify. rewrite MAP_DEP; [| intros; auto].
+      unfold Ffix_range. rewrite (ffix_des0_correct (map (ffix_to_ufix) m) _).
+      replace (map (fun x : _ => ` (v_get x))
+                   (map_dep m
+                            (fun (x : ffix) (r : mem m x) =>
+                               w_ord x (order_part m x r)))) with
+          (map (@proj1_sig _ _) (map (@v_get _) (map_dep m
+                                                         (fun (x : ffix) (r : mem m x) =>
+                                                            w_ord x (order_part m x r))))); [| apply MAP_COMPOSE].
+      f_equal. rewrite MAP_DEP; auto.
   Qed.
 
   Definition frec_p T (f: PF T -> T) : ffix -> T :=
     frec (fun (m: ffix) g =>
-            let g' (m': less_ones m) : T :=
+            let g' (m': @less_ones _ ffix_ord_c m) : T :=
                 match m' with
-                | @w_ord _ m'' r => g m'' r end in
-            f (fmap g' (ffix_des_ord m))).
+                | @w_ord _ _ _ m'' r => g m'' r end in
+            f (map g' (ffix_des_ord m))).
 
   Lemma frec_p_red T (f: PF T -> T) m :
-    frec_p f (Ffix m) = f (fmap (frec_p f) m).
+    frec_p f (Ffix m) = f (map (frec_p f) m).
   Proof.
     unfold frec_p. rewrite frec_red.
     f_equal. rewrite des_ord_correct.
     remember (frec
-              (fun (m0 : ffix) (g : forall y : ffix, ffix_ord_c y m0 -> T) =>
-               f
-                 (fmap (fun m'0 : less_ones m0 =>
-                        match m'0 with
-                        | @w_ord _ m''0 r0 => g m''0 r0
-                        end) (ffix_des_ord m0)))) as g.
-    replace (fun m' : less_ones (Ffix m) => match m' with
-                                       | @w_ord _ m'' _ => g m''
-                                       end) with (fun m' => g (@v_get (Ffix m) m'));
+           (fun (m0 : ffix) (g : forall y : ffix, ffix_ord_c y m0 -> T) =>
+            f
+              (map
+                 (fun m'0 : @less_ones _ ffix_ord_c m0 =>
+                  match m'0 with
+                  | w_ord m''0 r0 => g m''0 r0
+                  end) (ffix_des_ord m0)))) as g.
+    replace (fun m' : @less_ones _ ffix_ord_c (Ffix m) =>
+     match m' with
+     | w_ord m'' _ => g m''
+     end) with (fun m' => g (@v_get (Ffix m) m'));
       [| extensionality s; destruct s; auto].
-    simplify.
-    replace (Functor.map (SFunctor.base PF) (fun m' : less_ones (Ffix m) => g (v_get m'))
-    (SFunctor.map_dep (SFunctor.ext PF) m
-       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (order_part m x r)))) with
-        (Functor.map (SFunctor.base PF) g (Functor.map (SFunctor.base PF) (@v_get _)
-                                                       (SFunctor.map_dep (SFunctor.ext PF) m
-       (fun (x : ffix) (r : SFunctor.mem (SFunctor.ext PF) m x) =>
-        w_ord (order_part m x r))))); [| apply Functor.MAP_COMPOSE].
-    f_equal. apply SFunctor.MAP_DEP. auto.
+    replace (map (fun m' : less_ones (Ffix m) => g (v_get m'))
+    (map_dep m
+       (fun (x : ffix) (r : mem m x) =>
+        w_ord x (order_part m x r)))) with
+        (map g (map (@v_get _ ) (map_dep m
+       (fun (x : ffix) (r : mem m x) =>
+        w_ord x (order_part m x r))))); [| apply Functor.MAP_COMPOSE].
+    f_equal. apply MAP_DEP. auto.
   Qed.
 
   Global Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
 
 End FFix.
 
-Arguments w_ord {PF y} x ORD.
-
-Ltac msimpl := repeat (autounfold;
-                       repeat rewrite frec_red;
-                       repeat rewrite frec_d_red;
-                       repeat rewrite frec_p_red;
-                       repeat rewrite des_ord_correct;
-                       repeat rewrite des_correct2;
-                       repeat rewrite drop_id;
-                       simpl).
-
-Ltac msimpl_in H := repeat (autounfold;
-                            repeat rewrite frec_red in H;
-                            repeat rewrite frec_p_red in H;
-                            repeat rewrite frec_d_red in H;
-                            repeat rewrite des_ord_correct in H;
-                            repeat rewrite des_correct2 in H;
-                            repeat rewrite drop_id in H;
-                            simpl in H).
+End RINDUCTIVE.

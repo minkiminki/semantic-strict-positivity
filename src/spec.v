@@ -1,11 +1,32 @@
-Require Import Coq.Relations.Relation_Operators.
 Set Implicit Arguments.
 Set Automatic Coercions Import.
+Require Import Coq.Relations.Relation_Operators.
 Require Import Functor SPFunctor paco.
+
+Inductive less_ones X (R : X -> X -> Prop) y : Type :=
+| w_ord x (ORD: R x y) : less_ones R y.
+Arguments less_ones {X} {R}.
+Arguments w_ord {X} {R} {y} x ORD.
+
+Arguments clos_trans_n1 {A} R.
+
+Inductive bsm_gen PF `{SPFunctor PF} (fcofix : Type) (Fcofix : PF fcofix -> fcofix)
+          bsm : fcofix -> fcofix -> Prop :=
+| _bsm_gen : forall (x1 x2 : PF fcofix) (R: rel bsm x1 x2),
+    bsm_gen Fcofix bsm (Fcofix x1) (Fcofix x2).
+
+Definition bsm PF `{SPFunctor PF} (fcofix : Type) (Fcofix : PF fcofix -> fcofix) x1 x2 := paco2 (bsm_gen Fcofix) bot2 x1 x2.
+Arguments bsm {PF} {H} {H0} {H1} {fcofix} Fcofix x1 x2.
+Hint Unfold bsm.
 
 Module Type INDUCTIVE.
 
-  Variable PF: SPFunctorType.
+  Section inductive.
+
+  Variable PF : Type -> Type.
+  Variable H : (FunctorData PF).
+  Variable H0 : (SFunctorData PF).
+  Variable SPF : (SPFunctor PF).
 
 (* constructor and destructor *)
 
@@ -28,33 +49,25 @@ Module Type INDUCTIVE.
 
   Variable ffix_ord : ffix -> ffix -> Prop. (* order on ffix *)
 
-  Definition ffix_ord_c := clos_trans_n1 ffix ffix_ord. (* closure of ffix_ord *)
-
-  Hypothesis ord_correct : forall m x, fmem m x <-> ffix_ord x (Ffix m).
+  Hypothesis ord_correct : forall m x, mem m x <-> ffix_ord x (Ffix m).
   (* membership relations in SPFunctor became order on ffix *)
 
-  Variable ord_transtive : forall x y z (Rxy: ffix_ord_c x y) (Ryz: ffix_ord_c y z),
-      ffix_ord_c x z.
+  Variable ord_transtive : forall x y z (Rxy: clos_trans_n1 ffix_ord x y) (Ryz: clos_trans_n1 ffix_ord y z),
+      clos_trans_n1 ffix_ord x z.
 
   Hypothesis ffix_ord_wf: well_founded ffix_ord.
 
-  Hypothesis ffix_ord_c_wf : well_founded ffix_ord_c.
+  Hypothesis ffix_ord_c_wf : well_founded (clos_trans_n1 ffix_ord).
   (* well order *)
 
-
-  Inductive less_ones y : Type :=
-  | w_ord x (ORD: ffix_ord_c x y) : less_ones y.
-  (* type of smaller ones than y. it's necessary for defining recursive functions *)
-
-  Hypothesis ffix_des_ord : forall (x: ffix), PF (less_ones x).
+  Hypothesis ffix_des_ord : forall (x: ffix), PF (@less_ones _ (clos_trans_n1 ffix_ord) x).
   (* destruct with order *)
 
-  Variable order_part : forall m x, fmem m x -> ffix_ord_c x (Ffix m).
+  Variable order_part : forall m x, mem m x -> (clos_trans_n1 ffix_ord) x (Ffix m).
   (* users don't need to know this *)
 
   Hypothesis des_ord_correct : forall (m : PF ffix),
-      ffix_des_ord (Ffix m) = fmap_dep m (fun x r => w_ord (order_part m x r)).
-
+      ffix_des_ord (Ffix m) = map_dep m (fun x r => w_ord _ (order_part m x r)).
 
 (* induction principles with different forms *)
 
@@ -63,22 +76,22 @@ Module Type INDUCTIVE.
     P x.
 
   Hypothesis ffix_str_induction : forall x (P: ffix -> Prop)
-        (STEP: forall y, (forall x, ffix_ord_c x y -> P x) -> P y),
+        (STEP: forall y, (forall x, (clos_trans_n1 ffix_ord) x y -> P x) -> P y),
     P x.
     (* strong induction *)
 
   Hypothesis ffix_mem_induction : forall x (P: ffix -> Prop)
-        (STEP: forall m (IND: forall y, fmem m y -> P y), P (Ffix m)),
+        (STEP: forall m (IND: forall y, mem m y -> P y), P (Ffix m)),
     P x.
 
 
 (* recursive function *)
 
-  Variable frec : forall T (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T),
+  Variable frec : forall T (FIX: forall m (FN: forall y, (clos_trans_n1 ffix_ord) y m -> T), T),
       ffix -> T.
 
   Variable frec_d: forall (P: ffix -> Type)
-                          (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m),
+                          (FIX: forall m (FN: forall y, (clos_trans_n1 ffix_ord) y m -> P y), P m),
       forall x : ffix, P x.
   (* dependent functions *)
 
@@ -90,15 +103,15 @@ Module Type INDUCTIVE.
 (* reduction rules for recursive functions *)
 
   Hypothesis frec_red : forall T
-      (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x,
+      (FIX: forall m (FN: forall y, (clos_trans_n1 ffix_ord) y m -> T), T) x,
     frec FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec FIX y).
 
   Hypothesis frec_d_red : forall (P: ffix -> Type)
-      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) x,
+      (FIX: forall m (FN: forall y, (clos_trans_n1 ffix_ord) y m -> P y), P m) x,
     frec_d P FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec_d P FIX y).
 
   Hypothesis frec_p_red : forall T (f: PF T -> T) m,
-    frec_p f (Ffix m) = f (fmap (frec_p f) m).
+    frec_p f (Ffix m) = f (map (frec_p f) m).
 
 
 (* tactics for reduction *)
@@ -109,7 +122,7 @@ Module Type INDUCTIVE.
                          repeat rewrite frec_p_red;
                          repeat rewrite des_ord_correct;
                          repeat rewrite des_correct2;
-                         repeat rewrite drop_id;
+                         unfold id;
                          simpl).
 
   Ltac msimpl_in H := repeat (autounfold;
@@ -118,15 +131,22 @@ Module Type INDUCTIVE.
                               repeat rewrite frec_d_red in H;
                               repeat rewrite des_ord_correct in H;
                               repeat rewrite des_correct2 in H;
-                              repeat rewrite drop_id in H;
+                              unfold id in H;
                               simpl in H).
+
+  End inductive.
 
 End INDUCTIVE.
 
 
 Module Type COINDUCTIVE.
 
-  Variable PF: SPFunctorType.
+  Section coinductive.
+
+  Variable PF : Type -> Type.
+  Variable H : (FunctorData PF).
+  Variable H0 : (SFunctorData PF).
+  Variable SPF : (SPFunctor PF).
 
 (* constructor and destructor *)
 
@@ -154,6 +174,7 @@ Module Type COINDUCTIVE.
 
   Variable grd : forall (A : Type), PF (sum A (grd_fcofix A)) -> grd_fcofix A.
   (* constructors for grd_fcofix *)
+  Arguments grd A p.
 
   Variable grd_fcofix_des : forall (A: Type),
       grd_fcofix A -> fcofix + (PF (sum A (grd_fcofix A))).
@@ -163,7 +184,7 @@ Module Type COINDUCTIVE.
       grd_fcofix_des (val A x) = inl x.
 
   Hypothesis grd_des_correct : forall A (f: PF (sum A (grd_fcofix A))),
-      grd_fcofix_des (grd A f) = inr f.
+      grd_fcofix_des (@grd A f) = inr f.
   (* destructros are the inverse of constructors *)
 
   Variable to_fcofix : forall A, (A -> grd_fcofix A) ->
@@ -183,7 +204,7 @@ Module Type COINDUCTIVE.
   Hypothesis fcorec_red : forall A (f: A -> grd_fcofix A) (a: A),
       fcofix_des (fcorec f a) = match (grd_fcofix_des (f a)) with
                                 | inl x => fcofix_des x
-                                | inr m => fmap (to_fcofix f) m end.
+                                | inr m => map (to_fcofix f) m end.
         
   Hypothesis to_fcofix_correct1 : forall A (f: A -> grd_fcofix A) a,
     to_fcofix f (inl a) = fcorec f a.
@@ -192,23 +213,18 @@ Module Type COINDUCTIVE.
     to_fcofix f (inr (val A x)) = x.
 
   Hypothesis to_fcofix_correct3 : forall A (f: A -> grd_fcofix A) m,
-    to_fcofix f (inr (grd A m)) = Fcofix (fmap (to_fcofix f) m).
+    to_fcofix f (inr (@grd A m)) = Fcofix (map (to_fcofix f) m).
 
   Variable fcorec_p_red : forall A (f: A -> PF A) a,
-    fcofix_des (fcorec_p f a) = fmap (fcorec_p f) (f a).
+    fcofix_des (fcorec_p f a) = map (fcorec_p f) (f a).
 
 
 (* bisimilarity *)
 
-  Inductive bsm_gen bsm : fcofix -> fcofix -> Prop :=
-  | _bsm_gen : forall (x1 x2 : PF fcofix) (R: frel bsm x1 x2),
-      bsm_gen bsm (Fcofix x1) (Fcofix x2).
+  Hypothesis bsm_gen_mon : monotone2 (bsm_gen Fcofix).
+  Hint Resolve bsm_gen_mon : paco.
 
-  Definition bsm x1 x2 := paco2 bsm_gen bot2 x1 x2.
-
-  Hypothesis bsm_gen_mon : monotone2 bsm_gen.
-
-  Hypothesis bsm_eq : forall x1 x2, bsm x1 x2 <-> x1 = x2.
+  Hypothesis bsm_eq : forall (x1 x2 : fcofix), bsm Fcofix x1 x2 <-> x1 = x2.
   (* bisimilarity axiom.
      its proof relies on the bisimilarity axiom of universal functors *)
 
@@ -223,7 +239,7 @@ Module Type COINDUCTIVE.
                          repeat rewrite to_fcofix_correct1;
                          repeat rewrite to_fcofix_correct2;
                          repeat rewrite to_fcofix_correct3;
-                         repeat rewrite drop_id;
+                         unfold id;
                          simpl).
 
   Ltac csimpl_in H := repeat (repeat rewrite c_des_correct2 in H;
@@ -234,7 +250,9 @@ Module Type COINDUCTIVE.
                               repeat rewrite to_fcofix_correct1 in H;
                               repeat rewrite to_fcofix_correct2 in H;
                               repeat rewrite to_fcofix_correct3 in H;
-                              repeat rewrite drop_id in H;
+                              unfold id in H;
                               simpl in H).
+
+  End coinductive.
 
 End COINDUCTIVE.

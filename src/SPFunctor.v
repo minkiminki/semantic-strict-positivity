@@ -1,4 +1,4 @@
-Require Import FunctionalExtensionality.
+xRequire Import FunctionalExtensionality.
 Require Import Program.
 Require Import ClassicalDescription.
 Require Import Coq.Relations.Relation_Operators.
@@ -9,51 +9,45 @@ Set Automatic Coercions Import.
 Require Import Functor.
 
 
-(* Classical *)
-
-Theorem dependent_unique_choice :
-  forall (A:Type) (B:A -> Type) (R:forall x:A, B x -> Prop),
-    (forall x:A, exists! y : B x, R x y) ->
-    { f : forall x:A, B x | forall x:A, R x (f x) }.
-Proof.
-  intros A B R H.
-  assert (Hexuni:forall x, exists! y, R x y).
-  intro x. apply H.
-  econstructor. instantiate (1 := (fun x => proj1_sig (constructive_definite_description (R x) (Hexuni x)))).
-  intro x.
-  apply (proj2_sig (constructive_definite_description (R x) (Hexuni x))).
-Defined.
-
-Theorem unique_choice :
-  forall (A B:Type) (R:A -> B -> Prop),
-    (forall x:A,  exists! y : B, R x y) ->
-    { f : A -> B | forall x:A, R x (f x) }.
-Proof.
-  intros A B.
-  apply dependent_unique_choice with (B:=fun _:A => B).
-Defined.
-
-
 (* Categories *)
 
 Section UniversalFunctor.
   Variable (Sh1 Sh2: Type).
 
-  Definition UF T := Sh1 -> T + Sh2.
+  Definition UF := Expn Sh1 (Coprod Ident (Const Sh2)).
+  Hint Unfold UF.
 
-  Definition UF_functorMixin: Functor.mixin_of UF :=
-    function_functorMixin Sh1 (coproduct_functorType id_functorType (const_functorType Sh2)).
-  Definition UF_sFunctorMixin: SFunctor.mixin_of UF UF_functorMixin.(Functor.map) :=
-    function_sFunctorMixin Sh1 (coproduct_sFunctorType id_sFunctorType (const_sFunctorType Sh2)).
+  Global Instance UF_FunctorData : FunctorData UF.
+  Proof.
+    unfold UF. auto.
+  Defined.
 
-  Canonical Structure UF_FunctorType := FunctorType UF_functorMixin.
-  Canonical Structure UF_SFunctorType := SFunctorType UF_FunctorType UF_sFunctorMixin.
-  Hint Unfold UF_FunctorType.
-  Hint Unfold UF_SFunctorType.
+  Global Instance UF_SFunctorData : @SFunctorData UF UF_FunctorData
+    := function_sFunctorData Sh1 (Coprod Ident (Const Sh2)).
 
-  Lemma UF_map_injective X Y (u1 u2: UF X) (f: X -> Y)
+  Hint Resolve UF_FunctorData UF_SFunctorData.
+
+
+  Global Instance UF_FunctorProp : FunctorProp UF.
+  Proof.
+    constructor.
+    - intro. extensionality s. extensionality s1. simplify.
+      destruct (s s1) eqn : EQ; auto.
+    - intros. extensionality s. simplify.
+      destruct (x1 s); auto.
+  Qed.
+  Hint Resolve UF_FunctorProp.
+
+  Global Instance UF_SFunctorProp : SFunctorProp UF.
+  Proof.
+    constructor.
+    intros. inv MEM. apply Function_mem with (d := d). simplify.
+    destruct (fx d); simplify; subst; auto.
+  Qed.
+
+  Lemma UF_map_injective X Y (f: X -> Y) (u1 u2: UF X) 
         (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
-        (EQ: fmap f u1 = fmap f u2):
+        (EQ: map f u1 = map f u2):
     u1 = u2.
   Proof.
     extensionality s. apply equal_f with (x:=s) in EQ. simplify. 
@@ -62,152 +56,91 @@ Section UniversalFunctor.
   Qed.
 
   Lemma UF_map_pointwise X Y (u: UF X) (f g: X -> Y)
-        (ALL: forall x, fmem u x -> f x = g x):
-    fmap f u = fmap g u.
+        (ALL: forall x, mem u x -> f x = g x):
+    map f u = map g u.
   Proof.
     extensionality s. simplify.
-    destruct (u s) eqn : EQ; auto.
-    specialize (ALL x). f_equal. apply ALL.
-    econstructor. simplify. rewrite EQ. auto.
+    destruct (u s) eqn : EQ; auto. simplify.
+    specialize (ALL i). f_equal. apply ALL.
+    econstructor. simplify. rewrite EQ. constructor.
   Qed.
 
   Lemma UF_rel_monotone X (u1 u2: UF X) (r r': X -> X -> Prop)
-        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: frel r u1 u2)
-        : frel r' u1 u2.
+        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: rel r u1 u2)
+        : rel r' u1 u2.
   Proof.
-    simplify. intros. specialize (R d).
+    simplify. intro d. specialize (R d).
     inv R; constructor; simplify; auto.
   Qed.
 
-  Lemma UF_map_mem X Y (f: X -> Y) (u: UF X) (x: X) (MEM: fmem u x)
-        : fmem (fmap f u) (f x).
+  Lemma UF_map_mem X Y (f: X -> Y) (u: UF X) (x: X) (MEM: mem u x)
+        : mem (map f u) (f x).
   Proof.
     inv MEM. econstructor. instantiate (1:=d). simplify.
-    destruct (u d); inversion MEM0. auto.
+    destruct (u d); inversion MEM0. constructor.
   Qed.
 
 End UniversalFunctor.
 
+Class SPFunctor (F : Type -> Type) `{SFunctorData F}
+  := {
+      Sh1 : Type;
+      Sh2 : Type;
+      emb :> NatTransData F (UF Sh1 Sh2);
+      emb_prop :> NatTransProp F (UF Sh1 Sh2);
+      emb_s_prop :> SNatTransProp F (UF Sh1 Sh2);
+      INJECTIVE : forall T (x1 x2 : F T) (EQ : NT _ x1 = NT _ x2), x1 = x2;
+    }.                      
+Arguments SPFunctor F {H} {H0}.
 
-Module SPFunctor.
-  Program Record mixin_of (F: Type -> Type)
-          (F_map:forall T1 T2 (f: forall (x1:T1), T2) (fx1:F T1), F T2)
-          (F_mem:forall X, F X -> X -> Prop)
-          (F_rel:forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop)
-  : Type := Mixin {
-    Sh1: Type;
-    Sh2: Type;
-    embedding: forall T (x: F T), UF Sh1 Sh2 T;
+Section SPFunctorFacts.
 
-    _INJECTIVE: forall T x1 x2 (EQ: @embedding T x1 = @embedding T x2), x1 = x2;
-    _NATURAL_MAP:
-      forall T1 T2 (f: T1 -> T2) fx1,
-        embedding (F_map _ _ f fx1) = fmap f (embedding fx1);
-    _NATURAL_MEM: forall X fx x, F_mem X fx x <-> fmem (embedding fx) x;
-    _NATURAL_REL:
-      forall T1 T2 (r: T1 -> T2 -> Prop) fx1 fx2,
-        frel r (embedding fx1) (embedding fx2) <-> (F_rel _ _ r fx1 fx2);
-  }.
+  Variable F : Type -> Type.
+  Context `{SPFunctor F}.
 
-  Record class_of (F: Type -> Type): Type := Class {
-    base :> SFunctor.class_of F;
-    ext :> mixin_of F base.(SFunctor.base).(Functor.map)
-                      base.(SFunctor.ext).(SFunctor.mem) base.(SFunctor.ext).(SFunctor.rel);
-  }.
-
-  Structure type: Type := Pack {
-    sort :> Type -> Type;
-    class :> class_of sort;
-    _: Type -> Type;
-  }.
-
-  Definition unpack K (k: forall T (c: class_of T), K T c) cF :=
-    match cF return K _ (class cF) with
-    | Pack c _ => k _ c
-    end.
-
-  Definition pack :=
-    let k T c m := Pack (Class c m) T in
-    SFunctor.unpack _ k.
-
-  Coercion sFunctorType cF := SFunctor.Pack (class cF) cF.
-  Coercion functorType cF := Functor.Pack (class cF).(base).(SFunctor.base) cF.
-
-End SPFunctor.
-
-Notation SPFunctorType := SPFunctor.type.
-Notation spFunctorType := SPFunctor.pack.
-Canonical Structure SPFunctor.sFunctorType.
-Canonical Structure SPFunctor.functorType.
-Definition functor_embedding F := SPFunctor.embedding (SPFunctor.class F).
-Notation "'femb' fx" := (@functor_embedding _ _ fx) (at level 0).
-Hint Unfold functor_embedding.
-
-Module SPFunctorFacts.
-
-  Lemma INJECTIVE (PF: SPFunctorType) T (x1 x2: PF T) (EQ: femb x1 = femb x2) :
-    x1 = x2.
+  Global Instance toFunctorProp : FunctorProp F.
   Proof.
-    apply PF.(SPFunctor._INJECTIVE). apply EQ.
+    constructor.
+    - intros. extensionality s.
+      apply INJECTIVE.
+      rewrite MAP_COMMUTE. rewrite MAP_ID. auto.
+    - intros. apply INJECTIVE.
+      repeat rewrite MAP_COMMUTE. rewrite MAP_COMPOSE. auto.
   Qed.
 
-  Lemma NATURAL_MAP (PF: SPFunctorType) T1 T2 (f: T1 -> T2) (fx: PF T1) :
-    femb (fmap f fx) = fmap f (femb fx).
+  Global Instance toSFunctorProp : SFunctorProp F.
   Proof.
-    apply SPFunctor._NATURAL_MAP.
+    constructor. intros.
+    intros.
+    apply MEM_COMMUTE. apply MEM_COMMUTE in MEM.
+    rewrite MAP_COMMUTE. apply (MAP_MEM f _ _ MEM).
   Qed.
 
-  Lemma NATURAL_MEM (PF: SPFunctorType) X (fx: PF X) (x: X) :
-    fmem fx x <-> fmem (femb fx) x.
+  Lemma map_injective X Y (f: X -> Y) (u1 u2: F X)
+        (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
+        (EQ: map f u1 = map f u2):
+    u1 = u2.
   Proof.
-    apply SPFunctor._NATURAL_MEM.
-  Qed.
-
-  Lemma NATURAL_REL (PF: SPFunctorType) T1 T2 (r: T1 -> T2 -> Prop)
-        (fx1: PF T1) (fx2: PF T2) : 
-    frel r fx1 fx2 <-> frel r (femb fx1) (femb fx2).
-  Proof.
-    split; intros.
-    - apply SPFunctor._NATURAL_REL. apply H.
-    - apply SPFunctor._NATURAL_REL in H. apply H.
-  Qed.
-
-  Lemma map_injective (PF: SPFunctorType) X Y (u1 u2: PF X) (f: X -> Y)
-         (INJ: forall x1 x2 (EQ: f x1 = f x2), x1 = x2)
-         (EQ: fmap f u1 = fmap f u2):
-     u1 = u2.
-  Proof.
-    apply (INJECTIVE PF). apply (UF_map_injective INJ).
-    repeat rewrite <- NATURAL_MAP.
+    apply INJECTIVE. apply (UF_map_injective INJ).
+    repeat rewrite <- MAP_COMMUTE.
     rewrite EQ. auto.
   Qed.
 
-  Lemma map_pointwise (PF: SPFunctorType) X Y (f g: X -> Y) (m: PF X)
-        (ALL: forall x, fmem m x -> f x = g x):
-    fmap f m = fmap g m.
+  Lemma map_pointwise X Y (f g: X -> Y) (m: F X)
+        (ALL: forall x, mem m x -> f x = g x):
+    map f m = map g m.
   Proof.
-    apply INJECTIVE. 
-    repeat rewrite NATURAL_MAP.
+    apply INJECTIVE.  repeat rewrite MAP_COMMUTE.
     apply UF_map_pointwise.
-    intros. apply ALL, NATURAL_MEM, H.
+    intros. apply ALL, MEM_COMMUTE, H2.
   Qed.
 
-  Lemma rel_monotone (PF: SPFunctorType) X (u1 u2: PF X) (r r': X -> X -> Prop)
-        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: frel r u1 u2)
-        : frel r' u1 u2.
+  Lemma rel_monotone X (u1 u2: F X) (r r': X -> X -> Prop)
+        (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: rel r u1 u2)
+    : rel r' u1 u2.
   Proof.
-    apply NATURAL_REL. apply NATURAL_REL in R.
+    apply REL_COMMUTE. apply REL_COMMUTE in R.
     apply (UF_rel_monotone _ LE). auto.
   Qed.
 
-  Lemma map_mem (PF: SPFunctorType) X Y (f: X -> Y) (u: PF X) (x: X) (MEM: fmem u x)
-        : fmem (fmap f u) (f x).
-  Proof.
-    apply NATURAL_MEM. apply NATURAL_MEM in MEM.
-    rewrite NATURAL_MAP.
-    apply UF_map_mem. auto.
-  Qed.
-
 End SPFunctorFacts.
-
-(* Fixpoint *)
