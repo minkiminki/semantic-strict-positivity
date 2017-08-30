@@ -8,7 +8,7 @@ Set Automatic Coercions Import.
 
 Require Import Functor SPFunctor spec.
 
-Module RCOINDUCTIVE.
+Module RCOINDUCTIVE : COINDUCTIVE.
 
 Section FCoFix.
   Variable PF : Type -> Type.
@@ -21,26 +21,26 @@ Section FCoFix.
   CoInductive c_range: forall (u:ucofix), Prop :=
   | c_Range
       (m: PF ucofix)
-      (MEM: forall u, mem (NT _ m) u -> c_range u):
-      c_range (Ucofix (NT _ m))
+      (MEM: forall u, mem (emb _ m) u -> c_range u):
+      c_range (Ucofix (emb _ m))
   .
 
   Definition fcofix := sig c_range.
 
   Definition fcofix_to_ucofix (x:fcofix): ucofix := proj1_sig x.
 
-  Lemma Fcofix_range (x: PF fcofix) : c_range (Ucofix (NT _ (map fcofix_to_ucofix x))).
+  Lemma Fcofix_range (x: PF fcofix) : c_range (Ucofix (emb _ (map fcofix_to_ucofix x))).
   Proof.
     constructor. intros.
     rewrite MAP_COMMUTE in H1. inv H1. simplify.
-    destruct (NT (UF Sh1 Sh2) x d) eqn: EQ; simplify; [|inv MEM].
+    destruct (emb _ x d) eqn: EQ; simplify; [|inv MEM].
     subst. destruct i. auto.
   Defined. 
 
   Definition Fcofix (x: PF fcofix) : fcofix :=
     @exist _ _ (Ucofix (NT _ (map fcofix_to_ucofix x))) (Fcofix_range x).
 
-  Lemma fcofix_des0' u (R:c_range u): ex (unique (fun m => u = Ucofix (NT _ m))).
+  Lemma fcofix_des0' u (R:c_range u): ex (unique (fun m => u = Ucofix (emb _ m))).
   Proof.
     inv R. exists m. split; auto.
     intros. inversion H1. apply INJECTIVE. auto. 
@@ -86,8 +86,8 @@ Section FCoFix.
     extensionality s. apply equal_f with s in EQ.
     repeat rewrite MAP_COMMUTE in EQ.
     simplify.
-    destruct (NT (UF Sh1 Sh2) x1 s);
-    destruct (NT (UF Sh1 Sh2) x2 s); inversion EQ; auto.
+    destruct (emb _ x1 s);
+    destruct (emb _ x2 s); inversion EQ; auto.
     destruct i, i0. simplify. subst.
     f_equal. f_equal. apply proof_irrelevance.
   Qed.
@@ -123,8 +123,8 @@ Section FCoFix.
   CoInductive grd_range (A: Type) : grd_ucofix A -> Prop :=
   | _val_r x : c_range x -> grd_range (_val A x)
   | _grd_r (m: PF (sum A (grd_ucofix A)))
-             (MEM: forall a, mem (NT _ m) (inr a) -> grd_range a)
-    : grd_range (_grd (NT _ m)).
+             (MEM: forall a, mem (emb _ m) (inr a) -> grd_range a)
+    : grd_range (_grd (emb _ m)).
 
   Definition grd_fcofix (A: Type) := sig (@grd_range A). 
 
@@ -137,12 +137,12 @@ Section FCoFix.
     | inr c => inr (proj1_sig c) end.
 
   Lemma grd_fcofix_range A (x: PF (sum A (grd_fcofix A))) :
-                      grd_range (_grd (NT _ (map (@grd_fcofix_to_ucofix A) x))). 
+                      grd_range (_grd (emb _ (map (@grd_fcofix_to_ucofix A) x))). 
   Proof.
     constructor. intros.
     rewrite MAP_COMMUTE in H1. inv H1. simplify.
     unfold grd_fcofix_to_ucofix in MEM.
-    destruct (NT (UF Sh1 Sh2) x d).
+    destruct (emb _ x d).
     - destruct i; inversion MEM.
       destruct g. auto.
     - inversion MEM.
@@ -152,7 +152,7 @@ Section FCoFix.
     exist _ _ (@grd_fcofix_range A x).
 
   Lemma grd_fcofix_des0' A u (R: grd_range (@_grd A u))
-    : ex (unique (fun m => u = NT _ m)).
+    : ex (unique (fun m => u = emb _ m)).
   Proof.
     inv R. exists m. split; auto.
     intros. apply INJECTIVE, H1.
@@ -171,7 +171,7 @@ Section FCoFix.
       inversion R. apply MEM0.
       unfold grd_fcofix_des0 in MEM.
       destruct (constructive_definite_description
-                  (fun m : PF (A + grd_ucofix A)%type => u = (NT _ m))
+                  (fun m : PF (A + grd_ucofix A)%type => u = (emb _ m))
                   (grd_fcofix_des0' R)) eqn : EQ.
       unfold proj1_sig in MEM.
       subst. apply INJECTIVE in H2. subst.
@@ -218,8 +218,8 @@ Section FCoFix.
     extensionality s. apply equal_f with s in H2.
     repeat rewrite MAP_COMMUTE in H2.
     simplify.
-    destruct (NT (UF Sh1 Sh2) x1 s);
-    destruct (NT (UF Sh1 Sh2) x2 s); inversion H0; auto;
+    destruct (emb _ x1 s);
+    destruct (emb _ x2 s); inversion H0; auto;
     try destruct i, i0; inversion H2; simplify; eauto.
     destruct g, g0. simplify. subst.
     repeat apply f_equal. apply proof_irrelevance.
@@ -236,7 +236,7 @@ Section FCoFix.
       rewrite MAP_DEP.
       + unfold grd_fcofix_des0.
         destruct (constructive_definite_description
-                    (fun m0 : PF (A + grd_ucofix A)%type => (NT _ m) = (NT _ m0))
+                    (fun m0 : PF (A + grd_ucofix A)%type => (emb _ m) = (emb _ m0))
                     (grd_fcofix_des0' g)) eqn: EQ.
         simpl.
         apply INJECTIVE. auto.
@@ -310,20 +310,28 @@ Section FCoFix.
     - rewrite ucofix_adhoc. simpl. destruct (f a). simpl.
       destruct g.
       + rewrite <- ucofix_adhoc. apply H1.
-      + replace (fun s1 : Sh1 =>
-                   match NT (UF Sh1 Sh2) m s1 with
-                   | inl x => inl (to_ucofix (fun x0 : A => ` (f x0)) x)
-                   | inr e => inr e
-                   end) with
-            (map (fun x => to_ucofix (fun x0 : A => ` (f x0)) x) (NT _ m)); auto.
+      + replace (fun s1 : @Sh1 PF H H0 SPF =>
+        match
+          @NT PF (UF (@Sh1 PF H H0 SPF) (@Sh2 PF H H0 SPF)) _ _
+            (@emb PF H H0 SPF) (sum A (grd_ucofix A)) m s1
+          return (Coprod Ident (Const (@Sh2 PF H H0 SPF)) ucofix)
+        with
+        | inl x =>
+            @inl ucofix (Const (@Sh2 PF H H0 SPF) ucofix)
+              (@to_ucofix A
+                 (fun x0 : A => @proj1_sig (grd_ucofix A) (@grd_range A) (f x0)) x)
+        | inr e =>
+            @inr (Ident ucofix) (Const (@Sh2 PF H H0 SPF) (sum A (grd_ucofix A))) e
+        end) with
+            (map (fun x => to_ucofix (fun x0 : A => ` (f x0)) x) (@emb _ _ _ SPF _ m)); auto. 
         rewrite <- MAP_COMMUTE.
         constructor. intros. set H1. rewrite MAP_COMMUTE in m0.
         simpl in m0. inv m0. simplify.
-        destruct (match NT (UF Sh1 Sh2) m d with
+        destruct (match emb _ m d with
            | inl fx => inl (to_ucofix (fun x0 : A => ` (f x0)) fx)
            | inr fx => inr fx
            end) eqn: EQ1;
-        destruct (NT (UF Sh1 Sh2) m d) eqn : EQ2; inversion MEM0;
+        destruct (emb _ m d) eqn : EQ2; inversion MEM0;
           inversion EQ1; simplify.
         destruct i.
         * specialize (to_fcofix1 (inl a0)). simpl in to_fcofix1. 
@@ -338,21 +346,29 @@ Section FCoFix.
       destruct g. simpl. destruct x.
       + rewrite <- ucofix_adhoc. inversion g. subst. apply H2.
       + inversion g.
-        replace (fun s1 : Sh1 =>
-        match NT (UF Sh1 Sh2) m s1 with
-        | inl x => inl (to_ucofix (fun x0 : A => ` (f x0)) x)
-        | inr e => inr e
+        replace (fun s1 : @Sh1 PF H H0 SPF =>
+        match
+          @NT PF (UF (@Sh1 PF H H0 SPF) (@Sh2 PF H H0 SPF)) _ _ 
+            (@emb PF H H0 SPF) (sum A (grd_ucofix A)) m s1
+          return (Coprod Ident (Const (@Sh2 PF H H0 SPF)) ucofix)
+        with
+        | inl x =>
+            @inl ucofix (Const (@Sh2 PF H H0 SPF) ucofix)
+              (@to_ucofix A
+                 (fun x0 : A => @proj1_sig (grd_ucofix A) (@grd_range A) (f x0)) x)
+        | inr e =>
+            @inr (Ident ucofix) (Const (@Sh2 PF H H0 SPF) (sum A (grd_ucofix A))) e
         end) with
-            (map (fun x => to_ucofix (fun x0 : A => ` (f x0)) x) (NT _ m)); auto.
+            (map (fun x => to_ucofix (fun x0 : A => ` (f x0)) x) (emb _ m)); auto.
         rewrite <- MAP_COMMUTE.
         constructor. intros.
         set H1. rewrite MAP_COMMUTE in m0.
         simpl in m0. inv m0. simplify.
-        destruct (match NT (UF Sh1 Sh2) m d with
+        destruct (match emb _ m d with
            | inl fx => inl (to_ucofix (fun x0 : A => ` (f x0)) fx)
            | inr fx => inr fx
            end) eqn: EQ1;
-        destruct (NT (UF Sh1 Sh2) m d) eqn : EQ2; inversion EQ1; simplify; inv MEM0.
+        destruct (emb _ m d) eqn : EQ2; inversion EQ1; simplify; inv MEM0.
         destruct i.
         * specialize (to_fcofix1 (inl a)). simpl in to_fcofix1. apply to_fcofix1.
         * assert (grd_range g0).
@@ -393,7 +409,7 @@ Section FCoFix.
       unfold fcofix_des0. simpl.
       destruct (constructive_definite_description
      (fun m : PF ucofix =>
-      to_ucofix (fun x0 : A => ` (f x0)) (inl a) = Ucofix (NT _ m))
+      to_ucofix (fun x0 : A => ` (f x0)) (inl a) = Ucofix (emb _ m))
      (fcofix_des0' (to_fcofix1 f (inl a)))) eqn : EQ. simpl in *.
       rewrite EQ. simpl. clear EQ.
       set e.
@@ -406,7 +422,7 @@ Section FCoFix.
       repeat rewrite MAP_COMMUTE.
       extensionality s.
       simplify.
-      destruct (NT (UF Sh1 Sh2) x s) eqn : EQ; auto.
+      destruct (emb _ x s) eqn : EQ; auto.
       f_equal.
       unfold to_fcofix0, grd_fcofix_to_ucofix.
       destruct i; auto.
@@ -437,7 +453,7 @@ Section FCoFix.
     simplify. extensionality s.
     rewrite MAP_COMMUTE. simplify.
     unfold grd_fcofix_to_ucofix.
-    destruct (NT (UF Sh1 Sh2) m s); auto.
+    destruct (emb _ m s); auto.
     destruct i; auto.
   Qed.
 
@@ -491,8 +507,8 @@ Section FCoFix.
 
     intro. specialize (R d). simplify.
 
-    destruct (NT (UF Sh1 Sh2) x1 d);
-    destruct (NT (UF Sh1 Sh2) x2 d); inv R.
+    destruct (emb _ x1 d);
+    destruct (emb _ x2 d); inv R.
     - simplify. constructor. destruct REL; [| inversion H1].
       simplify. right. apply CIH, H1.
     - simplify. subst. constructor. simplify. auto.
@@ -508,13 +524,13 @@ Section FCoFix.
 
     apply REL_COMMUTE. simplify. intro.
 
-    assert (H1 : forall x y, map fcofix_to_ucofix (NT _ (fcofix_des (exist c_range (Ucofix (NT _ x)) y))) = (NT _ x)).
+    assert (H1 : forall x y, map fcofix_to_ucofix (emb _ (fcofix_des (exist c_range (Ucofix (emb _ x)) y))) = (emb _ x)).
     { intros.
       rewrite <- MAP_COMMUTE.
       unfold fcofix_des. rewrite MAP_DEP.
       unfold fcofix_des0. simpl.
       destruct (constructive_definite_description
-                  (fun m1 : PF ucofix => Ucofix (NT _ x) = Ucofix (NT _ m1))
+                  (fun m1 : PF ucofix => Ucofix (emb _ x) = Ucofix (emb _ m1))
                   (fcofix_des0' y)) eqn : EQ.
       inversion e. apply INJECTIVE in H2. subst. eauto.
       intros. auto.
@@ -533,19 +549,19 @@ Section FCoFix.
       assert (c_range fx2).
       { apply MEM0. apply (Function_mem _ _ d). simplify.
         rewrite <- H6. simplify. auto. }
-      replace (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m)) c)) d) with (@inl _ Sh2 (exist _ _ H3)).
-      replace (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m0)) c0)) d) with (@inl _ Sh2 (exist _ _ H4)).
+      replace (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m)) c)) d) with (@inl _ Sh2 (exist _ _ H3)).
+      replace (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m0)) c0)) d) with (@inl _ Sh2 (exist _ _ H4)).
       constructor. simplify.
       right. apply CIH. apply H2.
 
       specialize (H1 m0 c0). apply equal_f with d in H1. rewrite <- H6 in H1.
       simplify.
-      destruct (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m0)) c0)) d);
+      destruct (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m0)) c0)) d);
       inversion H1. subst. destruct i. simpl. f_equal. apply sig_unique. auto.
 
       specialize (H1 m c). apply equal_f with d in H1. rewrite <- H5 in H1.
       simplify.
-      destruct (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m)) c)) d);
+      destruct (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m)) c)) d);
       inversion H1. subst. destruct i. simpl. f_equal. apply sig_unique. auto.
       
     - simplify. subst.
@@ -556,8 +572,8 @@ Section FCoFix.
 
       set (H1 m c). apply equal_f with d in e. rewrite <- H5 in e.
       set (H1 m0 c0). apply equal_f with d in e0. rewrite <- H6 in e0. simplify.
-      destruct (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m)) c)) d);
-      destruct (NT (UF Sh1 Sh2) (fcofix_des (exist c_range (Ucofix (NT (UF Sh1 Sh2) m0)) c0)) d);
+      destruct (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m)) c)) d);
+      destruct (emb _ (fcofix_des (exist c_range (Ucofix (emb _ m0)) c0)) d);
       simplify; inversion e; inversion e0.
       constructor. constructor. 
   Qed.
@@ -571,8 +587,6 @@ Section FCoFix.
       subst. auto.
   Qed.
 
-  Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec.
-
   Definition fcorec_p A (f: A -> PF A) : A -> fcofix :=
     fcorec (fun a: A => @grd A (map inl (f a))).
 
@@ -583,9 +597,123 @@ Section FCoFix.
     simplify. apply Functor.MAP_COMPOSE. 
   Qed.
 
-  Global Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p fcorec_p_red.
+  Global Opaque Fcofix fcofix_des val grd grd_fcofix_des to_fcofix fcorec fcorec_p fcorec_red fcorec_p_red.
 
 End FCoFix.
 
 End RCOINDUCTIVE.
 
+Section coinductive.
+
+  Variable PF : Type -> Type.
+  Context `{SPF : SPFunctor PF}.
+
+  Definition fcofix : Type := @RCOINDUCTIVE.fcofix _ _ _ _. (* coinductive type *)
+
+  Definition Fcofix : PF fcofix -> fcofix := @RCOINDUCTIVE.Fcofix _ _ _ _. (* constructor *)
+
+  Definition fcofix_des : fcofix ->  PF fcofix := @RCOINDUCTIVE.fcofix_des _ _ _ _. (* destructor *)
+
+  Definition Fcofix_inj : forall x1 x2 (EQ: Fcofix x1 = Fcofix x2), x1 = x2 := @RCOINDUCTIVE.Fcofix_inj _ _ _ _.
+  (* constructors are injective *)
+
+  Definition c_des_correct1 : forall x, Fcofix (fcofix_des x) = x := @RCOINDUCTIVE.c_des_correct1 _ _ _ _.
+
+  Definition c_des_correct2 : forall x, fcofix_des (Fcofix x) = x := @RCOINDUCTIVE.c_des_correct2 _ _ _ _.
+  (* these say that destructors are the inverse of constructors *)
+
+
+(* for corecursive functions *)
+(* we use mendler style corecursion *)
+
+  Definition grd_fcofix : Type -> Type := @RCOINDUCTIVE.grd_fcofix _ _ _ _.
+
+  Definition val : forall (A : Type), fcofix -> grd_fcofix A := @RCOINDUCTIVE.val _ _ _ _.
+
+  Definition grd : forall (A : Type), PF (sum A (grd_fcofix A)) -> grd_fcofix A := @RCOINDUCTIVE.grd _ _ _ _.
+  (* constructors for grd_fcofix *)
+
+  Definition grd_fcofix_des : forall (A: Type),
+      grd_fcofix A -> fcofix + (PF (sum A (grd_fcofix A))) := @RCOINDUCTIVE.grd_fcofix_des _ _ _ _.
+  (* destructors for grd_fcofix *)
+
+  Definition val_des_correct : forall A (x: fcofix),
+      grd_fcofix_des (val A x) = inl x := @RCOINDUCTIVE.val_des_correct _ _ _ _.
+
+  Definition grd_des_correct : forall A (f: PF (sum A (grd_fcofix A))),
+      grd_fcofix_des (@grd A f) = inr f := @RCOINDUCTIVE.grd_des_correct _ _ _ _.
+  (* destructros are the inverse of constructors *)
+
+  Definition to_fcofix : forall A, (A -> grd_fcofix A) ->
+                                 (sum A (grd_fcofix A)) -> fcofix := @RCOINDUCTIVE.to_fcofix _ _ _ _.
+  (* users don't need to know this function *)
+
+  Definition fcorec : forall A, (A -> grd_fcofix A) -> (A -> fcofix) := @RCOINDUCTIVE.fcorec _ _ _ _.
+  (* corecursive function!!! *)
+
+  Definition fcorec_p : forall A (f: A -> PF A), A -> fcofix := @RCOINDUCTIVE.fcorec_p _ _ _ _.
+  (* primitive corecursion *)
+
+
+(* reduction rules for corecursive functions *)
+
+  Definition fcorec_red : forall A (f: A -> grd_fcofix A) (a: A),
+      fcofix_des (fcorec f a) = match (grd_fcofix_des (f a)) with
+                                | inl x => fcofix_des x
+                                | inr m => map (to_fcofix f) m end := @RCOINDUCTIVE.fcorec_red _ _ _ _.
+        
+  Definition to_fcofix_correct1 : forall A (f: A -> grd_fcofix A) a,
+    to_fcofix f (inl a) = fcorec f a := @RCOINDUCTIVE.to_fcofix_correct1 _ _ _ _.
+
+  Definition to_fcofix_correct2 : forall A (f: A -> grd_fcofix A) x,
+    to_fcofix f (inr (val A x)) = x := @RCOINDUCTIVE.to_fcofix_correct2 _ _ _ _.
+
+  Definition to_fcofix_correct3 : forall A (f: A -> grd_fcofix A) m,
+    to_fcofix f (inr (@grd A m)) = Fcofix (map (to_fcofix f) m) := @RCOINDUCTIVE.to_fcofix_correct3 _ _ _ _.
+
+  Definition fcorec_p_red : forall A (f: A -> PF A) a,
+    fcofix_des (fcorec_p f a) = map (fcorec_p f) (f a) := @RCOINDUCTIVE.fcorec_p_red _ _ _ _.
+
+(* bisimilarity *)
+
+  Definition bsm_gen_mon : monotone2 (bsm_gen Fcofix) := @RCOINDUCTIVE.bsm_gen_mon _ _ _ _.
+
+  Definition bsm_eq : forall x1 x2, (bsm Fcofix) x1 x2 <-> x1 = x2  := @RCOINDUCTIVE.bsm_eq _ _ _ _.
+  (* bisimilarity axiom.
+     its proof relies on the bisimilarity axiom of universal functors *)
+
+(* tactics for reduction *)
+
+End coinductive.
+
+
+Global Opaque fcofix Fcofix fcofix_des Fcofix_inj c_des_correct1 c_des_correct2 grd_fcofix val grd grd_fcofix_des val_des_correct grd_des_correct to_fcofix fcorec fcorec_p fcorec_red fcorec_p_red to_fcofix_correct1 to_fcofix_correct2 to_fcofix_correct3 bsm_gen_mon bsm_eq.
+
+
+Ltac csimpl := repeat (autounfold;
+                       repeat rewrite c_des_correct2;
+                       repeat rewrite val_des_correct;
+                       repeat rewrite grd_des_correct;
+                       repeat rewrite fcorec_red;
+                       repeat rewrite fcorec_p_red;
+                       repeat rewrite to_fcofix_correct1;
+                       repeat rewrite to_fcofix_correct2;
+                       repeat rewrite to_fcofix_correct3;
+                       unfold id;
+                       simpl).
+
+Ltac csimpl_in H := repeat (autounfold in H;
+                            repeat rewrite c_des_correct2 in H;
+                            repeat rewrite val_des_correct in H;
+                            repeat rewrite grd_des_correct in H;
+                            repeat rewrite fcorec_red in H;
+                            repeat rewrite fcorec_p_red in H;
+                            repeat rewrite to_fcofix_correct1 in H;
+                            repeat rewrite to_fcofix_correct2 in H;
+                            repeat rewrite to_fcofix_correct3 in H;
+                            unfold id in H;
+                            simpl in H).
+
+Arguments fcofix PF {H} {H0} {SPF}.
+Arguments Fcofix PF {H} {H0} {SPF}.
+Arguments fcofix_des {PF} {H} {H0} {SPF}.

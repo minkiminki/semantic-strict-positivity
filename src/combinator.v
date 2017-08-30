@@ -22,10 +22,10 @@ Ltac commute := simplify; try rewrite (@REL_COMMUTE _ (UF _ _) _ _ _ _ _ _ _);
                 try rewrite (@MEM_COMMUTE _ (UF _ _) _ _ _ _ _ _ _); 
                 repeat rewrite MAP_COMMUTE; simplify.
 
-Ltac des_ d := try destruct (NT (UF _ _) _ d); subst; simplify; auto.
+Ltac des_ d := try destruct (emb _ _ d); subst; simplify; auto.
 
 Ltac des := repeat (simplify; repeat (match goal with
-                              | [ |- context[NT (UF _ _) _ ?d]] => des_ d
+                              | [ |- context[@NT _ _ _ _ _ _ _ ?d]] => des_ d
                               end);
             repeat (match goal with
                | [ H : coproduct_rel ?rel (inl ?i) (inl ?i0) |- _] => inv H end);
@@ -46,7 +46,7 @@ Ltac des := repeat (simplify; repeat (match goal with
                    sconstructor).
 
 Ltac des' := repeat (simplify; repeat (match goal with
-                              | [ |- context[NT (UF _ _) _ ?d]] => des_ d
+                              | [ |- context[emb _ _ ?d]] => des_ d
                               end);
             repeat (match goal with
                | [ H : coproduct_rel ?rel (inl ?i) (inl ?i0) |- _] => inv H end);
@@ -257,8 +257,7 @@ Hint Resolve dep_sum_functorData dep_prod_sFunctorData.
 
 Program Instance id_SPFunctor : SPFunctor Ident :=
   @Build_SPFunctor Ident _ _ unit False
-                   (Build_NatTransData _ _ (fun _ x _ => inl x))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (fun _ x _ => inl x) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   split; intros.
@@ -278,12 +277,11 @@ Hint Resolve id_SPFunctor.
 
 Program Instance option_SPFunctor : SPFunctor option :=
   @Build_SPFunctor option _ _ unit unit
-                   (Build_NatTransData _ _ (fun _ x _ =>
+                   (Build_NatTrans _ _ (fun _ x _ =>
                                               match x with
                                               | Some x => inl x
                                               | None => inr ()
-                                              end))
-                   (Build_NatTransProp _ _ _ _)
+                                              end) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   destruct x; auto.
@@ -310,8 +308,7 @@ Hint Resolve option_SPFunctor.
 
 Program Instance const_SPFunctor D : SPFunctor (Const D) :=
   @Build_SPFunctor (Const D) _ _ unit D
-                   (Build_NatTransData _ _ (fun _ a _ => inr a))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (fun _ a _ => inr a) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   split; intros.
@@ -341,12 +338,12 @@ Definition prod_embed (F G : Type -> Type) `{SPFunctor F} `{SPFunctor G} X
     | (xl, xr) =>
       match s with
       | inl s' =>
-        match (NT _ xl s') with
+        match (@emb _ _ H0 _ _ xl s') with
         | inl a => inl a
         | inr b => inr (inl b)
         end
       | inr s' =>
-        match (NT _ xr s') with
+        match (@emb _ _ _ _ _ xr s') with
         | inl a => inl a
         | inr b => inr (inr b)
         end
@@ -358,11 +355,11 @@ Hint Unfold prod_embed.
 Program Instance prod_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   : SPFunctor (Prod F1 F2) :=
   @Build_SPFunctor (Prod F1 F2) _ _ (Sh1 F1 + Sh1 F2) (Sh2 F1 + Sh2 F2)
-                   (Build_NatTransData _ _ (@prod_embed F1 F2 _ _ _ _ _ _))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (@prod_embed F1 F2 _ _ _ _ _ _) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   destruct x; simplify; commute; extensionality s; destruct s; des.
+
 Qed.
 Next Obligation.
   split; intros; simplify; destruct fx.
@@ -393,7 +390,7 @@ Definition coprod_embed (F G : Type -> Type) `{SPFunctor F} `{SPFunctor G} X
     match s with
     | inl (inl _) => inr (inl true)
     | inl (inr s') =>
-      match NT _ x' s' with
+      match emb _ x' s' with
       | inl a => inl a
       | inr b => inr (inr (inl b))
       end
@@ -404,7 +401,7 @@ Definition coprod_embed (F G : Type -> Type) `{SPFunctor F} `{SPFunctor G} X
     | inl s' => inr (inl false)
     | inr (inl _) => inr (inl true)
     | inr (inr s') =>
-      match NT _ x' s' with
+      match emb _ x' s' with
       | inl a => inl a
       | inr b => inr (inr (inr b))
       end
@@ -416,8 +413,7 @@ Program Instance coprod_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   : SPFunctor (Coprod F1 F2) :=
   @Build_SPFunctor (Coprod F1 F2) _ _ ((() + Sh1 F1) + (() + Sh1 F2))
                    (bool + (Sh2 F1 + Sh2 F2))
-                   (Build_NatTransData _ _ (@coprod_embed F1 F2 _ _ _ _ _ _))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (@coprod_embed F1 F2 _ _ _ _ _ _) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   destruct x; extensionality a; simplify;
@@ -456,15 +452,14 @@ Hint Resolve coprod_SPFunctor.
 Definition function_embed D F `{SPFunctor F} X (x: D -> F X)
            (s: D * (Sh1 F)) : (X + (Sh2 F)) :=
   match s with
-  | (d, s') => NT _ (x d) s' end.
+  | (d, s') => emb _ (x d) s' end.
 Hint Unfold function_embed.
 
 Program Instance function_SPFunctor D F `{SPFunctor F}
   : @SPFunctor (Expn D F) (function_functorData _ _) _ :=
   @Build_SPFunctor (Expn D F) _ _ (D * (Sh1 F))
                    (Sh2 F)
-                   (Build_NatTransData _ _ (@function_embed D F _ _ _))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (@function_embed D F _ _ _) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   extensionality s. destruct s. simplify. commute. des.
@@ -494,7 +489,7 @@ Definition dep_prod_embed A (B: A -> Type -> Type)
            (s: sigT (fun a => Sh1 (B a))) : (X + (sigT (fun a => Sh2 (B a)))) :=
   match s with
   | existT _ a sh =>
-    match NT _ (x a) sh with
+    match emb _ (x a) sh with
     | inl v => inl v
     | inr v => inr (existT _ a v)
     end
@@ -508,8 +503,7 @@ Program Instance dep_prod_SPFunctor  A (B: A -> Type -> Type)
   : SPFunctor (dep_prod_type B) :=
   @Build_SPFunctor (dep_prod_type B) _ _ (sigT (fun a => Sh1 (B a)))
                    (sigT (fun a => Sh2 (B a)))
-                   (Build_NatTransData _ _ (@dep_prod_embed A B _ _ _))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (@dep_prod_embed A B _ _ _) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   extensionality s. destruct s. simplify. commute. des.
@@ -561,7 +555,7 @@ Definition dep_sum_embed X (x: sigT (fun a => (B a) X))
         match sh with
         | inl _ => inr (inl true)
         | inr sh' =>
-          match NT _ (eq_rect _ (fun y => (B y) X) x' _ pf) sh' with
+          match emb _ (eq_rect _ (fun y => (B y) X) x' _ pf) sh' with
           | inl a => inl a
           | inr b => inr (inr (existT _ a' b)) end
         end
@@ -574,8 +568,7 @@ Hint Unfold dep_sum_embed.
 Global Program Instance dep_sum_SPFunctor : SPFunctor (dep_sum_type B) :=
   @Build_SPFunctor (dep_sum_type B) _ _ (sigT (fun a => (unit + Sh1 (B a))%type))
                    (bool + (sigT (fun a => (Sh2 (B a)))))
-                   (Build_NatTransData _ _ dep_sum_embed)
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ dep_sum_embed _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   destruct x. extensionality s. destruct s. simplify.
@@ -653,15 +646,14 @@ Proof.
 Qed.
 
 Definition comp_embed F G `{SPFunctor F} `{SPFunctor G} X (x: F (G X)) :=
-  @comp_embed' F G _ _ _ _ _ _ _ (NT _ (map (NT _) x)).
+  @comp_embed' F G _ _ _ _ _ _ _ (emb _ (map (emb _) x)).
 Hint Unfold comp_embed.
 
 Program Instance comp_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   : SPFunctor (compose F1 F2) :=
   @Build_SPFunctor (compose F1 F2) _ _ ((() + Sh1 F2) * Sh1 F1) 
                    (() + (Sh2 F2 + Sh2 F1))
-                   (Build_NatTransData _ _ (@comp_embed F1 F2 _ _ _ _ _ _))
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ (@comp_embed F1 F2 _ _ _ _ _ _) _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   extensionality s. destruct s. simplify. destruct s.
@@ -675,7 +667,7 @@ Next Obligation.
   - simplify. inv H5. destruct d. destruct s.
     + comm MEM. des_ s0; inv MEM.
     + comm MEM. 
-      destruct (NT (UF _ _) _ s0) eqn : EQ; [| inv MEM]. apply (_comp_mem x i fx).
+      destruct (emb _ _ s0) eqn : EQ; [| inv MEM]. apply (_comp_mem x i fx).
       commute. apply (Function_mem _ _ s). des.
       commute. apply (Function_mem _ _ s0). des.
 Qed.
@@ -684,8 +676,8 @@ Next Obligation.
   - comm H5. intro. destruct d. specialize (H5 s0). commute. destruct s; [des|].
     des_ s0; des_ s0; inv H5. comm REL. specialize (REL s). des. sconstructor.
   - simplify. commute. intro. comm H5.
-    destruct (NT (UF _ _) fx1 d) eqn : EQ1;
-    destruct (NT (UF _ _) fx2 d) eqn : EQ2.
+    destruct (emb _ fx1 d) eqn : EQ1;
+    destruct (emb _ fx2 d) eqn : EQ2.
     + sconstructor. commute. intro. specialize (H5 (inr d0, d)). simplify.
       rewrite EQ1 in H5. rewrite EQ2 in H5. des.
     + specialize (H5 (inl tt, d)). simplify.
@@ -747,8 +739,7 @@ Fixpoint list_embed X (l: list X) : list unit -> X + unit :=
 
 Program Instance list_SPFunctor : SPFunctor list :=
   @Build_SPFunctor list _ _ (list unit) unit
-                   (Build_NatTransData _ _ list_embed)
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ list_embed _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   induction x.
@@ -843,8 +834,7 @@ Fixpoint tree_embed X (t: tree X) : list bool -> X + unit :=
 
 Program Instance tree_SPFunctor : SPFunctor tree :=
   @Build_SPFunctor tree _ _ (list bool) unit
-                   (Build_NatTransData _ _ tree_embed)
-                   (Build_NatTransProp _ _ _ _)
+                   (Build_NatTrans _ _ tree_embed _)
                    (Build_SNatTransProp _ _ _ _ _) _.
 Next Obligation.
   induction x.

@@ -44,29 +44,20 @@ Class SFunctorProp F `{H : FunctorData F} `{@SFunctorData _ H} `{@FunctorProp _ 
     }.
 Arguments SFunctorProp F {H} {H0} {H1}.
 
-Class NatTransData (F G : Type -> Type) : Type
-  := {
-      NT :> forall {X:Type} (fx:F X), G X;
-    }.
-
-Class NatTransProp F G `{FunctorData F} `{FunctorData G}
-      `{NatTransData F G} : Prop
-  := {
-      MAP_COMMUTE: forall T1 T2 (f:T1 -> T2) x, NT (map f x) = (map f) (NT x);
-    }.
-Arguments NatTransProp F G {H} {H0} {H1}.
+Structure NatTrans (F G : Type -> Type) `{FunctorData F} `{FunctorData G} : Type :=
+  {
+    NT :> forall {X:Type} (fx:F X), G X;
+    MAP_COMMUTE: forall T1 T2 (f:T1 -> T2) x, NT (map f x) = (map f) (NT x);
+  }.
+Arguments NatTrans F G {H} {H0}.
 
 Class SNatTransProp F G `{H : FunctorData F} `{H0 : FunctorData G} 
-      `{@SFunctorData F H} `{@SFunctorData G H0}
-      `{H1 : NatTransData F G} `{@NatTransProp F G H H0 H1}
+      `{@SFunctorData F H} `{@SFunctorData G H0} `{H1 : @NatTrans F G _ _}
   : Prop := {
-             MEM_COMMUTE: forall X fx (x:X), mem fx x <-> mem (NT fx) x;
+             MEM_COMMUTE: forall X fx (x:X), mem fx x <-> mem (H1 _ fx) x;
              REL_COMMUTE: forall T1 T2 (rel': forall (x1:T1) (x2:T2), Prop) fx1 fx2,
-                 rel rel' fx1 fx2 <-> rel rel' (NT fx1) (NT fx2);
+                 rel rel' fx1 fx2 <-> rel rel' (H1 _ fx1) (H1 _ fx2);
            }.
-Arguments SNatTransProp F G {H} {H0} {H1} {H2} {H3} {H4}.
-Arguments NT {F} G {NatTransData} {X} fx.
-
 
 (* instances *)
 

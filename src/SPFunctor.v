@@ -1,4 +1,4 @@
-xRequire Import FunctionalExtensionality.
+Require Import FunctionalExtensionality.
 Require Import Program.
 Require Import ClassicalDescription.
 Require Import Coq.Relations.Relation_Operators.
@@ -86,16 +86,15 @@ Class SPFunctor (F : Type -> Type) `{SFunctorData F}
   := {
       Sh1 : Type;
       Sh2 : Type;
-      emb :> NatTransData F (UF Sh1 Sh2);
-      emb_prop :> NatTransProp F (UF Sh1 Sh2);
-      emb_s_prop :> SNatTransProp F (UF Sh1 Sh2);
-      INJECTIVE : forall T (x1 x2 : F T) (EQ : NT _ x1 = NT _ x2), x1 = x2;
+      emb :> @NatTrans F (UF Sh1 Sh2) _ _;
+      emb_s_prop :> @SNatTransProp F (UF Sh1 Sh2) _ _ _ _ emb;
+      INJECTIVE : forall T (x1 x2 : F T) (EQ : emb _ x1 = emb _ x2), x1 = x2;
     }.                      
 Arguments SPFunctor F {H} {H0}.
 
 Section SPFunctorFacts.
 
-  Variable F : Type -> Type.
+  Context {F : Type -> Type}.
   Context `{SPFunctor F}.
 
   Global Instance toFunctorProp : FunctorProp F.
@@ -134,6 +133,7 @@ Section SPFunctorFacts.
     apply UF_map_pointwise.
     intros. apply ALL, MEM_COMMUTE, H2.
   Qed.
+  
 
   Lemma rel_monotone X (u1 u2: F X) (r r': X -> X -> Prop)
         (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: rel r u1 u2)

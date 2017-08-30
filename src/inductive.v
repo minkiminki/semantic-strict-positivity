@@ -21,28 +21,26 @@ Section FFix.
   Inductive range: forall (u:ufix), Prop :=
   | Range
       (m: PF ufix)
-      (MEM: forall u, mem (NT _ m) u -> range u):
-      range (Ufix (NT _ m))
+      (MEM: forall u, mem (emb _ m) u -> range u):
+      range (Ufix (emb _ m))
   .
 
   Definition ffix := sig range.
 
   Definition ffix_to_ufix (x:ffix): ufix := proj1_sig x.
 
-  Arguments NT {F} G {NatTransData} {X} fx.
-
-  Lemma Ffix_range (x: PF ffix) : range (Ufix (NT _ (map ffix_to_ufix x))).
+  Lemma Ffix_range (x: PF ffix) : range (Ufix (emb _ (map ffix_to_ufix x))).
   Proof.
     constructor. intros.
     rewrite MAP_COMMUTE in H1. inv H1. simplify.
-    destruct (NT (UF Sh1 Sh2) x d) eqn : EQ; [| inv MEM]; simplify.
+    destruct (emb _ x d) eqn : EQ; [| inv MEM]; simplify.
     subst. destruct i. auto.
   Defined. 
 
   Definition Ffix (x: PF ffix) : ffix :=
-    @exist _ _ (Ufix (NT _ (map ffix_to_ufix x))) (Ffix_range x).
+    @exist _ _ (Ufix (emb _ (map ffix_to_ufix x))) (Ffix_range x).
 
-  Lemma ffix_des0' u (R:range u): ex (unique (fun m => u = Ufix (NT _ m))).
+  Lemma ffix_des0' u (R:range u): ex (unique (fun m => u = Ufix (emb _ m))).
   Proof.
     inv R. exists m. split; auto.
     intros. inversion H1. apply INJECTIVE. auto.
@@ -55,7 +53,7 @@ Section FFix.
   Proof.
     unfold ffix_des0.
     destruct (constructive_definite_description
-                 (fun m0 : PF ufix => Ufix (NT _ m) = Ufix (NT _ m0))
+                 (fun m0 : PF ufix => Ufix (emb _ m) = Ufix (emb _ m0))
                  (ffix_des0' (Range m f))) eqn : EQ.
     inversion e. apply INJECTIVE in H2. eauto.
   Defined.
@@ -85,9 +83,11 @@ Section FFix.
     apply ufix_ord_wf.
   Qed.
 
-  Inductive ffix_ord: forall (x y:ffix), Prop :=
-  | Ffix_ord x y PX PY (ORD: ufix_ord x y): ffix_ord (@exist _ _ x PX) (@exist _ _ y PY)
+  Inductive ffix_ord': forall (x y:ffix), Prop :=
+  | Ffix_ord x y PX PY (ORD: ufix_ord x y): ffix_ord' (@exist _ _ x PX) (@exist _ _ y PY)
   .
+
+  Definition ffix_ord := ffix_ord'.
 
   Lemma ffix_ord_ufix_ord x y (ORD: ffix_ord x y):
     ufix_ord (ffix_to_ufix x) (ffix_to_ufix y).
@@ -146,8 +146,8 @@ Section FFix.
     extensionality s. apply equal_f with s in EQ.
     repeat rewrite MAP_COMMUTE in EQ.
     simplify.
-    destruct (NT (UF Sh1 Sh2) x1 s);
-    destruct (NT (UF Sh1 Sh2) x2 s); inversion EQ; auto.
+    destruct (emb _ x1 s);
+    destruct (emb _ x2 s); inversion EQ; auto.
     destruct i, i0. simplify. subst.
     f_equal. f_equal. apply proof_irrelevance.
   Qed.
@@ -161,8 +161,8 @@ Section FFix.
     unfold ffix_des0.
     destruct (constructive_definite_description
                 (fun m0 : PF ufix =>
-                   ` (exist range (Ufix (NT _ m)) (Range m MEM)) = Ufix (NT _ m0))
-                (ffix_des0' (proj2_sig (exist range (Ufix (NT _ m)) (Range m MEM)))))
+                   ` (exist range (Ufix (emb _ m)) (Range m MEM)) = Ufix (emb _ m0))
+                (ffix_des0' (proj2_sig (exist range (Ufix (emb _ m)) (Range m MEM)))))
              eqn : EQ.
     unfold proj1_sig in *. inversion e.
     apply INJECTIVE in H2. auto.
@@ -258,13 +258,13 @@ Section FFix.
     - destruct x.
       constructor. constructor. rewrite MAP_COMMUTE. simplify.
       apply MEM_COMMUTE in H1.
-      inv H1. simplify. destruct (NT (UF Sh1 Sh2) m d) eqn : EQ; [| inv MEM].
+      inv H1. simplify. destruct (emb _ m d) eqn : EQ; [| inv MEM].
       apply (Function_mem _ _ d). simplify.
       rewrite EQ. rewrite MEM. simplify. auto.
     - inv H1. inv ORD. inv IN. rewrite MAP_COMMUTE in MEM. simplify.
       apply MEM_COMMUTE.
       apply (Function_mem _ _ d). simplify.
-      destruct (NT (UF Sh1 Sh2) m d); inversion MEM.
+      destruct (emb _ m d); inversion MEM.
       subst. destruct i. simplify. f_equal.
       apply proof_irrelevance.
   Qed.
@@ -300,7 +300,7 @@ Section FFix.
     rewrite MEM_COMMUTE in H1. rewrite MAP_COMMUTE.
     inv H1. simplify.
     apply (Function_mem _ _ d). simplify.
-    destruct (NT (UF Sh1 Sh2) m d); inversion MEM. simplify. auto.
+    destruct (emb _ m d); inversion MEM. simplify. auto.
   Qed.
 
   Lemma des_ord_correct m 
@@ -359,8 +359,125 @@ Section FFix.
     f_equal. apply MAP_DEP. auto.
   Qed.
 
-  Global Opaque ffix Ffix ffix_des ffix_des_ord frec frec_p frec_d order_part.
 
 End FFix.
 
 End RINDUCTIVE.
+
+Section inductive.
+
+  Variable PF : Type -> Type.
+  Context `{H : FunctorData PF}.
+  Context `{H0 : @SFunctorData PF _}.
+  Context `{SPF : @SPFunctor PF _ _}.
+
+  Definition ffix : Type := @RINDUCTIVE.ffix PF _ _ _. (* inductive type *)
+
+  Definition Ffix : PF ffix -> ffix := @RINDUCTIVE.Ffix PF _ _ _. (* constructor *)
+
+  Definition ffix_des : ffix -> PF ffix := @RINDUCTIVE.ffix_des PF _ _ _. (* destructor *)
+
+  Definition Ffix_inj : forall x1 x2 (EQ: Ffix x1 = Ffix x2), x1 = x2 := @RINDUCTIVE.Ffix_inj PF _ _ _.
+  (* constructors are injective *)
+
+  Definition des_correct1 : forall x, Ffix (ffix_des x) = x := @RINDUCTIVE.des_correct1 PF _ _ _.
+
+  Definition des_correct2 : forall x, ffix_des (Ffix x) = x := @RINDUCTIVE.des_correct2 PF _ _ _.
+  (* these say that destructors are the inverse of constructors *)
+
+
+(* order and induction principle *)
+
+  Definition ffix_ord : ffix -> ffix -> Prop := @RINDUCTIVE.ffix_ord PF _ _ _. (* order on ffix *)
+
+  Definition ffix_ord_c := @clos_trans_n1 ffix ffix_ord. (* closure of ffix_ord *)
+
+  Definition ord_correct : forall m x, mem m x <-> ffix_ord x (Ffix m) := @RINDUCTIVE.ord_correct PF _ _ _.
+  (* membership relations in SPFunctor became order on ffix *)
+
+  Definition ord_transitive : forall x y z (Rxy: ffix_ord_c x y) (Ryz: ffix_ord_c y z),
+      ffix_ord_c x z := @RINDUCTIVE.ord_transtive PF _ _ _.
+
+  Definition ffix_ord_wf: well_founded ffix_ord := @RINDUCTIVE.ffix_ord_wf PF _ _ _.
+
+  Definition ffix_ord_c_wf : well_founded ffix_ord_c := @RINDUCTIVE.ffix_ord_c_wf PF _ _ _.
+  (* well order *)
+
+  Definition ffix_des_ord : forall (x: ffix), PF (less_ones x) := @RINDUCTIVE.ffix_des_ord PF _ _ _.
+  (* destruct with order *)
+
+  Definition order_part : forall m x, mem m x -> ffix_ord_c x (Ffix m) := @RINDUCTIVE.order_part PF _ _ _.
+  (* users don't need to know this *)
+
+  Definition des_ord_correct : forall (m : PF ffix),
+      ffix_des_ord (Ffix m) = map_dep m (fun x r => w_ord _ (order_part m x r)) := @RINDUCTIVE.des_ord_correct PF _ _ _.
+
+(* induction principles with different forms *)
+
+  Definition ffix_ord_induction : forall x (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord x y -> P x) -> P y),
+    P x := @RINDUCTIVE.ffix_ord_induction PF _ _ _.
+
+  Definition ffix_str_induction : forall x (P: ffix -> Prop)
+        (STEP: forall y, (forall x, ffix_ord_c x y -> P x) -> P y),
+    P x := @RINDUCTIVE.ffix_str_induction PF _ _ _.
+    (* strong induction *)
+
+  Definition ffix_mem_induction : forall x (P: ffix -> Prop)
+        (STEP: forall m (IND: forall y, mem m y -> P y), P (Ffix m)),
+    P x := @RINDUCTIVE.ffix_mem_induction PF _ _ _.
+
+
+(* recursive function *)
+
+  Definition frec : forall T (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T),
+      ffix -> T := @RINDUCTIVE.frec PF _ _ _.
+
+  Definition frec_d: forall (P: ffix -> Type)
+                          (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m),
+      forall x : ffix, P x := @RINDUCTIVE.frec_d PF _ _ _.
+  (* dependent functions *)
+
+  Definition frec_p : forall T (f: PF T -> T),
+      ffix -> T := @RINDUCTIVE.frec_p PF _ _ _.
+  (* primitive recursion : simple but not general *)
+
+
+(* reduction rules for recursive functions *)
+
+  Definition frec_red : forall T
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> T), T) x,
+    frec FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec FIX y) := @RINDUCTIVE.frec_red PF _ _ _.
+
+  Definition frec_d_red : forall (P: ffix -> Type)
+      (FIX: forall m (FN: forall y, ffix_ord_c y m -> P y), P m) x,
+    frec_d P FIX (Ffix x) = FIX (Ffix x) (fun y _ => frec_d P FIX y) := @RINDUCTIVE.frec_d_red PF _ _ _.
+
+  Definition frec_p_red : forall T (f: PF T -> T) m,
+    frec_p f (Ffix m) = f (map (frec_p f) m) := @RINDUCTIVE.frec_p_red PF _ _ _.
+
+End inductive.
+
+Global Opaque ffix Ffix ffix_des Ffix_inj des_correct1 des_correct2 ffix_ord ord_correct ord_transitive ffix_ord_wf ffix_ord_c_wf ffix_des_ord order_part des_ord_correct order_part des_ord_correct ffix_ord_induction ffix_str_induction ffix_mem_induction frec frec_d frec_p frec_red frec_d_red frec_p_red.
+
+Ltac msimpl := repeat (autounfold;
+                       repeat rewrite frec_red;
+                       repeat rewrite frec_d_red;
+                       repeat rewrite frec_p_red;
+                       repeat rewrite des_ord_correct;
+                       repeat rewrite des_correct2;
+                       repeat unfold id;
+                       simpl).
+
+Ltac msimpl_in H := repeat (autounfold in H;
+                            repeat rewrite frec_red in H;
+                            repeat rewrite frec_p_red in H;
+                            repeat rewrite frec_d_red in H;
+                            repeat rewrite des_ord_correct in H;
+                            repeat rewrite des_correct2 in H;
+                            repeat unfold id in H;
+                            simpl in H).
+
+Arguments ffix PF {H} {H0} {SPF}.
+Arguments Ffix PF {H} {H0} {SPF}.
+Arguments ffix_des {PF} {H} {H0} {SPF}.
