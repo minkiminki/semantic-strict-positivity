@@ -488,9 +488,11 @@ Section FCoFix.
     constructor; simplify; auto.
   Qed.
 
+  Definition bsm x1 x2 := paco2 (bsm_gen Fcofix) bot2 x1 x2.
+
   Axiom u_bsm_eq : forall u1 u2, u_bsm u1 u2 -> u1 = u2.
 
-  Lemma bsm_u_bsm x1 x2 (BSM: bsm Fcofix x1 x2)
+  Lemma bsm_u_bsm x1 x2 (BSM: bsm x1 x2)
     : u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2).
   Proof.
     revert x1 x2 BSM. pcofix CIH.
@@ -515,7 +517,7 @@ Section FCoFix.
   Qed.
 
   Lemma u_bsm_bsm x1 x2 (BSM: u_bsm (fcofix_to_ucofix x1) (fcofix_to_ucofix x2))
-    : bsm Fcofix x1 x2.
+    : bsm x1 x2.
   Proof.
     revert x1 x2 BSM. pcofix CIH.
     intros. pfold.
@@ -578,7 +580,7 @@ Section FCoFix.
       constructor. constructor. 
   Qed.
 
-  Lemma bsm_eq x1 x2 : bsm Fcofix x1 x2 <-> x1 = x2.
+  Lemma bsm_eq x1 x2 : bsm x1 x2 <-> x1 = x2.
   Proof.
     split; intros.
     - apply bsm_u_bsm in H1. apply u_bsm_eq in H1.
@@ -678,7 +680,9 @@ Section coinductive.
 
   Definition bsm_gen_mon : monotone2 (bsm_gen Fcofix) := @RCOINDUCTIVE.bsm_gen_mon _ _ _ _.
 
-  Definition bsm_eq : forall x1 x2, (bsm Fcofix) x1 x2 <-> x1 = x2  := @RCOINDUCTIVE.bsm_eq _ _ _ _.
+  Definition bsm (x1 x2 : fcofix) : Prop := paco2 (bsm_gen Fcofix) bot2 x1 x2.
+
+  Definition bsm_eq : forall x1 x2, bsm x1 x2 <-> x1 = x2  := @RCOINDUCTIVE.bsm_eq _ _ _ _.
   (* bisimilarity axiom.
      its proof relies on the bisimilarity axiom of universal functors *)
 

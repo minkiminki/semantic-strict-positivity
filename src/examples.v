@@ -19,8 +19,6 @@ Notation "\\> x" := (fcofix_des x) (at level 50) : ssp_scope.
 
 Notation "<\\ x" := (Fcofix _ x) (at level 50) : ssp_scope.
 
-Definition bsm' {PF} `{SPF : SPFunctor PF} x1 x2 := @bsm PF H H0 SPF (fcofix PF) (Fcofix PF) x1 x2.
-
 Lemma des_exist (PF : Type -> Type)`{SPF : SPFunctor PF} (x : ffix PF) :
   exists m, Ffix PF m = x.
 Proof.
@@ -81,6 +79,9 @@ Ltac str_induction d :=
   end.
 
 Ltac mauto := try (msimpl; csimpl; auto; fail).
+
+Ltac minversion H := (try apply Ffix_inj in H); (try apply Fcofix_inj in H);
+                     (try inversion H).
   
 Open Scope ssp_scope.
 
@@ -101,9 +102,26 @@ Definition fibonacci := frec (fun (m : mynat) f =>
                                   end end).
 Hint Unfold fibonacci.
 
+Definition ackermann := frec (fun (n: mynat) f =>
+match \>> n with
+| None => (fun m => myS m)
+| Some (n' [pf1]) =>
+  frec (fun (m: mynat) g =>
+  match \>> m with
+  | None => f n' pf1 (myS myO)
+  | Some (m' [pf2]) => f n' pf1 (g m' pf2) end)
+end).
+Hint Unfold ackermann.
+
 Goal forall n, fibonacci (myS (myS n)) = fibonacci n + fibonacci (myS n).
 Proof.
   intros. mauto.
+Qed.
+
+Goal forall n m, myS (myS n) = myS (myS m) -> n = m.
+Proof.
+  intros. unfold myS in *.
+  minversion H. minversion H1. auto.
 Qed.
 
 Fixpoint to_mynat n :=
@@ -131,6 +149,12 @@ Hint Unfold to_nat.
 
 Lemma sssss : to_nat (myS (myS (myS myO))) = 3.
 Proof.
+  mauto.
+Qed.
+
+Goal to_nat (ackermann (myS (myS myO)) (myS (myS myO))) = 7.
+Proof.
+  autounfold.
   mauto.
 Qed.
 
@@ -187,6 +211,12 @@ Section stream.
 Variable A: Type.
 
 Definition stream_gen := Prod (Const A) Ident.
+
+Global Instance stream_gen_SPF : SPFunctor stream_gen.
+Proof.
+  unfold stream_gen. apply prod_SPFunctor.
+  apply const_SPFunctor. apply id_SPFunctor.
+Qed.  
 
 Definition stream := fcofix stream_gen.
 
@@ -271,13 +301,13 @@ Proof.
   constructor. csimpl. tauto.
 Qed.
 
-Theorem teq'_eins : bsm' one eins.
+Theorem teq'_eins : bsm one eins.
 Proof.
   pcofix CIH.
   pmult; apply teq'_two_one, teq'_one_two, CIH.
 Qed.
 
-Theorem teq'_zwei : bsm' (fcorec one_gen false) (fcorec eins_gen false).
+Theorem teq'_zwei : bsm (fcorec one_gen false) (fcorec eins_gen false).
 Proof.
   pcofix CIH.
   pmult; apply teq'_one_two, teq'_two_one, CIH.
@@ -285,3 +315,90 @@ Qed.
 
 End Inftree.
 
+Module list_tree.
+
+Inductive tree :=
+| node : list tree -> tree.
+
+Inductive well_founded : tree -> Prop :=
+| wf_leaf : well_founded (node nil)
+| wf_internal hd tl (WHD: well_founded hd) (WTL: well_founded (node tl)) :
+                      well_founded (node (cons hd tl)).
+
+Theorem tree_well_founded x : well_founded x.
+Proof.
+  induction x.
+Abort.
+
+End list_tree.
+
+Module list_tree_ssp.
+
+Definition tree := ffix list.
+
+Definition node (l : list tree) := Ffix list l.
+Hint Unfold node.
+
+Inductive well_founded : tree -> Prop :=
+| wf_leaf : well_founded (node nil)
+| wf_internal hd tl (WHD: well_founded hd) (WTL: well_founded (node tl)) :
+                      well_founded (node (cons hd tl)).
+
+Theorem tree_well_founded x : well_founded x.
+Proof.
+  mem_induction x. induction x0.
+  - constructor.
+  - constructor.
+    + apply IND. sconstructor.
+    + apply IHx0. intros. apply IND.
+      right. auto.
+Qed.
+
+End list_tree_ssp.
+
+Fixpoint power n (X: Type) : Type :=
+  match n with
+  | O => unit
+  | S n' => X * (power n' X) end.
+
+Fail Inductive power_tree : Type :=
+| node (n : nat) : power n power_tree -> power_tree.
+
+Instance power_FunctorData (n : nat) : FunctorData (power n).
+Proof.
+  induction n; simpl.
+  - apply const_functorData.
+  - apply product_functorData.
+    + apply id_functorData.
+    + apply IHn.
+Defined.
+
+Instance power_SFunctorData (n : nat) : SFunctorData (power n).
+Proof.
+  induction n; simpl.
+  - apply const_sFunctorData.
+  - apply product_sFunctorData.
+    + apply id_sFunctorData.
+    + apply IHn.
+Defined.
+
+Instance power_SPFunctor (n : nat) : SPFunctor (power n).
+Proof.
+  induction n; simpl.
+  - apply const_SPFunctor.
+  - apply prod_SPFunctor.
+    + apply id_SPFunctor.
+    + apply IHn.
+Defined.
+
+Definition sigma_power X := sigT (fun n => power n X).
+
+Instance sigma_power_SPF : SPFunctor sigma_power.
+Proof.
+  apply dep_sum_SPFunctor. apply power_SPFunctor.
+Qed.
+
+Definition power_tree : Type := ffix sigma_power.
+
+Definition node (n : nat) (l : power n power_tree) : power_tree :=
+  Ffix sigma_power (existT _ n l).

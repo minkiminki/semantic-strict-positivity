@@ -65,7 +65,7 @@ Definition Ident (X : Type) := X.
 
 Instance id_functorData : FunctorData Ident := Build_FunctorData _ (fun _ _ => id).
 
-Program Instance id_sFunctorData `{FunctorData} : SFunctorData Ident
+Program Instance id_sFunctorData : SFunctorData Ident
   := Build_SFunctorData _
                         (fun _ fx x => fx = x)
                         (fun _ _ fx FX => FX _ eq_refl)
@@ -73,13 +73,12 @@ Program Instance id_sFunctorData `{FunctorData} : SFunctorData Ident
 
 Hint Resolve id_functorData id_sFunctorData.
 
-
 Definition Const (T : Type) (X : Type) := T.
 
 Instance const_functorData T : FunctorData (Const T)
   := Build_FunctorData (fun X => T) (fun _ _ _ x => x).
 
-Program Instance const_sFunctorData T `{FunctorData} : SFunctorData (Const T)
+Program Instance const_sFunctorData T : SFunctorData (Const T)
   := Build_SFunctorData _
                         (fun _ _ _ => False)
                         (fun _ _ fx _ => fx)

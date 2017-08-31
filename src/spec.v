@@ -15,10 +15,6 @@ Inductive bsm_gen PF `{SPFunctor PF} (fcofix : Type) (Fcofix : PF fcofix -> fcof
 | _bsm_gen : forall (x1 x2 : PF fcofix) (R: rel bsm x1 x2),
     bsm_gen Fcofix bsm (Fcofix x1) (Fcofix x2).
 
-Definition bsm PF `{SPFunctor PF} (fcofix : Type) (Fcofix : PF fcofix -> fcofix) x1 x2 := paco2 (bsm_gen Fcofix) bot2 x1 x2.
-Arguments bsm {PF} {H} {H0} {H1} {fcofix} Fcofix x1 x2.
-Hint Unfold bsm.
-
 Module Type INDUCTIVE.
 
   Variable ffix : forall PF `{H : FunctorData PF} `{H0 : @SFunctorData PF _} `{SPF : @SPFunctor PF _ _}, Type. (* inductive type *)
@@ -178,13 +174,14 @@ Module Type COINDUCTIVE.
   Variable fcorec_p_red : forall PF `{H : FunctorData PF} `{H0 : @SFunctorData PF _} `{SPF : @SPFunctor PF _ _}, forall A (f: A -> PF A) a,
     fcofix_des (fcorec_p f a) = map (fcorec_p f) (f a).
 
-
 (* bisimilarity *)
 
   Hypothesis bsm_gen_mon : forall PF `{H : FunctorData PF} `{H0 : @SFunctorData PF _} `{SPF : @SPFunctor PF _ _}, monotone2 (bsm_gen (@Fcofix PF _ _ _)).
   Hint Resolve bsm_gen_mon : paco.
 
-  Hypothesis bsm_eq : forall PF `{H : FunctorData PF} `{H0 : @SFunctorData PF _} `{SPF : @SPFunctor PF _ _}, forall (x1 x2 : fcofix), bsm (@Fcofix PF _ _ _) x1 x2 <-> x1 = x2.
+  Definition bsm PF `{SPFunctor PF} x1 x2 := paco2 (bsm_gen (@Fcofix PF _ _ _)) bot2 x1 x2.
+
+  Hypothesis bsm_eq : forall PF `{H : FunctorData PF} `{H0 : @SFunctorData PF _} `{SPF : @SPFunctor PF _ _}, forall (x1 x2 : fcofix), bsm x1 x2 <-> x1 = x2.
   (* bisimilarity axiom.
      its proof relies on the bisimilarity axiom of universal functors *)
 

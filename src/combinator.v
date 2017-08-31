@@ -776,7 +776,7 @@ Next Obligation.
     + apply equal_f with nil in EQ. inversion EQ. auto.
     + apply IHx1. extensionality s. apply equal_f with (cons tt s) in EQ. auto.
 Qed.
-Hint Unfold list_SPFunctor.
+Hint Resolve list_SPFunctor.
 
 
 Inductive tree X : Type :=
@@ -877,4 +877,4 @@ Next Obligation.
     + apply IHx1_1. extensionality s. apply equal_f with (cons true s) in EQ. auto.
     + apply IHx1_2. extensionality s. apply equal_f with (cons false s) in EQ. auto.
 Qed.
-Hint Unfold tree_SPFunctor.
+Hint Resolve tree_SPFunctor.
