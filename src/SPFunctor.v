@@ -17,17 +17,6 @@ Section UniversalFunctor.
   Definition UF := Expn Sh1 (Coprod Ident (Const Sh2)).
   Hint Unfold UF.
 
-  Global Instance UF_FunctorData : FunctorData UF.
-  Proof.
-    unfold UF. auto.
-  Defined.
-
-  Global Instance UF_SFunctorData : @SFunctorData UF UF_FunctorData
-    := function_sFunctorData Sh1 (Coprod Ident (Const Sh2)).
-
-  Hint Resolve UF_FunctorData UF_SFunctorData.
-
-
   Global Instance UF_FunctorProp : FunctorProp UF.
   Proof.
     constructor.
@@ -82,19 +71,19 @@ Section UniversalFunctor.
 
 End UniversalFunctor.
 
-Class SPFunctor (F : Type -> Type) `{SFunctorData F}
+Class SPFunctor (F : Type -> Type)
   := {
+      SFunctor :> SFunctorData F;
       Sh1 : Type;
       Sh2 : Type;
       emb :> @NatTrans F (UF Sh1 Sh2) _ _;
-      emb_s_prop :> @SNatTransProp F (UF Sh1 Sh2) _ _ _ _ emb;
+      emb_s_prop :> @SNatTransProp F (UF Sh1 Sh2) _ _ emb;
       INJECTIVE : forall T (x1 x2 : F T) (EQ : emb _ x1 = emb _ x2), x1 = x2;
-    }.                      
-Arguments SPFunctor F {H} {H0}.
+    }.
 
 Section SPFunctorFacts.
 
-  Context {F : Type -> Type}.
+  Variable F : Type -> Type.
   Context `{SPFunctor F}.
 
   Global Instance toFunctorProp : FunctorProp F.
@@ -110,9 +99,10 @@ Section SPFunctorFacts.
   Global Instance toSFunctorProp : SFunctorProp F.
   Proof.
     constructor. intros.
-    intros.
-    apply MEM_COMMUTE. apply MEM_COMMUTE in MEM.
-    rewrite MAP_COMMUTE. apply (MAP_MEM f _ _ MEM).
+    apply (@MEM_COMMUTE _ _ _ _ _ (@emb_s_prop _ _)).
+    apply (@MEM_COMMUTE _ _ _ _ _ (@emb_s_prop _ _)) in MEM.
+    rewrite (@MAP_COMMUTE _ _ _ _ (@emb _ H)).
+    apply (MAP_MEM f _ _ MEM).
   Qed.
 
   Lemma map_injective X Y (f: X -> Y) (u1 u2: F X)
@@ -131,15 +121,16 @@ Section SPFunctorFacts.
   Proof.
     apply INJECTIVE.  repeat rewrite MAP_COMMUTE.
     apply UF_map_pointwise.
-    intros. apply ALL, MEM_COMMUTE, H2.
+    intros. apply ALL. 
+    apply (@MEM_COMMUTE _ _ _ _ _ (@emb_s_prop _ _)). apply H0.
   Qed.
   
-
   Lemma rel_monotone X (u1 u2: F X) (r r': X -> X -> Prop)
         (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: rel r u1 u2)
     : rel r' u1 u2.
   Proof.
-    apply REL_COMMUTE. apply REL_COMMUTE in R.
+    apply (@REL_COMMUTE _ _ _ _ _ (@emb_s_prop _ _)).
+    apply (@REL_COMMUTE _ _ _ _ _ (@emb_s_prop _ _)) in R.
     apply (UF_rel_monotone _ LE). auto.
   Qed.
 

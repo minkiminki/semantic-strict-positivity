@@ -27,22 +27,22 @@ Class FunctorProp F `{FunctorData F} : Prop
     }.
 Arguments FunctorProp F {H}.
 
-Class SFunctorData F `{FunctorData F} : Type
+Class SFunctorData F : Type
   := {
+      Functor :> FunctorData F;
       mem: forall X, F X -> X -> Prop;
       map_dep: forall X Y (fx:F X) (f: forall x (MEM:mem fx x), Y), F Y;
       rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
       MAP_DEP: forall X Y fx (f: forall x (MEM:mem fx x), Y) (g: Y -> X) (INV: forall x r, g (f x r) = x), map g (map_dep f) = fx;
     }.
-Arguments SFunctorData F {H}.
 Hint Resolve MAP_DEP.
 
-Class SFunctorProp F `{H : FunctorData F} `{@SFunctorData _ H} `{@FunctorProp _ H}
+Class SFunctorProp F `{SFunctorData F}
   : Prop
   := {
       MAP_MEM: forall X Y (f: X -> Y) (fx: F X) (x: X) (MEM: mem fx x), mem (map f fx) (f x);
     }.
-Arguments SFunctorProp F {H} {H0} {H1}.
+Arguments SFunctorProp F {H}.
 
 Structure NatTrans (F G : Type -> Type) `{FunctorData F} `{FunctorData G} : Type :=
   {
@@ -51,8 +51,7 @@ Structure NatTrans (F G : Type -> Type) `{FunctorData F} `{FunctorData G} : Type
   }.
 Arguments NatTrans F G {H} {H0}.
 
-Class SNatTransProp F G `{H : FunctorData F} `{H0 : FunctorData G} 
-      `{@SFunctorData F H} `{@SFunctorData G H0} `{H1 : @NatTrans F G _ _}
+Class SNatTransProp F G `{SFunctorData F} `{SFunctorData G} `{H1 : @NatTrans F G _ _}
   : Prop := {
              MEM_COMMUTE: forall X fx (x:X), mem fx x <-> mem (H1 _ fx) x;
              REL_COMMUTE: forall T1 T2 (rel': forall (x1:T1) (x2:T2), Prop) fx1 fx2,
@@ -116,9 +115,9 @@ Instance function_functorData D F `{FunctorData F}
 Program Instance function_sFunctorData D F `{SFunctorData F}
   : SFunctorData (Expn D F)
   := Build_SFunctorData _
-                        (@function_mem _ _ _ _)
-                        (@function_map_dep _ _ _ _)
-                        (@function_rel _ _ _ _) _.
+                        (@function_mem _ _ _)
+                        (@function_map_dep _ _ _)
+                        (@function_rel _ _ _) _.
 Next Obligation.
   extensionality s. apply MAP_DEP. auto.
 Qed.
@@ -163,9 +162,9 @@ Program Instance coproduct_functorData  F1 F2 `{FunctorData F1} `{FunctorData F2
 Program Instance coproduct_sFunctorData F1 F2 `{SFunctorData F1} `{SFunctorData F2}
   : SFunctorData (Coprod F1 F2)
   := Build_SFunctorData _
-                        (@coproduct_mem _ _ _ _ _ _)
+                        (@coproduct_mem _ _ _ _)
                         _
-                        (@coproduct_rel _ _ _ _ _ _) _.
+                        (@coproduct_rel _ _ _ _) _.
 Next Obligation.
   destruct fx. 
   - apply (inl (map_dep f0 f)).
