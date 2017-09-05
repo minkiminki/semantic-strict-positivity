@@ -124,7 +124,7 @@ Proof.
   minversion H. minversion H1. auto.
 Qed.
 
-Fixpoint to_mynat n :=
+Fixpoint to_mynat (n : nat) : mynat :=
   match n with
   | O => <\ None
   | S n' => <\ (Some (to_mynat n')) end.
@@ -211,12 +211,14 @@ Section stream.
 Variable A: Type.
 
 Definition stream_gen := Prod (Const A) Ident.
-
+Hint Unfold stream_gen.
+(*
 Global Instance stream_gen_SPF : SPFunctor stream_gen.
 Proof.
   unfold stream_gen. apply prod_SPFunctor.
   apply const_SPFunctor. apply id_SPFunctor.
-Qed.  
+Defined.
+*)
 
 Definition stream := fcofix stream_gen.
 
@@ -245,9 +247,9 @@ Hint Unfold enumeration inf_true.
 
 Lemma inf_true_c : hd inf_true = true.
 Proof.
+  unfold hd, inf_true.
   mauto.
 Qed.
-
 
 Lemma ssssss : hd (tl (tl (tl (tl (tl inf_true))))) = true.
 Proof.
@@ -263,7 +265,7 @@ Definition inftree := fcofix tree_gen.
 Definition node n x1 x2 := Fcofix tree_gen (n, (x1, x2)).
 Hint Unfold inftree node.
 
-Arguments grd_fcofix PF {H} {H0} {SPF} A.
+Arguments grd_fcofix PF {SPF} A.
 
 Definition one_gen : bool -> grd_fcofix tree_gen bool := (fun b : bool =>
                                                             match b with
@@ -349,7 +351,7 @@ Proof.
   mem_induction x. induction x0.
   - constructor.
   - constructor.
-    + apply IND. sconstructor.
+    + apply IND. left. auto.
     + apply IHx0. intros. apply IND.
       right. auto.
 Qed.
@@ -363,24 +365,6 @@ Fixpoint power n (X: Type) : Type :=
 
 Fail Inductive power_tree : Type :=
 | node (n : nat) : power n power_tree -> power_tree.
-
-Instance power_FunctorData (n : nat) : FunctorData (power n).
-Proof.
-  induction n; simpl.
-  - apply const_functorData.
-  - apply product_functorData.
-    + apply id_functorData.
-    + apply IHn.
-Defined.
-
-Instance power_SFunctorData (n : nat) : SFunctorData (power n).
-Proof.
-  induction n; simpl.
-  - apply const_sFunctorData.
-  - apply product_sFunctorData.
-    + apply id_sFunctorData.
-    + apply IHn.
-Defined.
 
 Instance power_SPFunctor (n : nat) : SPFunctor (power n).
 Proof.
