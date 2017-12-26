@@ -88,12 +88,13 @@ Hint Constructors option_frel.
 Program Instance option_sFunctorData `{FunctorData} : SFunctorData option
   := Build_SFunctorData _
                         (fun _ fx x => fx = Some x)
-                        (fun _ _ fx FX => match fx with | Some fx => Some (FX fx eq_refl) | None => None end)
-                        option_frel _.
+                        _
+                        option_frel.
 Next Obligation.
-  destruct fx; auto.
-  simpl. f_equal. apply INV.
-Qed.
+  destruct x.
+  - apply Some. apply (existT _ x). auto.
+  - apply None.
+Defined.
 
 Hint Resolve option_functorData.
 Hint Resolve option_sFunctorData.
@@ -128,15 +129,16 @@ Program Instance product_sFunctorData F1 F2 `{SFunctorData F1} `{SFunctorData F2
   := Build_SFunctorData _
                         (@product_mem _ _ _ _ _ _)
                         _
-                        (@product_rel _ _ _ _ _ _) _.
+                        (@product_rel _ _ _ _ _ _).
 Next Obligation.
-  destruct fx.
-  apply (map_dep f0 (fun x r => f _ (or_introl r)),
-        map_dep f1 (fun x r => f _ (or_intror r))).
-Defined.  
-Next Obligation.
-  destruct fx. simplify. f_equal; apply MAP_DEP; auto.
-Qed.
+  destruct x as [x1 x2]. apply pair.
+  - set (x1' := tag x1).
+    eapply (map _ (tag x1)). Unshelve. intro. destruct x0.
+    apply (existT _ x (or_introl m)).
+  - set (x1' := tag x2).
+    eapply (map _ (tag x2)). Unshelve. intro. destruct x0.
+    apply (existT _ x (or_intror m)).
+Defined.
 
 Hint Resolve product_functorData product_sFunctorData.
 
@@ -160,14 +162,17 @@ Program Instance compose_sFunctorData F1 F2 `{SFunctorData F1} `{SFunctorData F2
   := @Build_SFunctorData (F2 ∘ F1) _
                         (@comp_mem F1 F2 _ _ _ _)
                         _
-                        (@comp_rel F1 F2 _ _ _ _) _.
+                        (@comp_rel F1 F2 _ _ _ _).
 Next Obligation.
-  apply (@map_dep F2 _ _ _ _ fx (fun (y : F1 X) r1 => (map_dep y (fun (z : X) r2 => f z (@_comp_mem F1 F2 _ _ _ _ X z y fx r2 r1))))).
+  set (x' := @tag F2 _ _ _ x).
+  eapply (map _ x'). Unshelve.
+  intro. destruct x1.
+  set (x'' := tag x0).
+  eapply (map _ x''). Unshelve.
+  intro. destruct x1.
+  exists x1. econstructor.
+  apply m0. apply m.
 Defined.
-Next Obligation.
-  apply (@MAP_DEP F2). intros.
-  apply MAP_DEP. auto.
-Qed.
 
 Hint Resolve compose_functorData compose_sFunctorData.
 
@@ -200,15 +205,13 @@ Program Instance dep_prod_sFunctorData A (B: A -> Type -> Type)
   Build_SFunctorData _
                      (@dep_prod_mem A B _ _)
                      _
-                     (@dep_prod_rel A B _ _) _.
+                     (@dep_prod_rel A B _ _).
 Next Obligation.
-  intro.
-  apply (map_dep (fx a) 
-      (fun y r => f y (ex_intro (fun a => mem (fx a) y) _ r))).
+  intro. set (xa := tag (x a)).
+  eapply (map _ xa). Unshelve.
+  intro. destruct x1.
+  exists x0. exists a. apply m.
 Defined.
-Next Obligation.
-  extensionality s. apply MAP_DEP. auto.
-Qed.
 
 Hint Resolve dep_prod_functorData dep_prod_sFunctorData.
 
@@ -243,22 +246,17 @@ Program Instance dep_sum_sFunctorData A (B: A -> Type -> Type)
   Build_SFunctorData _
                      (@dep_sum_mem A B _ _)
                      _
-                     (@dep_sum_rel A B _ _) _.
+                     (@dep_sum_rel A B _ _).
 Next Obligation.
-  destruct fx.
-  apply (existT _ x (map_dep b (fun x0 r => f _ r))).
+  destruct x. exists x. apply (tag b).
 Defined.
-Next Obligation.
-  destruct fx. simplify. f_equal.
-  apply MAP_DEP. auto.
-Qed.
 
 Hint Resolve dep_sum_functorData dep_prod_sFunctorData.
 
 Program Instance id_SPFunctor : SPFunctor Ident :=
   @Build_SPFunctor Ident _ _ unit False
                    (Build_NatTrans _ _ (fun _ x _ => inl x) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   split; intros.
   - apply (Function_mem _ _ tt). auto.
@@ -282,7 +280,7 @@ Program Instance option_SPFunctor : SPFunctor option :=
                                               | Some x => inl x
                                               | None => inr ()
                                               end) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   destruct x; auto.
 Qed.
@@ -302,6 +300,9 @@ Next Obligation.
   destruct x1, x2; simplify; auto;
   apply equal_f with tt in EQ; inv EQ; auto.
 Qed.
+Next Obligation.
+  destruct x; auto.
+Qed.
 
 Hint Resolve option_SPFunctor.
 
@@ -309,7 +310,7 @@ Hint Resolve option_SPFunctor.
 Program Instance const_SPFunctor D : SPFunctor (Const D) :=
   @Build_SPFunctor (Const D) _ _ unit D
                    (Build_NatTrans _ _ (fun _ a _ => inr a) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   split; intros.
   - inv H.
@@ -356,7 +357,7 @@ Program Instance prod_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   : SPFunctor (Prod F1 F2) :=
   @Build_SPFunctor (Prod F1 F2) _ _ (Sh1 F1 + Sh1 F2) (Sh2 F1 + Sh2 F2)
                    (Build_NatTrans _ _ (@prod_embed F1 F2 _ _ _ _ _ _) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   destruct x; simplify; commute; extensionality s; destruct s; des.
 
@@ -378,6 +379,15 @@ Qed.
 Next Obligation.
   destruct x1, x2; simplify; f_equal; apply INJECTIVE; extensionality a;
   [apply equal_f with (inl a) in EQ | apply equal_f with (inr a) in EQ]; des.
+Qed.
+Next Obligation.
+  destruct x. simpl. f_equal. 
+  - rewrite MAP_COMPOSE. unfold compose.
+    rewrite <- (TAG _ f) at 3. f_equal.
+    extensionality s. destruct s. simpl. auto.
+  - rewrite MAP_COMPOSE. unfold compose.
+    rewrite <- (TAG _ f0) at 3. f_equal.
+    extensionality s. destruct s. simpl. auto.
 Qed.
 Hint Resolve prod_SPFunctor.
 
@@ -414,7 +424,7 @@ Program Instance coprod_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   @Build_SPFunctor (Coprod F1 F2) _ _ ((() + Sh1 F1) + (() + Sh1 F2))
                    (bool + (Sh2 F1 + Sh2 F2))
                    (Build_NatTrans _ _ (@coprod_embed F1 F2 _ _ _ _ _ _) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   destruct x; extensionality a; simplify;
     destruct a; destruct s; commute; des.
@@ -447,6 +457,9 @@ Next Obligation.
   - apply INJECTIVE; simplify. extensionality s.
     apply equal_f with (inr (inr s)) in EQ. des.
 Qed.
+Next Obligation.
+  destruct x; simpl; f_equal; apply TAG.
+Qed.
 Hint Resolve coprod_SPFunctor.
 
 Definition function_embed D F `{SPFunctor F} X (x: D -> F X)
@@ -460,7 +473,7 @@ Program Instance function_SPFunctor D F `{SPFunctor F}
   @Build_SPFunctor (Expn D F) _ _ (D * (Sh1 F))
                    (Sh2 F)
                    (Build_NatTrans _ _ (@function_embed D F _ _ _) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   extensionality s. destruct s. simplify. commute. des.
 Qed.
@@ -478,6 +491,11 @@ Qed.
 Next Obligation.
   extensionality d. apply INJECTIVE. extensionality s.
   apply equal_f with (d, s) in EQ. auto.
+Qed.
+Next Obligation.
+  unfold function_map. extensionality d. unfold compose. unfold function_tag.
+  rewrite MAP_COMPOSE. unfold compose. rewrite <- TAG. f_equal.
+  extensionality s. destruct s. auto.
 Qed.
 Hint Resolve function_SPFunctor.
 
@@ -504,7 +522,7 @@ Program Instance dep_prod_SPFunctor  A (B: A -> Type -> Type)
   @Build_SPFunctor (dep_prod_type B) _ _ (sigT (fun a => Sh1 (B a)))
                    (sigT (fun a => Sh2 (B a)))
                    (Build_NatTrans _ _ (@dep_prod_embed A B _ _ _) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   extensionality s. destruct s. simplify. commute. des.
 Qed.    
@@ -524,6 +542,12 @@ Next Obligation.
   extensionality a. apply INJECTIVE. extensionality s.
   apply equal_f with (existT _ a s) in EQ. des. dependent destruction H3. auto.
 Qed.
+Next Obligation.
+  unfold dep_prod_map. extensionality d. unfold dep_prod_sFunctorData_obligation_1.
+  rewrite MAP_COMPOSE. unfold compose. rewrite <- TAG. f_equal.
+  extensionality s. destruct s. auto.
+Qed.
+
 Hint Resolve dep_prod_SPFunctor.
 
 Section DEP_SUM.
@@ -569,7 +593,7 @@ Global Program Instance dep_sum_SPFunctor : SPFunctor (dep_sum_type B) :=
   @Build_SPFunctor (dep_sum_type B) _ _ (sigT (fun a => (unit + Sh1 (B a))%type))
                    (bool + (sigT (fun a => (Sh2 (B a)))))
                    (Build_NatTrans _ _ dep_sum_embed _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   destruct x. extensionality s. destruct s. simplify.
   dec_eq x x0. commute. des.
@@ -599,6 +623,10 @@ Next Obligation.
   - apply equal_f with (existT _ x (inl tt)) in EQ.
     dec_eq x x. dec_eq x0 x. inv EQ.
 Qed.
+Next Obligation.
+  destruct x. simpl. f_equal. apply TAG.
+Qed.
+
 Hint Resolve dep_sum_SPFunctor.
 
 End DEP_SUM.
@@ -654,7 +682,7 @@ Program Instance comp_SPFunctor F1 F2 `{SPFunctor F1} `{SPFunctor F2}
   @Build_SPFunctor (compose F1 F2) _ _ ((() + Sh1 F2) * Sh1 F1) 
                    (() + (Sh2 F2 + Sh2 F1))
                    (Build_NatTrans _ _ (@comp_embed F1 F2 _ _ _ _ _ _) _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   extensionality s. destruct s. simplify. destruct s.
   - commute. des.
@@ -692,7 +720,14 @@ Next Obligation.
   apply INJECTIVE in EQ. simplify.
   apply (map_injective (NT _) _ _ (@INJECTIVE _ _ _ _ _) EQ).
 Qed.
-
+Next Obligation.
+  unfold compose_sFunctorData_obligation_1.
+  rewrite MAP_COMPOSE. simpl. unfold compose.
+  rewrite <- TAG. f_equal. extensionality x0.
+  destruct x0.
+  rewrite MAP_COMPOSE. simpl. rewrite <- TAG. f_equal.
+  extensionality s. unfold compose. destruct s. auto.
+Qed.
 Hint Resolve comp_SPFunctor.
 
 
@@ -707,6 +742,16 @@ Inductive list_rel (X Y : Type) (RE: X -> Y -> Prop) : list X -> list Y -> Prop 
     (list_rel RE (cons hd1 tl1) (cons hd2 tl2)).
 Hint Constructors list_rel.
 
+Definition list_tag X (x: list X) : list (sigT (list_mem x)).
+  induction x.
+  - apply nil.
+  - apply cons.
+    + exists a. constructor. auto.
+    + simpl. eapply (List.map _ IHx). Unshelve.
+      intro. destruct X0.
+      exists x0. auto.
+Defined.
+
 Definition list_map_dep X Y (x: list X) (ALL: forall y, list_mem x y -> Y) : list Y.
   induction x.
   - apply nil.
@@ -719,12 +764,7 @@ Defined.
 Instance list_functorData : FunctorData list := Build_FunctorData _ List.map.
 
 Program Instance list_sFunctorData `{FunctorData} : SFunctorData list
-  := Build_SFunctorData _ list_mem list_map_dep list_rel _.
-Next Obligation.
-  induction fx.
-  - intros. auto.
-  - intros. simpl. f_equal; auto.
-Qed.
+  := Build_SFunctorData _ list_mem list_tag list_rel.
 
 Hint Resolve list_functorData.
 Hint Resolve list_sFunctorData.
@@ -740,7 +780,7 @@ Fixpoint list_embed X (l: list X) : list unit -> X + unit :=
 Program Instance list_SPFunctor : SPFunctor list :=
   @Build_SPFunctor list _ _ (list unit) unit
                    (Build_NatTrans _ _ list_embed _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   induction x.
   - extensionality s. auto.
@@ -776,6 +816,17 @@ Next Obligation.
     + apply equal_f with nil in EQ. inversion EQ. auto.
     + apply IHx1. extensionality s. apply equal_f with (cons tt s) in EQ. auto.
 Qed.
+Next Obligation.
+  induction x.
+  - auto.
+  - simpl. f_equal.
+    rewrite List.map_map. 
+    rewrite <- IHx at 3. remember (list_tag x).
+    clear Heql IHx. induction l.
+    + auto.
+    + simpl. destruct a0. f_equal.
+      apply IHl.
+Qed.
 Hint Resolve list_SPFunctor.
 
 
@@ -801,6 +852,19 @@ Inductive tree_rel (X Y : Type) (RE: X -> Y -> Prop) : tree X -> tree Y -> Prop 
     -> tree_rel RE (node v1 lt1 rt1) (node v2 lt2 rt2).
 Hint Constructors tree_rel.
 
+Definition tree_tag X (x : tree X) : tree (sigT (tree_mem x)).
+  induction x.
+  - apply leaf.
+  - apply node; simpl.
+    + exists x1. auto.
+    + eapply (tree_map _ IHx1). Unshelve.
+      intro. destruct X0.
+      exists x. auto.
+    + eapply (tree_map _ IHx2). Unshelve.
+      intro. destruct X0.
+      exists x. auto.
+Defined.
+
 Definition tree_map_dep X Y (x: tree X) (ALL: forall y, tree_mem x y -> Y) : tree Y.
   induction x.
   - apply leaf.
@@ -813,12 +877,7 @@ Defined.
 Instance tree_functorData : FunctorData tree := Build_FunctorData _ tree_map.
 
 Program Instance tree_sFunctorData `{FunctorData} : SFunctorData tree
-  := Build_SFunctorData _ tree_mem tree_map_dep tree_rel _.
-Next Obligation.
-  induction fx.
-  - reflexivity.
-  - simpl. f_equal; auto.
-Qed.
+  := Build_SFunctorData _ tree_mem tree_tag tree_rel.
 
 Hint Resolve tree_functorData.
 Hint Resolve tree_sFunctorData.
@@ -835,7 +894,7 @@ Fixpoint tree_embed X (t: tree X) : list bool -> X + unit :=
 Program Instance tree_SPFunctor : SPFunctor tree :=
   @Build_SPFunctor tree _ _ (list bool) unit
                    (Build_NatTrans _ _ tree_embed _)
-                   (Build_SNatTransProp _ _ _ _ _) _.
+                   (Build_SNatTransProp _ _ _ _ _) _ _.
 Next Obligation.
   induction x.
   - extensionality s. auto.
@@ -876,5 +935,17 @@ Next Obligation.
     + apply equal_f with nil in EQ. inversion EQ. auto.
     + apply IHx1_1. extensionality s. apply equal_f with (cons true s) in EQ. auto.
     + apply IHx1_2. extensionality s. apply equal_f with (cons false s) in EQ. auto.
+Qed.
+Next Obligation.
+  induction x; auto.
+  simpl. f_equal.
+  - rewrite <- IHx1 at 3. remember (tree_tag x2).
+    clear Heqt IHx1 IHx2. induction t; auto.
+    simpl. f_equal; auto.
+    destruct x. auto.
+  - rewrite <- IHx2 at 3. remember (tree_tag x3).
+    clear Heqt IHx1 IHx2. induction t; auto.
+    simpl. f_equal; auto.
+    destruct x. auto.
 Qed.
 Hint Resolve tree_SPFunctor.

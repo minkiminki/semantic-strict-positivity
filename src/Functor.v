@@ -30,12 +30,11 @@ Arguments FunctorProp F {H}.
 Class SFunctorData F `{FunctorData F} : Type
   := {
       mem: forall X, F X -> X -> Prop;
-      map_dep: forall X Y (fx:F X) (f: forall x (MEM:mem fx x), Y), F Y;
+      tag: forall {X} (x : F X), F (sigT (mem x));
       rel: forall X Y (rel: X -> Y -> Prop) (fx:F X) (fy:F Y), Prop;
-      MAP_DEP: forall X Y fx (f: forall x (MEM:mem fx x), Y) (g: Y -> X) (INV: forall x r, g (f x r) = x), map g (map_dep f) = fx;
+      (* TAG: forall X (x: F X), map (@projT1 X _) (tag x) = x; *)
     }.
 Arguments SFunctorData F {H}.
-Hint Resolve MAP_DEP.
 
 Class SFunctorProp F `{H : FunctorData F} `{@SFunctorData _ H} `{@FunctorProp _ H}
   : Prop
@@ -68,9 +67,8 @@ Instance id_functorData : FunctorData Ident := Build_FunctorData _ (fun _ _ => i
 Program Instance id_sFunctorData : SFunctorData Ident
   := Build_SFunctorData _
                         (fun _ fx x => fx = x)
-                        (fun _ _ fx FX => FX _ eq_refl)
-                        (fun _ _ rel fx fy => rel fx fy) _.
-
+                        (fun _ x => existT _ x eq_refl)
+                        (fun _ _ rel fx fy => rel fx fy).
 Hint Resolve id_functorData id_sFunctorData.
 
 Definition Const (T : Type) (X : Type) := T.
@@ -81,8 +79,8 @@ Instance const_functorData T : FunctorData (Const T)
 Program Instance const_sFunctorData T : SFunctorData (Const T)
   := Build_SFunctorData _
                         (fun _ _ _ => False)
-                        (fun _ _ fx _ => fx)
-                        (fun _ _ _ => eq) _.
+                        (fun _ x => x)
+                        (fun _ _ _ => eq).
 
 Hint Resolve const_functorData const_sFunctorData.
 
@@ -98,12 +96,12 @@ Inductive function_mem D F `{SFunctorData F} T (fx: D -> F T) x: Prop :=
 | Function_mem d (MEM: mem (fx d) x).
 Hint Constructors function_mem.
 
-Program Definition function_map_dep D F `{SFunctorData F} T1 T2 (fx1: D -> F T1)
-        (f: forall (x1:T1) (MEM: function_mem fx1 x1), T2): D -> F T2 :=
-  fun X => map_dep (fx1 X) (fun x MEM => (f x _)).
-Next Obligation.
-  econstructor. eauto.
-Defined.
+Definition function_tag D F `{SFunctorData F} T (fx: D -> F T) : D -> F (sigT (function_mem fx)) :=
+  fun d =>
+    map (fun x => match x with
+                    existT _ x m => existT (function_mem fx) x (Function_mem fx x d m)
+                  end)
+        (tag (fx d)).
 
 Definition function_rel D F `{SFunctorData F} T1 T2
            f (fx1:D -> F T1) (fx2:D -> F T2): Prop :=
@@ -117,14 +115,9 @@ Program Instance function_sFunctorData D F `{SFunctorData F}
   : SFunctorData (Expn D F)
   := Build_SFunctorData _
                         (@function_mem _ _ _ _)
-                        (@function_map_dep _ _ _ _)
-                        (@function_rel _ _ _ _) _.
-Next Obligation.
-  extensionality s. apply MAP_DEP. auto.
-Qed.
-
+                        (@function_tag _ _ _ _)
+                        (@function_rel _ _ _ _).
 Hint Resolve function_functorData function_sFunctorData.
-
 
 Definition Coprod (F1 F2: Type -> Type) T := (F1 T + F2 T)%type.
 
@@ -164,15 +157,12 @@ Program Instance coproduct_sFunctorData F1 F2 `{SFunctorData F1} `{SFunctorData 
   : SFunctorData (Coprod F1 F2)
   := Build_SFunctorData _
                         (@coproduct_mem _ _ _ _ _ _)
-                        _
-                        (@coproduct_rel _ _ _ _ _ _) _.
-Next Obligation.
-  destruct fx. 
-  - apply (inl (map_dep f0 f)).
-  - apply (inr (map_dep f0 f)).
-Defined.
-Next Obligation.
-  destruct fx; simplify; f_equal; apply MAP_DEP; auto. 
-Qed.
-
+                        (fun _ x => match x with
+                                    | inl x' => inl (tag x')
+                                    | inr x' => inr (tag x')
+                                    end)
+                        (@coproduct_rel _ _ _ _ _ _) .
 Hint Resolve coproduct_functorData coproduct_sFunctorData.
+
+Definition map_dep F `{SFunctorData F} X Y (fx : F X) (f : forall x (MEM: mem fx x), Y)
+  : F Y := map (fun x =>match x with existT _ _ m => f _ m end) (tag fx).

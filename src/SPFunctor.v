@@ -89,6 +89,7 @@ Class SPFunctor (F : Type -> Type) `{SFunctorData F}
       emb :> @NatTrans F (UF Sh1 Sh2) _ _;
       emb_s_prop :> @SNatTransProp F (UF Sh1 Sh2) _ _ _ _ emb;
       INJECTIVE : forall T (x1 x2 : F T) (EQ : emb _ x1 = emb _ x2), x1 = x2;
+      TAG : forall X (x: F X), map (@projT1 X _) (tag x) = x;
     }.                      
 Arguments SPFunctor F {H} {H0}.
 
@@ -109,8 +110,7 @@ Section SPFunctorFacts.
 
   Global Instance toSFunctorProp : SFunctorProp F.
   Proof.
-    constructor. intros.
-    intros.
+    constructor; intros.
     apply MEM_COMMUTE. apply MEM_COMMUTE in MEM.
     rewrite MAP_COMMUTE. apply (MAP_MEM f _ _ MEM).
   Qed.
@@ -134,13 +134,22 @@ Section SPFunctorFacts.
     intros. apply ALL, MEM_COMMUTE, H2.
   Qed.
   
-
   Lemma rel_monotone X (u1 u2: F X) (r r': X -> X -> Prop)
         (LE: forall x0 x1: X, r x0 x1 -> r' x0 x1) (R: rel r u1 u2)
     : rel r' u1 u2.
   Proof.
     apply REL_COMMUTE. apply REL_COMMUTE in R.
     apply (UF_rel_monotone _ LE). auto.
+  Qed.
+
+  Lemma MAP_DEP X Y fx (f: forall x (MEM:mem fx x), Y) (g: Y -> X)
+        (INV: forall x r, g (f x r) = x) : map g (map_dep fx f) = fx.
+  Proof.
+    unfold map_dep. rewrite MAP_COMPOSE. unfold compose.
+    replace (fun x : {H2 : X & mem fx H2} => g (let (x0, m) := x in f x0 m)) with
+        (@projT1 X (mem fx)).
+    - apply TAG.
+    - extensionality s. destruct s. auto.
   Qed.
 
 End SPFunctorFacts.
