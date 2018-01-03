@@ -1,5 +1,4 @@
 Set Implicit Arguments.
-Set Automatic Coercions Import.
 
 Require Import spec Functor SPFunctor inductive coinductive combinator paco.
 

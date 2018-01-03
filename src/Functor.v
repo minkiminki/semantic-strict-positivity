@@ -2,7 +2,6 @@ Require Import FunctionalExtensionality.
 Require Import Program.
 
 Set Implicit Arguments.
-Set Automatic Coercions Import.
 
 
 (* Tactics.  FIXME: move it! *)

@@ -1,5 +1,4 @@
 Set Implicit Arguments.
-Set Automatic Coercions Import.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Functor SPFunctor paco.
 

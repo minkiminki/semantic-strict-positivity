@@ -4,7 +4,6 @@ Require Import ClassicalDescription.
 Require Import Coq.Relations.Relation_Operators.
 
 Set Implicit Arguments.
-Set Automatic Coercions Import.
 
 Require Import Functor.
 

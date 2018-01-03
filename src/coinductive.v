@@ -4,7 +4,6 @@ Require Import Program.
 Require Import ClassicalDescription.
 
 Set Implicit Arguments.
-Set Automatic Coercions Import.
 
 Require Import Functor SPFunctor spec.
 

@@ -1,7 +1,5 @@
 Require Import Program.
 Set Implicit Arguments.
-Set Automatic Coercions Import.
-
 Require Import spec Functor SPFunctor inductive coinductive combinator paco tactics.
 
 Section MENDLER.
