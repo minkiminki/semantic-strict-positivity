@@ -7,10 +7,12 @@ Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Logic.ProofIrrelevance.
 Require Import Coq.Relations.Relation_Operators.
 
+Require Import index.
+
 Section Well_founded.
 
   Variable C : Type.
-  Variable A : C -> Type.
+  Variable A : iType C.
   Variable R : forall {i}, A i -> forall {j}, A j -> Prop.
 
   Inductive iAcc {i} (x: A i) : Prop :=
@@ -104,7 +106,7 @@ Arguments iAcc {C} {A} R {i}.
 Section Transitive_Closure.
 
   Variable C : Type.
-  Variable A : C -> Type.
+  Variable A : iType C.
   Variable R : forall {i}, A i -> forall {j}, A j -> Prop.
 
   Inductive iclos_transn1 : forall i (x: A i) j (y : A j), Prop :=
