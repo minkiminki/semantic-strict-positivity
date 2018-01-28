@@ -13,9 +13,8 @@ Arguments NTinv {C F G H H0} NatIso {X} f.
 
 (* Ident *)
 
-Axiom GIVEUP : False.
-
-Ltac giveup := destruct GIVEUP.
+Axiom GIVEUP : forall (A : Type), A.
+Ltac giveup := apply GIVEUP.
 
 Section HOTT.
 
@@ -153,29 +152,22 @@ Section DEP_FUN.
     unfold Dep_fun_SPF_obligation_1, container_map. simpl.
     set (fn1 := (fun a : A => NT ISO (map f (fx a)))).
     set (fn2 := (fun a : A => map f (NT ISO (fx a)))).
-    replace (existT
-               (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X2 i)
-               (fun a : A => projT1 (NT ISO (map f (fx a))))
-               (fun (i : C) (X0 : {a : A & P (B a) (projT1 (NT ISO (map f (fx a)))) i}) =>
-                  projT2 (NT ISO (map f (fx (projT1 X0)))) i (projT2 X0))) with
-        (existT
-           (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X2 i)
-           (fun a : A => projT1 (fn1 a))
-           (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn1 a)) i}) =>
-              projT2 (fn1 (projT1 X0)) i (projT2 X0))); try reflexivity.
-    replace (existT
-               (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X2 i)
-               (fun a : A => projT1 (NT ISO (fx a)))
-               (fun (i : C) (p : {a : A & P (B a) (projT1 (NT ISO (fx a))) i}) =>
-                  f i (projT2 (NT ISO (fx (projT1 p))) i (projT2 p)))) with
-        (existT
-           (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X2 i)
-           (fun a : A => projT1 (fn2 a))
-           (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn2 a)) i}) =>
-              projT2 (fn2 (projT1 X0)) i (projT2 X0))); try reflexivity.
-    replace fn2 with fn1; try reflexivity.
-    extensionality a. apply MAP_COMMUTE.
-  Qed.
+
+    match goal with
+    | [|- ?G] => replace G with
+          (existT
+    (fun s : forall a : A, S (B a) =>
+     forall i : C, {a : A & P (B a) (s a) i} -> X2 i) (fun a : A => projT1 (fn1 a))
+    (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn1 a)) i}) =>
+     projT2 (fn1 (projT1 X0)) i (projT2 X0)) =
+  existT
+    (fun s : forall a : A, S (B a) =>
+     forall i : C, {a : A & P (B a) (s a) i} -> X2 i) (fun a : A => projT1 (fn2 a))
+    (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn2 a)) i}) =>
+       projT2 (fn2 (projT1 X0)) i (projT2 X0))) end; auto.
+    replace fn1 with fn2; auto. 
+    unfold fn1, fn2. extensionality a. symmetry. apply MAP_COMMUTE.
+  Qed.    
   Next Obligation.
     split; intros.
     - destruct H0 as [a H0]. apply MEM_COMMUTE in H0.

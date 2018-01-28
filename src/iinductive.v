@@ -34,6 +34,13 @@ Section INDUCTIVE.
                      (forall (o1 : O), (@P _ _ (H o) s (inr o1)) -> Mu o1))%type)
             -> Mu o.
 
+  Definition Des' o (m : Mu o) : sigT (fun (s : S) =>
+                    ((forall (i : I), (@P _ _ (H o) s (inl i)) -> X i) *
+                     (forall (o1 : O), (@P _ _ (H o) s (inr o1)) -> Mu o1))%type) :=
+    match m with
+    | Con' o s => s end.
+
+
   (* I wanna define Mu as below *)
   Fail Inductive Mu' : O -> Type :=
   | Con'' o : sigT (fun (s : S) =>
@@ -82,27 +89,28 @@ Section INDUCTIVE.
   Qed.
   (* if we define Mu as Mu', extensionality isn't necessary *)
 
-
+(*
   Inductive ord : forall o1, Mu o1 -> forall o2, Mu o2 -> Prop :=
   | _ord (o1 o2 : O) (s : S) (p : P s (inr o1)) f1 f2 :
       ord (f2 o1 p) (Con' o2 (existT _ s (f1, f2))).
+*)
+
+  Definition ord : forall o1, Mu o1 -> forall o2, Mu o2 -> Prop :=
+    fun o1 m1 o2 m2 =>
+      exists (p : P (projT1 (Des' m2)) (inr o1)),
+        (m1 = (snd (projT2 (Des' m2))) o1 p).
 
   Lemma ord_wf : iwell_founded ord.
   Proof.
-    unfold iwell_founded.
-    fix 2.
-    intros o2 m.
-
-
-    constructor.
-    intros o1 m2 ORD.
-    destruct ORD.
-    specialize (ord_wf _ (f2 o1 p)).
-    apply ord_wf.
-  Admitted.
+    unfold iwell_founded. fix 2.
+    intros o2 m2. constructor.
+    intros o1 m1 ORD. destruct ORD as [p H1].
+    rewrite H1. apply ord_wf.
+  Qed.
 
   Definition ord_c := iclos_transn1 ord.
 
+(*
   Lemma ORD_LEMMA o1 o2 (x1 : Mu o1) (x2 : Mu o2) :
     ord x1 x2 ->
     exists s (f1 : forall i : I, P s (inl i) -> X i)
@@ -111,36 +119,26 @@ Section INDUCTIVE.
     intro.
     destruct H0. exists s. exists f1. exists f2. eauto.
   Qed.
-
-  Definition Con'_unfold : forall o, Mu o -> sigT (fun (s : S) =>
-                    ((forall (i : I), (@P _ _ (H o) s (inl i)) -> X i) *
-                     (forall (o1 : O), (@P _ _ (H o) s (inr o1)) -> Mu o1))%type).
-    intros.
-    destruct X0.
-    apply s.
-  Defined.
+*)
 
   Lemma Con'_INJ : forall o x y, Con' o x = Con' o y -> x = y.
   Proof.
-    intros. apply f_equal with (f := @Con'_unfold o) in H0.
+    intros. apply f_equal with (f := @Des' o) in H0.
     simpl in H0. apply H0.
   Qed.
 
   Lemma ord_correct : forall o1 (m : Mu o1) o2 (fx : F o2 (X_ Mu)),
       @mem (I + O) (F o2) _ (X_ Mu) fx (inr o1) m <-> ord m (Con fx).
-  Proof.    
+  Proof.
     intros; split; [intro MEM | intro ORD].
     - apply MEM_COMMUTE in MEM. simpl in MEM.
       unfold Con. destruct (NT _ fx) eqn : EQ.
       apply CONTAINER_MEM in MEM. destruct MEM.
-      rewrite <- H0.
-      apply (_ord o1 o2 x x1  (fun (i : I) (p : P x (inl i)) => x0 (inl i) p)
-                  (fun (o0 : O) (p : P x (inr o0)) => x0 (inr o0) p)).
-
-    - unfold Con in ORD. apply MEM_COMMUTE. 
-      destruct (NT _ fx). simpl.
-      dependent destruction ORD. (* axiom k *)
-      apply Container_mem. 
+      rewrite <- H0. unfold ord. exists x1; reflexivity.
+    - apply MEM_COMMUTE. unfold Con in ORD.
+      destruct (NT _ fx). simpl in *. unfold ord in ORD. simpl in *.
+      destruct ORD. apply CONTAINER_MEM.
+      exists x1. symmetry. apply H0.
   Qed.
 
   Lemma ord_c_wf : iwell_founded ord_c.
@@ -155,20 +153,22 @@ Section INDUCTIVE.
     apply iclos_transn1_transitive.
   Qed.
 
-  Definition Des_ord o (m : Mu o) : F o (X_ (@less_ones _ _ ord_c _ m)).
-    set (Des m).
-    set (tag _ (Des m)).
-    eapply (map _ f0).
+  Definition Des_ord o (m : Mu o) : F o (X_ (sigI (fun i x => @ord_c i x _ m))).
+    eapply (map _ (tag _ (Des m))).
     Unshelve.
+ destruct i. simpl in *.
 
-    intros. destruct X0. destruct i.
-    - apply x.
-    - simpl in *.
-      apply (w_ord x). 
-      apply ord_correct in m0.
-      rewrite eta_expand2 in m0.
-      constructor.
-      apply m0.
+    - apply (@projI1 _ _ (@mem (I + O) (F o) Fn (X_ Mu) (Des m))).
+    - 
+
+      intro. 
+
+      eapply existI.
+      
+      
+      set (itn1_step _ ord (eq_ind _ _ ((proj1 (iff_and ((ord_correct (projI1 X0)) o (Des m)))) (projI2 X0)) _ (eta_expand2 m))). 
+      apply i.
+
   Defined.
 
   Definition rec (P : forall o, Mu o -> Type)
@@ -192,14 +192,12 @@ Section INDUCTIVE.
   Definition prim_rec1 (P : forall (o : O), Type)
              (FIX : forall o, F o (X_ P) -> P o) :
     forall o, Mu o -> P o :=
-    rec_simpl1 _
-               (fun o1 m1 (f : forall o2 m2, ord_c m2 m1 -> P o2) =>
-                  FIX o1 (let fx := Des_ord m1 in
-                          map (X_fun _ _
-                                     (fun o (x : less_ones m1 o) =>
-                                        match x in (less_ones _ y) return (P y) with
-                                        | @w_ord _ _ _ _ _ i x ORD => f i x ORD
-                                        end)) fx)).
+    rec_simpl1 P
+               (fun (o1 : O) (m1 : Mu o1) (f : forall (o2 : O) (m2 : Mu o2), ord_c m2 m1 -> P o2) =>
+                  FIX o1 (map (X_fun (sigI (fun (i : O) (x : Mu i) => ord_c x m1)) P
+                                     (fun (o : O) (X0 : sigI (fun (i : O) (x : Mu i)
+                                                              => ord_c x m1) o) =>
+                                        f o (projI1 X0) (projI2 X0))) (Des_ord m1))).
 
   Definition prim_rec2 T
              (FIX : forall o, F o (X_ (fun _ => T)) -> T) :
@@ -269,7 +267,14 @@ Section INDUCTIVE.
     prim_rec1 FIX (Con fx) = FIX _ (map (X_fun _ _ (prim_rec1 FIX)) fx).
   Proof.
     unfold prim_rec1.
-    rewrite rec_simpl1_red. f_equal. simpl. unfold X_fun. simpl.
+    rewrite rec_simpl1_red.
+    unfold X_fun. simpl in *. f_equal. unfold Des_ord.
+    rewrite MAP_COMPOSE. simpl in *. 
+    
+    
+
+
+    
   Admitted.
   
   Lemma prim_rec2_red T (FIX : forall o, F o (X_ (fun _ => T)) -> T)
