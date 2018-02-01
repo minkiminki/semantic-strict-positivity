@@ -1,96 +1,132 @@
 Require Import FunctionalExtensionality.
 Require Import Program.
+Require Import paco.
+
+
+Set Implicit Arguments.
+
+Require Import FunctionalExtensionality.
+Require Import Program.
 
 Set Implicit Arguments.
 
 Require Import index wf IFunctor ISPFunctor.
 
-Section COINDUCTIVE.
+Section INDUCTIVE.
 
-  Variable I O : Type.
-  Variable F : O -> (I + O -> Type) -> Type.
+  Variable O : Type.
+  Variable F : O -> (O -> Type) -> Type.
 
   Context `{H : forall c, SPFunctor (F c)}.
-  Variable X : (iType I).
-
-  Definition X_ (T : O -> Type) : I + O -> Type :=
-    fun io : I + O => match io with
-                      | inl i => X i
-                      | inr o1 => T o1
-                      end.
-
-  Goal True. Proof. constructor. Qed.
-
-  Definition X_fun (T1 T2 : O -> Type) (f : forall o, T1 o -> T2 o) io :
-    X_ T1 io -> X_ T2 io :=
-    match io as io' return (X_ T1 io' -> X_ T2 io') with
-    | inl i => (fun x' => x')
-    | inr o => (fun x' => f o x')
-    end.
+  Variable X : (iType O).
 
   CoInductive Nu : O -> Type :=
-  | Con' o : sigT (fun (s : S) =>
-                    ((forall (i : I), (@P _ _ (H o) s (inl i)) -> X i) *
-                     (forall (o1 : O), (@P _ _ (H o) s (inr o1)) -> Nu o1))%type)
-            -> Nu o.
+  | Con' o : Container (@P _ _ (H o)) Nu -> Nu o.
 
-  (* I wanna define Mu as below *)
-  Fail Inductive Nu' : O -> Type :=
-  | Con'' o : sigT (fun (s : S) =>
-                     (forall (io : I + O), (@P _ _ (H o) s io) -> 
-                                           match io with
-                                           | inl i => X i
-                                           | inr o1 => Nu' o1
-                                           end)) ->Nu' o.
-   (* but this definition can't pass the coq's strict positivity checker *)
+  Definition Con o (fx : F o Nu) : Nu o := Con' o (NT _ fx).
 
-  Definition c_Con o (fx : F o (X_ Nu)) : Nu o :=
-    match (NT _ fx) with
-    | existT _ s f => Con' o (existT _ s
-                                     ((fun i (p : P s (inl i)) => f (inl i) p),
-                                      (fun o1 (p : P s (inr o1)) => f (inr o1) p))) end.
+  Definition Des' o (m : Nu o) : Container (@P _ _ (H o)) Nu :=
+    match m with
+    | Con' o s => s end.
 
-  Definition c_Des o (n : Nu o) : F o (X_ Nu) :=
-    match n with
-    | Con' _ (existT _ s (f1, f2)) =>
-      NTinv _
-            (existT (fun s' => forall i, P s' i -> (X_ Nu) i) s
-                    (fun (io : I + O) (p : P s io) =>
-                       match io as io' return (P s io' -> (X_ Nu) io') with
-                       | inl i => fun p' : P s (inl i) => f1 i p'
-                       | inr o1 => fun p' : P s (inr o1) => f2 o1 p'
-                       end p)) end.
+  Definition Des o (m : Nu o) : F o Nu := NTinv _ (Des' m).
 
-  Goal True.
-    auto.
-  Qed.
-
-  Lemma eta_expand2 : forall o (x : Nu o), c_Con (c_Des x) = x.
+  Lemma eta_expand2 : forall o (x : Nu o), Con (Des x) = x.
   Proof.
-    intros. unfold c_Des, c_Con. destruct x as [o m].
-    destruct m as [s [f1 f2]]. rewrite BIJECTION2.
-    f_equal.
+    intros. unfold Des, Con. rewrite BIJECTION2.
+    destruct x. reflexivity.
   Qed.
 
-  Lemma eta_expand1 : forall o (x : F o (X_ Nu)), c_Des (c_Con x) = x.
+  Lemma eta_expand1 : forall o (x : F o Nu), Des (Con x) = x.
   Proof.
-    intros. unfold c_Des, c_Con.
-    destruct (NT _ x) eqn : EQ.
-    rewrite <- BIJECTION1. f_equal. rewrite EQ. f_equal.
-    extensionality io. extensionality p.
-    destruct io; reflexivity.
+    intros. unfold Des, Con.
+    rewrite <- BIJECTION1.
+    destruct (NT Nu x). reflexivity.
   Qed.
-  (* if we define Mu as Mu', extensionality isn't necessary *)
 
-  Definition corec (P : O -> Type)
-             (FIX : forall o, P o -> F o (X_ P)) :
-    forall o, P o -> Nu o.
+  CoFixpoint corec' T (COFIX : forall o, T o -> Container (@P _ _ (H o)) T)
+             o (t : T o) : Nu o :=
+    Con' o (map (corec' COFIX) (COFIX o t)).
+
+  Lemma corec_red' T (COFIX : forall o, T o -> Container (@P _ _ (H o)) T)
+        o (t : T o) :
+    Des' (corec' COFIX o t) = map (corec' COFIX) (COFIX o t).
+  Proof.
+    reflexivity.
+  Qed.
+
+  Definition corec T (COFIX : forall o, T o -> F o T)
+             : forall o (t : T o), Nu o :=
+    corec' (fun o t => NT _ (COFIX o t)).
+
+  Lemma corec_red T (COFIX : forall o, T o -> F o T) o (t : T o) :
+    Des (corec COFIX o t) = map (corec COFIX) (COFIX o t).
+  Proof.
+    unfold Des, corec. rewrite corec_red'.
+    rewrite <- MAP_COMMUTE. apply BIJECTION1.
+  Qed.
+
+
+  Inductive bsm_gen' bsm' : forall o, Nu o -> Nu o -> Prop :=
+  | _bsm_gen' : forall o (c1 c2 : Container (@P _ _ (H o)) Nu) (R: rel bsm' c1 c2),
+      bsm_gen' bsm' (Con' o c1) (Con' o c2).
+  Hint Constructors bsm_gen'.
+
+  Definition bsm' o n1 n2 := paco3 bsm_gen' bot3 o n1 n2.
+  Hint Unfold bsm'.
+
+  Lemma bsm_gen_mon' : monotone3 bsm_gen'.
+  Proof.
+    unfold monotone3. intros. destruct IN. constructor.
+    apply (CONTAINER_REL_MONOTONE _ LE R).
+  Qed.
+  Hint Resolve bsm_gen_mon' : paco.
+
+  Lemma eq_bsm' : forall o (n : Nu o), bsm' n n.
+  Proof.
+    pcofix CIH. intros. pfold.
+    destruct n. constructor. simpl.
+    destruct c. constructor.
+    intros. right. apply CIH.
+  Qed.
+
+  Inductive bsm_gen bsm : forall o, Nu o -> Nu o -> Prop :=
+  | _bsm_gen : forall o (c1 c2 : F o Nu) (R: rel bsm c1 c2),
+      bsm_gen bsm (Con c1) (Con c2).
+  Hint Constructors bsm_gen.
+
+  Definition bsm o n1 n2 := paco3 bsm_gen bot3 o n1 n2.
+  Hint Unfold bsm.
+
+  Lemma bsm_gen_mon : monotone3 bsm_gen.
+  Proof.
+    unfold monotone3. intros. destruct IN. constructor.
+    apply (REL_MONOTONE _ _ _ _ LE _ _ R).
+  Qed.
+  Hint Resolve bsm_gen_mon : paco.
+
+  Lemma bsm_bsm'_gen_eq o R (n1 n2 : Nu o) : bsm_gen R n1 n2 <-> bsm_gen' R n1 n2.
+  Proof.
+    split; intro.
+    - destruct H0. constructor.
+      apply REL_COMMUTE, R0.
+    - destruct H0. revert R0.
+      destruct (BIJECTION2 _ c1), (BIJECTION2 _ c2).
+      intro. constructor.
+      apply REL_COMMUTE in R0. apply R0.
+  Qed.
+
+  Lemma bsm_bsm' o (n1 n2 : Nu o) : bsm n1 n2 <-> bsm' n1 n2.
+  Proof.
   Admitted.
 
-  Lemma corec_red (P : O -> Type)
-             (FIX : forall o, P o -> F o (X_ P)) :
-    forall o (x : P o),
-      c_Des (corec FIX _ x) = map (X_fun _ _ (corec FIX)) (FIX o x).
-  Admitted.
+  Axiom bsm'_eq : forall o (n1 n2 : Nu o), bsm' n1 n2 -> n1 = n2.
 
-End COINDUCTIVE.
+  Lemma bsm_eq : forall o (n1 n2 : Nu o), bsm n1 n2 <-> n1 = n2.
+  Proof.
+    intros; split; intro.
+    - apply bsm'_eq, bsm_bsm', H0.
+    - subst. apply bsm_bsm', eq_bsm'.
+  Qed.
+
+End INDUCTIVE.

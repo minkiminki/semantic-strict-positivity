@@ -3,60 +3,8 @@ Require Import Program.
 
 Set Implicit Arguments.
 
-Require Import index wf IFunctor JMeq.
+Require Import index wf IFunctor.
 
-(*
-Goal True. auto. Qed.
-
-Lemma JMeq_eq_eq1 X Y (x : X) (y : Y) : x ~= y -> X = Y.
-Proof.
-  intros.
-  inversion H. reflexivity.
-Defined.
-
-Lemma JMeq_eq_eq2 X Y (x : X) (y : Y) (JEQ : x ~= y) :
-  (eq_rect _ _ x _ (JMeq_eq_eq1 JEQ)) = y.
-Proof.
-  inversion JEQ. subst. destruct JEQ.
-  compute. reflexivity.
-Defined.
-
-Definition JMeq_rect_T X (P : X -> Type) (Q : forall x, P x -> Type) :
-  forall (x y : X) (p : P x) (q : P y), p ~= q -> Q x p -> Q y q.
-  intros.
-  inversion H.
-  set (JMeq_eq_eq2 H). 
-  rewrite <- e.
-  clear e H1 H2 H3.
-  
-
-
-compute in *.
-  destruct (JMeq_eq_eq1 H).
-
-
-  fun x y p q e s =>
-    match e as e' return (Q _ b) with
-    | JMeq_refl => s end. 
-
-eq_rect
-
-Proof.
-  intros. inversion H.
-  eq_dep_JMeq
-  eq_rect
-
- fix 2.
-  
-
-  fun x y p q e =>
-    match e with
-    | JMeq_refl p => Q _ p 
-
-
-Proof.
-  intros. 
-*)
 
 Section CONTAINER.
 
@@ -66,17 +14,6 @@ Section CONTAINER.
   Definition Container (X : iType C) : Type
     := sigT (fun (s : S) => forall (i : C), P s i -> X i).
 
-  Definition container_map X Y
-             (f: forall (i: C), X i -> Y i) (fx : Container X) : Container Y :=
-    existT (fun s : S => forall i : C, P s i -> Y i) (projT1 fx)
-           (fun (i : C) (p : P (projT1 fx) i) => f i (projT2 fx i p)).
-
-  Inductive container_mem  X :
-    Container X -> forall (i : C), X i -> Prop :=
-  | Container_mem s i p (f : forall i, P s i -> X i)
-    : container_mem (existT _ s f) _  (f i p)
-  .
-
   Inductive container_rel X Y
             (R: forall i, X i -> Y i -> Prop) : Container X -> Container Y -> Prop :=
   | Container_rel s (f1 : forall i, P s i -> X i) (f2 : forall i, P s i -> Y i) :
@@ -84,21 +21,17 @@ Section CONTAINER.
       container_rel R (existT _ s f1) (existT _ s f2)
   .
 
-  Definition container_tag X (fx: Container X)
-    : Container (sigI (container_mem fx)) :=
-    match fx with
-    | existT _ s f =>
-      existT _ s (fun (i : C) (p : P s i) =>
-                    existI (f i p : X i) (Container_mem X p f))
-    end.
+  Goal True. apply I. Qed.
 
   Global Program Instance Functor_Container
-    : Functor Container := Build_Functor _
-                                             container_map
-                                             container_mem
-                                             container_rel
-                                             container_tag
-                                             _.
+    : Functor Container :=
+    Build_Functor _
+                  (fun X Y f fx => (sigTimply _ (fun s (fn : forall i : C, P s i -> X i)
+                                                     i p => f i (fn i p)) fx))
+                  (fun X fx i x => exists p, projT2 fx i p = x)
+                  container_rel
+                  (fun X fx => existT _ _ (fun i p => existI _ (ex_intro _ p eq_refl)))
+                  _.
   Next Obligation.
     destruct fx. reflexivity.
   Qed.
@@ -108,7 +41,7 @@ Section CONTAINER.
   Proof.
     split; intros.
     - subst. destruct fy.
-      eapply Container_rel. auto.
+      eapply Container_rel. reflexivity.
     - destruct H. f_equal.
       extensionality i. extensionality p.
       apply H.
@@ -116,16 +49,6 @@ Section CONTAINER.
 
 
   Arguments existT {A} {P} x p.
-
-  Lemma CONTAINER_MEM X i (x : X i) s f:
-     (container_mem (existT s f) _ x) <-> (exists p, f i p = x).
-  Proof.
-    split; intro.
-    - inversion H.
-      exists p. reflexivity.
-    - destruct H as [p H].
-      rewrite <- H. apply Container_mem.
-  Qed.
 
   Lemma CONTAINER_REL X Y (R: forall i, X i -> Y i -> Prop) x y :
     container_rel R x y <->
@@ -135,27 +58,30 @@ Section CONTAINER.
     split.
     - intro. destruct H.
       exists s. exists f1. exists f2. auto.
-    - intro. destruct H. destruct H. destruct H. destruct H. destruct H0.
-      subst. apply Container_rel. apply H1.
+    - intro. destruct H as [s [f1 [f2 [EQ1 [EQ2 H]]]]].
+      subst. apply Container_rel. apply H.
   Qed.    
 
-  Lemma CONTAINER_REL2 X Y (R: forall i, X i -> Y i -> Prop) s1 s2
-    (f1 : forall i, P s1 i -> X i) (f2 : forall i, P s2 i -> Y i) :
-    container_rel R (@existT _ _ s1 f1) (@existT _ _ s2 f2) <->
-    exists (e : s2 = s1), forall (i : C) (p : P s1 i),
-        R i (f1 i p) ((eq_rect s2 (fun s => forall i, P s i -> Y i) f2 s1 e) i p).
+  Lemma CONTAINER_REL2 X Y (R: forall i, X i -> Y i -> Prop) c1 c2 :
+    container_rel R c1 c2 <->
+    exists (e : projT1 c2 = projT1 c1), forall (i : C) (p : P (projT1 c1) i),
+        R i ((projT2 c1) i p) ((eq_rect (projT1 c2) (fun s => forall i, P s i -> Y i) (projT2 c2) (projT1 c1) e) i p).
   Proof.
     split; intros.
     - apply CONTAINER_REL in H.
-      destruct H. destruct H. destruct H.
-      destruct H. destruct H0.
-      inversion H. inversion H0. clear H4 H6.
-      subst.
-      exists (eq_refl _).
-      intros. simpl.
-      apply H1.
-    - destruct H. subst. apply Container_rel.
-      simpl in H. apply H.
+      destruct H as [s [f1 [f2 [EQ1 [EQ2 H]]]]].
+      destruct EQ1, EQ2. simpl.
+      exists (eq_refl _). apply H.
+    - destruct H. destruct c1, c2. simpl in *. subst. apply Container_rel.
+      apply H.
+  Qed.
+
+  Lemma CONTAINER_REL_MONOTONE X Y (R R' : forall (i: C), X i -> Y i -> Prop)
+        (MON : forall i x y, R i x y -> R' i x y) fx fy :
+    container_rel R fx fy -> container_rel R' fx fy.
+  Proof.
+    intro. destruct H. constructor.
+    intros. apply MON, H.
   Qed.
 
 End CONTAINER.
@@ -180,8 +106,6 @@ Section SPFUNCTOR_FACTS.
   Variable C : Type.
   Variable (F : iType C -> Type).
   Context `{SPFunctor _ F}.
-
-  Goal True. apply I. Qed.
 
   Lemma INJECTIVE (X : iType C) (fx fy : F X) (EQ : NT _ fx = NT _ fy) :
     fx = fy.
@@ -210,9 +134,8 @@ Section SPFUNCTOR_FACTS.
     mem fx x -> mem (map f fx) (f _ x).
   Proof.        
     intros. apply MEM_COMMUTE. apply MEM_COMMUTE in H0.
-    rewrite MAP_COMMUTE. destruct (NT X fx). simpl in *.
-    apply CONTAINER_MEM in H0. destruct H0.
-    apply CONTAINER_MEM. exists x2. subst. reflexivity.
+    rewrite MAP_COMMUTE. destruct H0 as [p EQ].
+    exists p. rewrite <- EQ. reflexivity. 
   Qed.
 
   Lemma REL_EQ_EQ X (fx fy : F X) :
@@ -222,6 +145,14 @@ Section SPFUNCTOR_FACTS.
     split; intros.
     - subst. reflexivity.
     - apply INJECTIVE, H0.
+  Qed.
+
+  Lemma REL_MONOTONE X Y (R R' : forall (i: C), X i -> Y i -> Prop)
+        (MON : forall i x y, R i x y -> R' i x y) (fx : F X) (fy : F Y) :
+    rel R fx fy -> rel R' fx fy.
+  Proof.
+    intro. apply REL_COMMUTE. apply REL_COMMUTE in H0.
+    apply (CONTAINER_REL_MONOTONE _ MON H0).
   Qed.
 
 End SPFUNCTOR_FACTS.

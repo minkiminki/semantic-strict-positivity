@@ -18,6 +18,21 @@ Ltac giveup := apply GIVEUP.
 
 Section HOTT.
 
+
+  Definition eq_rect_fun A X (P : A -> X -> Type) (a b : A) (pa : forall (x: X), P a x)
+             (EQ : a = b) :
+    eq_rect a (fun (a' : A) => forall (x : X), P a' x) pa b EQ =     
+    fun (x : X) => eq_rect a (fun (a' : A) => P a' x) (pa x) b EQ.
+    destruct EQ. reflexivity.
+  Defined.
+
+  Definition eq_rect_fun2 A (P Q : A -> Type) (a b : A) (EQ : a = b) (f : P a -> Q a) :
+    eq_rect a (fun a' => P a' -> Q a') f b EQ =
+    fun x : P b => eq_rect a Q (f (eq_rect b P x a (eq_sym EQ))) b EQ.
+    destruct EQ. reflexivity.
+  Defined.
+
+
   Lemma Hextensionality A (a1 a2 : A) (e : a1 = a2) (P : A -> Type) B
         (f1 : B -> P a1) (f2 : B -> P a2)
         : eq_rect a1 (fun a => B -> P a) f1 a2 e = f2 <->
@@ -106,50 +121,36 @@ Section DEP_FUN.
 
   Definition Dep_fun (X : C -> Type) := forall a, B a X.
 
-  Definition dep_fun_rel X (fx: Dep_fun X) (i : C) (x : X i) : Prop :=
-    ex (fun a => mem (fx a) x).
-
   Program Definition Dep_fun_Functor : Functor Dep_fun
-    := Build_Functor Dep_fun
-                     (fun _ _ f fx a => map f (fx a)) 
-                     (fun _ fx _ x => ex (fun a => mem (fx a) x))
-                     (fun _ _ R fx fy => forall (a : A), rel R (fx a) (fy a)) _ _.
+    := Build_Functor
+         Dep_fun
+         (fun _ _ f fx a => map f (fx a)) 
+         (fun _ fx _ x => ex (fun a => mem (fx a) x))
+         (fun _ _ R fx fy => forall (a : A), rel R (fx a) (fy a))
+         (fun _ fx =>
+            fun a => (map (sigImply _ (fun i x (MEM: mem (fx a) x)
+                                       => ex_intro _ a MEM)) (tag _ (fx a)))) _.
   Next Obligation.
-    intro. set (tag _ (fx a)). eapply (map _ b).
-    Unshelve.
-    intros.
-    eapply (sigImply _ _ X0).
-    Unshelve.
-    intros. simpl.
-    exists a. apply H0.
-  Defined.    
-  Next Obligation.
-    extensionality a. unfold Dep_fun_Functor_obligation_1. (* unfold FunctorBa. *)
-    rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
-    extensionality i. extensionality x.
-    symmetry. apply sigImply_proj1.
+    extensionality a.
+    rewrite MAP_COMPOSE. rewrite <- TAG. reflexivity.
   Qed.
  
   Program Instance Dep_fun_SPF : SPFunctor Dep_fun
-    := @Build_SPFunctor _ _ Dep_fun_Functor (forall a : A, S (B a))
-                        (fun s i => sigT (fun a => P (B a) (s a) i))
-                        (Build_NatIso _ _
-                                      _
-                                      _ _ _ _ _ _).
+    := @Build_SPFunctor
+         _ _ Dep_fun_Functor (forall a : A, S (B a))
+         (fun s i => sigT (fun a => P (B a) (s a) i))
+         (Build_NatIso
+            _ _
+            (fun _ fx =>
+               (existT _ (fun a => projT1 (NT ISO (fx a)))
+                       (fun i fx' => (projT2 (NT ISO (fx (projT1 fx'))))
+                                       i (projT2 fx'))))
+            (fun X fx =>
+               fun a => NTinv ISO (existT _ (projT1 fx a)
+                                          (fun i p => projT2 fx i (existT _ a p))))
+            _ _ _ _ _).
   Next Obligation.
-    exists (fun a : A => projT1 (@NT _ _ _ _ (@Functor_Container C _ _) _ X (X0 a))).
-    intros.
-    set (NT _ (X0 (projT1 X1))).
-    apply ((projT2 y) i (projT2 X1)).
-  Defined.
-  Next Obligation.
-    intro.
-
-    apply (NTinv ISO). exists ((projT1 X0) a).
-    intros i p. apply ((projT2 X0 i) (existT _ a p)).
-  Defined.
-  Next Obligation.
-    unfold Dep_fun_SPF_obligation_1, container_map. simpl.
+    unfold sigTimply. simpl.
     set (fn1 := (fun a : A => NT ISO (map f (fx a)))).
     set (fn2 := (fun a : A => map f (NT ISO (fx a)))).
 
@@ -165,59 +166,52 @@ Section DEP_FUN.
      forall i : C, {a : A & P (B a) (s a) i} -> X2 i) (fun a : A => projT1 (fn2 a))
     (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn2 a)) i}) =>
        projT2 (fn2 (projT1 X0)) i (projT2 X0))) end; auto.
-    replace fn1 with fn2; auto. 
-    unfold fn1, fn2. extensionality a. symmetry. apply MAP_COMMUTE.
+    replace fn1 with fn2; auto.
+    extensionality a. unfold fn1, fn2. symmetry. apply MAP_COMMUTE.
   Qed.    
   Next Obligation.
     split; intros.
-    - destruct H0 as [a H0]. apply MEM_COMMUTE in H0.
-      unfold Dep_fun_SPF_obligation_1. apply CONTAINER_MEM. simpl in H0.
-
-      assert (exists (a0 : A) (p : P (B a0) (projT1 (NT ISO (fx a0))) i),
-              projT2 (NT ISO (fx a0)) i p = x). {
-        exists a.
-        destruct (NT _ (fx a)). apply CONTAINER_MEM in H0.
-        destruct H0. exists x2. apply H0.
-      }
-      destruct H1. destruct H1.
-      exists (existT _ x0 x1). apply H1.
-    - unfold Dep_fun_SPF_obligation_1 in H0. apply CONTAINER_MEM in H0.
-      destruct H0 as [[a p] H0].
-      exists a. apply MEM_COMMUTE. simpl in *. destruct (NT ISO (fx a)).
-      apply CONTAINER_MEM. exists p. apply H0.
+    - destruct H0 as [a H0]. apply MEM_COMMUTE in H0. destruct H0.
+      exists (existT _ a x0). apply H0.
+    - destruct H0 as [[a p] H0].
+      exists a. apply MEM_COMMUTE. exists p. apply H0.
   Qed.
   Next Obligation.
-    unfold Dep_fun_SPF_obligation_1; split; intros.
-    
-    - assert ((fun a : A => projT1 (NT ISO (fy a))) =
-        (fun a : A => projT1 (NT ISO (fx a)))). {
+    split; intros.
+    - 
+
+      set (fn1 := (fun a : A => projT1 (NT ISO (fy a)))).
+      set (fn2 := (fun a : A => projT1 (NT ISO (fx a)))).
+      assert (fn1 = fn2). {
+        unfold fn1, fn2.
         extensionality a.
         specialize (H0 a). apply REL_COMMUTE in H0. destruct H0. reflexivity.
       }
-      apply CONTAINER_REL2. exists H1. intros. destruct p. simpl in *.
-      specialize (H0 x). apply REL_COMMUTE in H0. simpl in H0.
-      giveup.
-    - apply REL_COMMUTE. simpl.
 
-      apply CONTAINER_REL2 in H0. destruct H0.
-      destruct (NT _ (fx a)) eqn : EQ1.
-      destruct (NT _ (fy a)) eqn : EQ2.
-      apply CONTAINER_REL2.
-      assert (EQ : (fun a : A => projT1 (NT ISO (fy a))) a = (fun a : A => projT1 (NT ISO (fx a))) a). {
-        giveup.
-        }
-      giveup.
+ match goal with
+    | [|- ?G] => replace G with
+(container_rel R
+    (existT
+       (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
+       fn2
+       (fun (i : C) (fx' : {a : A & P (B a) (fn2 a) i}) =>
+        projT2 (NT ISO (fx (projT1 fx'))) i (projT2 fx')))
+    (existT
+       (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> Y i)
+       fn1
+       (fun (i : C) (fx' : {a : A & P (B a) (fn1 a) i}) =>
+        projT2 (NT ISO (fy (projT1 fx'))) i (projT2 fx')))) end; auto.
+      giveup. - giveup.
   Qed.
   Next Obligation.
-    unfold Dep_fun_SPF_obligation_1, Dep_fun_SPF_obligation_2. extensionality a.
-    simpl. rewrite <- (BIJECTION1 _ (fx a)). f_equal.
+    extensionality a.
+    rewrite <- (BIJECTION1 _ (fx a)). f_equal.
     rewrite BIJECTION1.
     destruct (NT _ (fx a)) eqn : EQ.
     simpl. f_equal.
   Qed.
   Next Obligation.
-    unfold Dep_fun_SPF_obligation_1, Dep_fun_SPF_obligation_2. destruct gx. simpl.
-
+    simpl. destruct gx. simpl.
     
     set (fn1 := fun a (s : {s : S (B a) & forall i : C, P (B a) s i -> X i}) =>
                   (NT ISO (NTinv ISO s))).
@@ -328,22 +322,19 @@ Section COMP.
   Goal True. apply I. Qed.
 
   Program Definition Comp_Functor : Functor Comp
-    := Build_Functor Comp (fun _ _ f fx => map F2 (fun i x => map (F1 i) f x) fx)
-                     (fun X fxx i x => exists (j : C2) (fx : F1 j X), mem F2 fxx fx /\ mem (F1 j) fx x)
-                     (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R)) _ _.
+    := Build_Functor
+         Comp
+         (fun _ _ f fx => map F2 (fun i x => map (F1 i) f x) fx)
+         (fun X fxx i x => exists (j : C2) (fx : F1 j X),
+              mem F2 fxx fx /\ mem (F1 j) fx x)
+         (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R)) _ _.
   Next Obligation.
     unfold Comp in *.
     eapply (map _ _ (tag _ fx)). Unshelve.
 
-    intros. simpl.
-    eapply (map _ _ (tag _ (projI1 X0))). Unshelve.
+    intros i X0. 
+    apply (map _ (fun i0 x1 => (sigImply _ (fun i1 x MEM => (ex_intro _ i (ex_intro _ (projI1 X0) (conj (projI2 X0) MEM)))) x1)) (tag _ (projI1 X0))). 
 
-    intros.
-    eapply (sigImply _ _ X1). Unshelve.
-
-    intros.
-
-    exists i. exists (projI1 X0). split. apply (projI2 X0). apply H1.
   Defined.
   Next Obligation.
     simpl. 
@@ -351,8 +342,6 @@ Section COMP.
     rewrite MAP_COMPOSE. simpl. rewrite <- TAG. f_equal.
     extensionality i. extensionality x. destruct x.
     simpl. rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
-    extensionality j. extensionality x1. destruct x1.
-    symmetry. apply sigImply_proj1.
   Qed.
 
   Program Instance Comp_SPF : SPFunctor Comp
@@ -378,7 +367,7 @@ Section COMP.
     apply (fun j p' => (projT2 X0) j (existT _ i (existT _ p p'))).
   Defined.
   Next Obligation.
-    unfold Comp_SPF_obligation_1. unfold container_map. simpl.
+    unfold Comp_SPF_obligation_1. simpl.
 
     set (f1 := fun x => (NT ISO
                 (map F2 (fun (i0 : C2) (x0 : F1 i0 X1) => map (F1 i0) f x0) x))).
@@ -466,29 +455,22 @@ existT
   Qed.
   Next Obligation.
     unfold Comp_SPF_obligation_1; split; intros.
-    - apply CONTAINER_MEM.
-      destruct H1 as [j [fx0 [H1 H2]]].
+    - destruct H1 as [j [fx0 [H1 H2]]].
       apply MEM_COMMUTE in H1.
-      apply MEM_COMMUTE in H2.
-
-      destruct (NT _ _) eqn : EQ1. simpl.
-      destruct (NT _ fx0) eqn : EQ2. simpl.
-      apply CONTAINER_MEM in H1. apply CONTAINER_MEM in H2.
-      destruct H1. destruct H2. subst.
-      exists (existT _ j (existT _ x3 (eq_rect (existT (fun s : S (F1 j) => forall i : C1, P (F1 j) s i -> X i) x1 x2) (fun y => P (F1 j) (projT1 y) i) x4 _ (eq_sym EQ2))) : {i0 : C2 & {p : P F2 x0 i0 & P (F1 i0) (projT1 (NT ISO (f i0 p))) i}}).
-      simpl in *.
-      rewrite EQ2. reflexivity.
-    - simpl in *. apply CONTAINER_MEM in H1.
-      destruct H1 as [[i0 [p1 p2]] H1]. simpl in *.
-      exists i0.
+      apply MEM_COMMUTE in H2. simpl in *.
+      destruct H1 as [p1 EQ1].
+      destruct H2 as [p2 EQ2]. subst.
+      exists (existT _ j (existT _ p1 p2)). reflexivity.
+    - destruct H1 as [[i0 [p1 p2]] H1]. simpl in *.
+      exists i0. subst. 
       exists (projT2 (@NT _ F2 _ _ _ ISO _ fx) i0 p1). split.
-      + apply MEM_COMMUTE. simpl. destruct (@NT _ F2 _ _ _ ISO _ fx).
-        apply Container_mem.
       + apply MEM_COMMUTE. simpl.
-        destruct (NT ISO (projT2 (@NT _ F2 _ _ _ ISO _ fx) i0 p1)).
-        subst. apply Container_mem.
+        exists p1. reflexivity.
+      + apply MEM_COMMUTE. simpl.
+        exists p2. reflexivity.
   Qed.
   Next Obligation.
+    unfold Comp_SPF_obligation_1; split; intros; simpl in *;
     giveup.
   Qed.
   Next Obligation.

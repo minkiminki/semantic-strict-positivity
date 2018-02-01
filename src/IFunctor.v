@@ -51,36 +51,33 @@ Section IFUNCTOR.
   Program Definition Symmetric_NatIso C (F G: iType C -> Type) `{NatIso _ F G} : NatIso G F
     := Build_NatIso _ _ (@NTinv _ _ _ _ _ _ ) (@NT _ _ _ _ _ _ ) _ _ _ _ _.
   Next Obligation.
-    destruct H1. simpl.
-    rewrite <- (BIJECTION3 _ (map f (NTinv0 X1 fx))).
-    rewrite MAP_COMMUTE0. rewrite BIJECTION4.
+    rewrite <- (BIJECTION1 _ (map f (NTinv fx))).
+    rewrite MAP_COMMUTE. rewrite BIJECTION2.
     reflexivity.
   Qed.
   Next Obligation.
-    destruct H1. simpl.
-    rewrite <- (BIJECTION4 _ fx). rewrite BIJECTION3.
-    symmetry. apply MEM_COMMUTE0.
+    rewrite <- (BIJECTION2 _ fx). rewrite BIJECTION1.
+    symmetry. apply MEM_COMMUTE.
   Qed.
   Next Obligation.
-    destruct H1. simpl.
-    rewrite <- (BIJECTION4 _ fx). rewrite <- (BIJECTION4 _ fy).
-    repeat rewrite BIJECTION3.
-    symmetry. apply REL_COMMUTE0.
+    rewrite <- (BIJECTION2 _ fx). rewrite <- (BIJECTION2 _ fy).
+    repeat rewrite BIJECTION1.
+    symmetry. apply REL_COMMUTE.
   Qed.
   Next Obligation.
-    destruct H1. auto.
+    apply BIJECTION2.
   Qed.
   Next Obligation.
-    destruct H1. auto.
+    apply BIJECTION1.
   Qed.
   
   Program Definition Reflexive_NatIso C (F : iType C -> Type) `{Functor _ F} : NatIso F F
     := Build_NatIso _ _ (fun _ => id) (fun _ => id) _ _ _ _ _.
-  Next Obligation.  
-    tauto.
+  Next Obligation.
+    reflexivity.
   Qed.
   Next Obligation.  
-    tauto.
+    reflexivity.
   Qed.
 
   Program Definition Tranitive_NatIso C (F G H: iType C -> Type)
@@ -88,24 +85,19 @@ Section IFUNCTOR.
           `{@NatIso _ _ _ FnF FnG} `{@NatIso _ _ _ FnG FnH}: NatIso F H
     := Build_NatIso _ _ (fun _ fx => NT (NT fx)) (fun _ hx => NTinv (NTinv hx)) _ _ _ _ _.
   Next Obligation.
-    simpl.
-    repeat rewrite MAP_COMMUTE. auto.
+    repeat rewrite MAP_COMMUTE. reflexivity.
   Defined.
   Next Obligation.
-    simpl.
-    repeat rewrite MEM_COMMUTE. tauto.
+    repeat rewrite MEM_COMMUTE. reflexivity.
   Defined.
   Next Obligation.
-    simpl.
-    repeat rewrite REL_COMMUTE. tauto.
+    repeat rewrite REL_COMMUTE. reflexivity.
   Defined.
   Next Obligation.
-    simpl.
-    repeat rewrite BIJECTION1. auto.
+    repeat rewrite BIJECTION1. reflexivity.
   Defined.
   Next Obligation.
-    simpl.
-    repeat rewrite BIJECTION2. auto.
+    repeat rewrite BIJECTION2. reflexivity.
   Defined.
 
 End IFUNCTOR.

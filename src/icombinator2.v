@@ -36,22 +36,20 @@ Qed.
 Next Obligation.
   split; intros.
   - destruct H.
-    eapply (Container_mem _ _ tt i eq_refl).
-  - inversion H. subst.
+    exists eq_refl. reflexivity.
+  - destruct H. subst.
     constructor.
 Qed.
 Next Obligation.
   split; intros.
-  - apply Container_rel.
-    intros. destruct p. apply H.
-  - inversion H. subst.
-    specialize (H1 i eq_refl). apply H1.
+  - constructor. intros.
+    destruct p. apply H.
+  - inversion H. subst. apply (H1 i eq_refl).
 Qed.
 Next Obligation.
-  compute. destruct gx. f_equal.
-  - destruct x. reflexivity.
-  - extensionality i0. extensionality e.
-    destruct e. reflexivity.
+  compute. destruct gx. destruct x. f_equal.
+  extensionality i0. extensionality e.
+  destruct e. reflexivity.
 Qed.
 
 (* Const *)
@@ -74,7 +72,7 @@ Qed.
 Next Obligation.
   split; compute; intros.
   - destruct H.
-  - destruct H. destruct p.
+  - destruct H. destruct x0.
 Qed.
 Next Obligation.
   split; compute; intros.
@@ -104,14 +102,15 @@ Section COPROD.
   .
 
   Program Definition Coprod_Functor : Functor Coprod
-    := Build_Functor _ (fun _ _ f x => match x with
+    := Build_Functor _ (fun X Y f x => match x return Coprod Y with
                                        | inl fx => inl (map f fx)
                                        | inr gx => inr (map f gx) end)
-                     (fun _ x => match x with
+                     (fun X x => match x return (forall i, X i -> Prop) with
                                  | inl fx => @mem _ _ _ _ fx
                                  | inr gx => @mem _ _ _ _ gx end)
                      Coprod_rel
-                     (fun _ fx => match fx with
+                     (fun X fx => match fx as fx' return
+                                        (Coprod (sigI (_ X fx'))) with
                                   | inl f => inl (tag _ f)
                                   | inr g => inr (tag _ g)
                                   end)
@@ -119,66 +118,98 @@ Section COPROD.
   Next Obligation.
     destruct fx; simpl; f_equal; apply TAG.
   Defined.
- 
+  
   Program Instance Coprod_SPF : SPFunctor Coprod
-    := @Build_SPFunctor _ _ Coprod_Functor (S F + S G)%type
-                        (fun s => match s with
-                                  | inl sf => (P F) sf
-                                  | inr sg => (P G) sg end)
-                        (Build_NatIso _ _
-                                      (fun _ fx =>
-                                         match fx with
-                                         | inl f =>
-                                           existT _ (inl (projT1 (NT ISO f))) 
-                                                  (projT2 (NT ISO f))
-                                         | inr g =>
-                                           existT _ (inr (projT1 (NT ISO g))) 
-                                                  (projT2 (NT ISO g))
-                                         end)
-                                      (fun X fx =>
-                                         match fx with
-                                         | existT _ s p =>
-                                           match s as s return
-                                                 ((forall i : C,
-                                                      match s as s' return (s' = s -> C -> Type) with
-                                                      | inl sf =>
-                                                        fun _ : inl sf = s => P F sf
-                                                      | inr sg =>
-                                                        fun _ : inr sg = s => P G sg
-                                                      end eq_refl i -> X i)
-                                                  -> Coprod X)
-                                           with
-                                           | inl s' =>
-                                             fun f => inl (NTinv ISO (existT _ s' f))
-                                           | inr s' =>
-                                             fun f => inr (NTinv ISO (existT _ s' f))
-                                           end p end) _ _ _ _ _).
+    := @Build_SPFunctor
+         _ _ Coprod_Functor (S F + S G)%type
+         (fun s => match s return (C -> Type) with
+                   | inl sf => (P F) sf
+                   | inr sg => (P G) sg end)
+         (Build_NatIso _ _
+                       (fun X fx =>
+                          match fx return (Container _ X) with
+                          | inl f =>
+                            existT _ (inl (projT1 (NT ISO f))) 
+                                   (projT2 (NT ISO f))
+                          | inr g =>
+                            existT _ (inr (projT1 (NT ISO g))) 
+                                   (projT2 (NT ISO g))
+                          end)
+                       (fun X (fx : Container
+                                      (fun s : S F + S G =>
+                                         match s return (C -> Type) with
+                                         | inl sf => P F sf
+                                         | inr sg => P G sg
+                                         end) X) =>
+                          match projT1 fx as s
+                                return ((forall i, match s return (C -> Type) with
+                                                   | inl sf => P F sf
+                                                   | inr sg => P G sg
+                                                   end i -> X i) -> Coprod X)
+                          with
+                          | inl s' =>
+                            fun x =>  inl (NTinv ISO (existT _ s' x))
+                          | inr s' =>
+                            fun x => inr (NTinv ISO (existT _ s' x))
+                          end (projT2 fx)) _ _ _ _ _).
   Next Obligation.
-    destruct fx; simpl.
-    - rewrite MAP_COMMUTE. simpl.
-      unfold container_map.
-      destruct (NT _ f0). reflexivity.
-    - rewrite MAP_COMMUTE. simpl.
-      unfold container_map.
-      destruct (NT _ g). reflexivity.
+    destruct fx; rewrite MAP_COMMUTE; reflexivity.
   Qed.
   Next Obligation.
-    destruct fx; split; intros.
-    - apply MEM_COMMUTE in H1. inversion H1. apply Container_mem.
-    - apply MEM_COMMUTE. simpl in *. destruct (NT _ f).
-      apply CONTAINER_MEM in H1. apply CONTAINER_MEM.
-      destruct H1. exists x2. apply H1.
-    - apply MEM_COMMUTE in H1. inversion H1. apply Container_mem.
-    - apply MEM_COMMUTE. simpl in *. destruct (NT _ g).
-      apply CONTAINER_MEM in H1. apply CONTAINER_MEM.
-      destruct H1. exists x2. apply H1.
+    split; intros; destruct fx; simpl in *.
+    - apply MEM_COMMUTE in H1. apply H1.
+    - apply MEM_COMMUTE in H1. apply H1.
+    - apply MEM_COMMUTE. apply H1.
+    - apply MEM_COMMUTE. apply H1.
   Qed.
   Next Obligation.
-    split; intros. 
+    split; intros.
+    - destruct H1; apply REL_COMMUTE in REL; apply CONTAINER_REL2 in REL;
+        apply CONTAINER_REL2; destruct (NT ISO _), (NT ISO _); simpl in *;
+          destruct REL; subst; exists eq_refl; apply H1.
+    - destruct fx, fy.
+      + constructor. apply REL_COMMUTE.
+        apply CONTAINER_REL2. apply CONTAINER_REL2 in H1. simpl in *.
+        destruct (NT ISO f0), (NT ISO f). destruct H1. simpl in *.
+        giveup.
+      + inversion H1.
+      + inversion H1.
+      + giveup.
+  Qed.
+  Next Obligation.
+    destruct fx. simpl. f_equal.
+
+    eta_expand
+
+    apply BIJECTION2.
+
+    giveup.
+  Qed.
+  Next Obligation.
+    giveup.
+  Qed.
+
+    simpl.
+    
+
+  Next Obligation.
+
+    destruct fx; unfold sigTimply; simpl;
+      rewrite MAP_COMMUTE;  reflexivity.
+  Qed.
+  Next Obligation.
+    split; intros.
+    - destruct fx; simpl in *;
+      apply MEM_COMMUTE in H1; apply H1.
+    - destruct fx; simpl in *;
+      apply MEM_COMMUTE; apply H1.
+  Qed.
+  Next Obligation.
+    split; intros.
     - destruct H1; apply REL_COMMUTE in REL; simpl in *;
-        destruct (NT _ _), (NT _ _);
+        destruct (NT _ _), (NT _ _). simpl.
       apply CONTAINER_REL2 in REL;
-      destruct REL; subst; constructor; auto.
+      destruct REL; subst. simpl in *. constructor; auto.
     - destruct fx, fy; try (constructor; apply REL_COMMUTE); simpl in *;
         destruct (NT ISO _), (NT ISO _);
       apply CONTAINER_REL2 in H1; destruct H1;
