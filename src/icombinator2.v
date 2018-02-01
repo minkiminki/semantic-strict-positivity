@@ -177,53 +177,12 @@ Section COPROD.
       + giveup.
   Qed.
   Next Obligation.
-    destruct fx. simpl. f_equal.
-
-    eta_expand
-
-    apply BIJECTION2.
-
-    giveup.
+    destruct fx; simpl; f_equal;
+    rewrite <- BIJECTION1; destruct (NT ISO _); reflexivity.
   Qed.
   Next Obligation.
-    giveup.
-  Qed.
-
-    simpl.
-    
-
-  Next Obligation.
-
-    destruct fx; unfold sigTimply; simpl;
-      rewrite MAP_COMMUTE;  reflexivity.
-  Qed.
-  Next Obligation.
-    split; intros.
-    - destruct fx; simpl in *;
-      apply MEM_COMMUTE in H1; apply H1.
-    - destruct fx; simpl in *;
-      apply MEM_COMMUTE; apply H1.
-  Qed.
-  Next Obligation.
-    split; intros.
-    - destruct H1; apply REL_COMMUTE in REL; simpl in *;
-        destruct (NT _ _), (NT _ _). simpl.
-      apply CONTAINER_REL2 in REL;
-      destruct REL; subst. simpl in *. constructor; auto.
-    - destruct fx, fy; try (constructor; apply REL_COMMUTE); simpl in *;
-        destruct (NT ISO _), (NT ISO _);
-      apply CONTAINER_REL2 in H1; destruct H1;
-      inversion x2; subst;
-        apply Container_rel; intros;
-      specialize (H1 i p);
-      rewrite <- eq_rect_eq in H1; auto. (* axiom K *)
-  Qed.    
-  Next Obligation.
-    destruct fx; f_equal; destruct (NT ISO _) eqn : EQ; simpl;
-    rewrite <- EQ; apply BIJECTION1.
-  Qed.
-  Next Obligation.
-    destruct gx as [[sf | sg] f]; simpl; rewrite BIJECTION2; auto.
+    destruct gx; destruct x; simpl;
+    rewrite BIJECTION2; reflexivity.
   Qed.
 
 End COPROD.
@@ -238,100 +197,63 @@ Section PROD.
   Definition Prod (X : C -> Type) := (F X * G X)%type.
 
   Program Definition Prod_Functor : Functor Prod
-    := Build_Functor _ (fun _ _ f x => match x with
-                                       | (fx, gx) => (map f fx, map f gx)
-                                       end)
-                     (fun _ x _ a => match x with
-                                     | (fx, gx) => mem fx a \/ mem gx a end)
-                     (fun _ _ R x y =>
-                        match x, y with
-                        | (fx, gx), (fy, gy) => rel R fx fy /\ rel R gx gy end)
-                     (fun X fx =>
-                        let
-                          (f, g) as p
-                          return
-                          (Prod
-                             (sigI
-                                (fun (i : C) (a : X i) =>
-                                   (let (fx0, gx) as x' return (x' = p -> Prop) := p in
-                                    fun _ : (fx0, gx) = p => mem fx0 a \/ mem gx a) eq_refl))) := fx in
-                        (map (sigImply _ (fun i x => @or_introl _ _)) (tag X f),
-                         map (sigImply _ (fun i x => @or_intror _ _)) (tag X g))) _.
+    := Build_Functor _ (fun X Y f x => (map f (fst x), map f (snd x)))
+                     (fun X x _ a => (mem (fst x) a \/ mem (snd x) a))
+                     (fun _ _ R x y => rel R (fst x) (fst y)/\ rel R (snd x) (snd y))
+                     (fun X x => ((map (sigImply _ (fun i x => @or_introl _ _))
+                                       (tag _ (fst x))),
+                                  (map (sigImply _ (fun i x => @or_intror _ _))
+                                       (tag _ (snd x))))) _.
   Next Obligation.
-    destruct fx.
-    repeat rewrite MAP_COMPOSE. f_equal; rewrite <- TAG; f_equal;
-      extensionality i; extensionality x;
-      symmetry; apply sigImply_proj1.
+    repeat rewrite MAP_COMPOSE. destruct fx. f_equal;
+    rewrite <- TAG; reflexivity.
   Qed.
   
   Program Instance Prod_SPF : SPFunctor Prod
-  := @Build_SPFunctor _ _ Prod_Functor (S F * S G)%type
-                      (fun s i => match s with
-                                  | (sf, sg) => ((P F) sf i + (P G) sg i)%type
-                                  end)
-                      (Build_NatIso _ _
-                                    (fun X fx =>
-                                       match fx with
-                                       | (f, g) =>
-                                         existT _
-                                                (projT1 (NT _ f), projT1 (NT _ g))
-                                                (fun _ p =>
-                                                   match p with
-                                                   | inl p' => projT2 (NT ISO f) _ p'
-                                                   | inr p' => projT2 (NT ISO g) _ p'
-                                                   end) end)
-                                    _ _ _ _ _ _).
+    := @Build_SPFunctor
+         _ _ Prod_Functor (S F * S G)%type
+         (fun s i => ((P F) (fst s) i + (P G) (snd s) i)%type)
+         (Build_NatIso _ _
+                       (fun X x =>
+                          existT _
+                                 (projT1 (NT ISO (fst x)), projT1 (NT ISO (snd x)))
+                                 (fun i p =>
+                                    match p return X i with
+                                    | inl fp => projT2 (NT ISO (fst x)) i fp
+                                    | inr gp => projT2 (NT ISO (snd x)) i gp
+                                    end))
+                       (fun X x =>
+                          (NTinv ISO (existT _ (fst (projT1 x))
+                                             (fun i p => projT2 x i (inl p))),
+                           NTinv ISO (existT _ (snd (projT1 x))
+                                             (fun i p => projT2 x i (inr p)))))
+                       _ _ _ _ _).
   Next Obligation.
-    destruct X0. destruct x. apply pair; apply (NTinv ISO).
-    - exists s. intros. apply (x0 _ (inl X0)).
-    - exists s0. intros. apply (x0 _ (inr X0)).
-  Defined.
-  Next Obligation.
-    destruct fx; simpl. unfold container_map.
-    repeat rewrite MAP_COMMUTE. simpl.
-    destruct (NT _ f0), (NT _ g). simpl. f_equal.
+    unfold sigTimply. simpl.
+    repeat rewrite MAP_COMMUTE. f_equal.
     extensionality i. extensionality p.
     destruct p; reflexivity.
   Qed.
-  Next Obligation.
-    destruct fx; split; intros.
-    - destruct H1; apply MEM_COMMUTE in H1; simpl in *;
-      destruct (NT _ f), (NT _ g);
-      apply CONTAINER_MEM in H1; apply CONTAINER_MEM; destruct H1.
-      + exists (inl x4); auto.
-      + exists (inr x4); auto.
-    - repeat rewrite MEM_COMMUTE. simpl in *. destruct (NT _ f), (NT _ g).
-      apply CONTAINER_MEM in H1. destruct H1. destruct x4;
-      [left | right]; apply CONTAINER_MEM; exists p; apply H1.
+  Next Obligation. 
+    split; intro.
+    - destruct H1; apply MEM_COMMUTE in H1; destruct H1.
+      + exists (inl x0). apply H1.
+      + exists (inr x0). apply H1.
+    - destruct H1. destruct x0; [left | right];
+      apply MEM_COMMUTE; exists p; apply H1.
+  Qed.
+  Next Obligation. 
+    giveup.
   Qed.
   Next Obligation.
-    split; intros. 
-    - destruct fx, fy. destruct H1.
-      apply REL_COMMUTE in H1. apply REL_COMMUTE in H2. simpl in *.
-      destruct (NT _ f), (NT _ g), (NT _ f0), (NT _ g0).
-      apply CONTAINER_REL2 in H1. destruct H1.
-      apply CONTAINER_REL2 in H2. destruct H2.
-      subst. apply Container_rel.
-      simpl in *. destruct p; auto.
-    - destruct fx, fy. repeat rewrite REL_COMMUTE. simpl in *.
-      destruct (NT _ f), (NT _ f0), (NT _ g), (NT _ g0).
-
-      apply CONTAINER_REL2 in H1. destruct H1. inversion x5. subst.
-      rewrite <- eq_rect_eq in H1. (* axiom k *)
-      split; apply Container_rel; intros.
-      + apply (H1 _ (inl p)).
-      + apply (H1 _ (inr p)).
-  Qed.    
-  Next Obligation.
-    destruct fx. simpl.
-    destruct (NT _ f) eqn : EQ1.
-    destruct (NT _ g) eqn : EQ2. simpl.
-    f_equal; rewrite <- BIJECTION1; [rewrite EQ1 | rewrite EQ2]; f_equal.
+    destruct fx.
+    repeat rewrite <- sigT_eta. repeat rewrite BIJECTION1. reflexivity.
   Qed.
   Next Obligation.
-    destruct gx. destruct x. simpl. repeat rewrite BIJECTION2.
-    f_equal. extensionality i. extensionality X0.
-    destruct X0; reflexivity.
+    repeat rewrite BIJECTION2. simpl.
+    destruct gx. destruct x. simpl. f_equal.
+    extensionality i. extensionality p.
+    destruct p; reflexivity.
   Qed.
 
 End PROD.
@@ -360,61 +282,40 @@ Section DEP_SUM.
                      (fun _ fx => existT _ (projT1 fx) (tag _ (projT2 fx)))
                      _.
   Next Obligation.
-    destruct fx. simpl. f_equal. apply TAG.
+    rewrite sigT_eta. f_equal. apply TAG.
   Qed.
  
   Program Instance Dep_sum_SPF : SPFunctor Dep_sum
-    := @Build_SPFunctor _ _ Dep_sum_Functor (sigT (fun a => S (B a)))
-                        (fun s => P (B (projT1 s)) (projT2 s))
-                        (Build_NatIso _ _
-                                      _
-                                      _ _ _ _ _ _).
+    := @Build_SPFunctor
+         _ _ Dep_sum_Functor (sigT (fun a => S (B a)))
+         (fun s => P (B (projT1 s)) (projT2 s))
+         (Build_NatIso _ _
+                       (fun X fx =>
+                          existT _ (existT _ (projT1 fx) (projT1 (NT ISO (projT2 fx))))
+                                 (projT2 (NT ISO (projT2 fx))))
+                       (fun X fx =>
+                          existT _ (projT1 (projT1 fx))
+                                 (NTinv ISO
+                                        (existT _ (projT2 (projT1 fx)) (projT2 fx))))
+                       _ _ _ _ _).
   Next Obligation.
-    exists (existT _ (projT1 X0) (projT1 (@NT _ _ _ _ _ ISO X (projT2 X0)))).
-    apply (projT2 (@NT _ _ _ _ _ ISO X (projT2 X0))).
-  Defined.
-  Next Obligation.
-    destruct X0. destruct x.
-    exists x. apply (NTinv ISO).
-    exists s. apply x0.
-  Defined.
-  Next Obligation.
-    unfold Dep_sum_SPF_obligation_1, container_map. 
-    destruct fx. simpl. rewrite MAP_COMMUTE. simpl. f_equal.
+    rewrite MAP_COMMUTE. reflexivity.
   Qed.
-  Next Obligation.
-    unfold Dep_sum_SPF_obligation_1; destruct fx; simpl; split; intros.
-    - apply MEM_COMMUTE in H0. destruct (NT _ b). simpl in H0.
-      apply CONTAINER_MEM in H0. apply CONTAINER_MEM.
-      destruct H0. exists x3. apply H0.
-    - apply MEM_COMMUTE. destruct (NT _ b). simpl.
-      apply CONTAINER_MEM in H0. destruct H0.
-      apply CONTAINER_MEM.
-      exists x3. apply H0.
+  Next Obligation. giveup. Qed.
+  Next Obligation. giveup. Qed.
+  Next Obligation. 
+    rewrite sigT_eta. f_equal. rewrite <- sigT_eta. apply BIJECTION1.
   Qed.
-  Next Obligation.
-    unfold Dep_sum_SPF_obligation_1; destruct fx, fy; split; intros.
-    - destruct H0. apply REL_COMMUTE in REL. simpl.
-      destruct (NT _ fx), (NT _ fy). simpl in *.
-      
-      apply CONTAINER_REL2 in REL. destruct REL.
-      subst. simpl in *. apply Container_rel. apply H0.
-    - simpl in *. 
-      apply CONTAINER_REL2 in H0. destruct H0. inversion x1. subst. constructor.
-      apply REL_COMMUTE. destruct (NT _ b0), (NT _ b). simpl in *.
-      apply inj_pair2 in H3. subst. constructor. (* axiom k *)
-      intros. specialize (H0 i p). rewrite <- eq_rect_eq in H0. (* axiom k*)
-      apply H0.
-  Qed.
-  Next Obligation.
-    destruct fx. simpl. destruct (NT _ b) eqn : EQ. simpl.
-    f_equal. rewrite <- EQ. apply BIJECTION1.
-  Qed.
-  Next Obligation.
-    unfold Dep_sum_SPF_obligation_1, Dep_sum_SPF_obligation_2.
-    destruct gx. destruct x. simpl in *. rewrite BIJECTION2. reflexivity.
-  Qed.
+  Next Obligation. 
+    rewrite sigT_eta. rewrite BIJECTION2. simpl.
+    destruct (projT1 gx).
+    destruct gx. simpl. reflexivity.
+    repeat rewrite <- sigT_eta.
+    f_equal.
+    - intros. simpl.
+    rewrite sigT_eta. simpl.
 
+giveup. Qed.
 End DEP_SUM.
 
 Section EXPN.
