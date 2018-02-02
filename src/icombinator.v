@@ -4,7 +4,7 @@ Require Import JMeq.
 
 Set Implicit Arguments.
 
-Require Import index wf IFunctor ISPFunctor.
+Require Import index wf IFunctor ISPFunctor hott.
 
 Arguments S {C} F {SPFunctor}.
 Arguments P {C} F {SPFunctor}.
@@ -15,99 +15,6 @@ Arguments NTinv {C F G H H0} NatIso {X} f.
 
 Axiom GIVEUP : forall (A : Type), A.
 Ltac giveup := apply GIVEUP.
-
-Section HOTT.
-
-
-  Definition eq_rect_fun A X (P : A -> X -> Type) (a b : A) (pa : forall (x: X), P a x)
-             (EQ : a = b) :
-    eq_rect a (fun (a' : A) => forall (x : X), P a' x) pa b EQ =     
-    fun (x : X) => eq_rect a (fun (a' : A) => P a' x) (pa x) b EQ.
-    destruct EQ. reflexivity.
-  Defined.
-
-  Definition eq_rect_fun2 A (P Q : A -> Type) (a b : A) (EQ : a = b) (f : P a -> Q a) :
-    eq_rect a (fun a' => P a' -> Q a') f b EQ =
-    fun x : P b => eq_rect a Q (f (eq_rect b P x a (eq_sym EQ))) b EQ.
-    destruct EQ. reflexivity.
-  Defined.
-
-
-  Lemma Hextensionality A (a1 a2 : A) (e : a1 = a2) (P : A -> Type) B
-        (f1 : B -> P a1) (f2 : B -> P a2)
-        : eq_rect a1 (fun a => B -> P a) f1 a2 e = f2 <->
-                        forall b, eq_rect a1 P (f1 b) a2 e = f2 b.
-  Proof.
-    intros. subst. simpl.
-    split; intros.
-    - subst. reflexivity.
-    - apply functional_extensionality, H.
-  Qed.
-
-  Lemma existT_eqeq A U (a b : A) (x : U a) (y : U b) :
-      existT U a x = existT U b y <-> exists (e : a = b), (eq_rect a U x b e) = y.
-  Proof.
-    intros.
-    split; intro.
-    - inversion H. exists (eq_refl _). reflexivity.
-    - destruct H. destruct x0.
-      subst. reflexivity.
-  Qed.
-
-  Lemma Hextensionality2 A (a1 a2 : A) (e : a1 = a2) (Q : A -> Type)
-        (P : A -> Type)
-        (f1 : Q a1 -> P a1) (f2 : Q a2 -> P a2)
-    : eq_rect a1 (fun a => Q a -> P a) f1 a2 e = f2 <->
-      forall q, eq_rect a1 P (f1 q) a2 e =
-                f2 (eq_rect a1 Q q a2 e).
-  Proof.
-    intros. subst. simpl.
-    split; intros.
-    - subst. reflexivity.
-    - apply functional_extensionality, H.
-  Qed.
-
-  Definition eq_rect2 A (a1 a2 : A) (e : a1 = a2) (Q : A -> Type)
-        (P : forall (a : A), Q a -> Type) q : P a1 q -> P a2 (eq_rect a1 Q q a2 e).
-    destruct e. simpl. apply id.
-  Defined.
-
-  Lemma Hextensionality3 A (a1 a2 : A) (e : a1 = a2) (Q : A -> Type)
-        (P : forall (a : A), Q a -> Type)
-        (f1 : forall (q : Q a1), P a1 q) (f2 : forall (q : Q a2), P a2 q)
-    : eq_rect a1 (fun a => forall (q : Q a), P a q) f1 a2 e = f2 <->
-      forall (q : Q a1), eq_rect2 e Q P q (f1 q) =
-                f2 (eq_rect a1 Q q a2 e).
-  Proof.
-    intros. subst. simpl.
-    split; intros.
-    - subst. reflexivity.
-    - extensionality q. apply H.
-  Qed.
-
-  Lemma Hextensionality4 A (a1 a2 : A) (e : a1 = a2) Q
-        (P : forall (a : A), Q -> Type)
-        (f1 : forall (q : Q), P a1 q) (f2 : forall (q : Q), P a2 q)
-    : eq_rect a1 (fun a => forall (q : Q), P a q) f1 a2 e = f2 <->
-      forall (q : Q), eq_rect a1 (fun a => P a q) (f1 q) a2 e =
-                f2 q.
-  Proof.
-    intros. subst. simpl.
-    split; intros.
-    - subst. reflexivity.
-    - extensionality q. apply H.
-  Qed.
-
-  Lemma eq_rec_lemma A C (P : A -> C -> Type) (Q : C -> Type) (x y : A) (e : x = y)
-  (f : forall i : C, P x i -> Q i) :
-  eq_rect x (fun a : A => forall i : C, P a i -> Q i) f y e =
-  (fun (i : C) (p : P y i) => f i (eq_rect y (fun a : A => P a i) p x (eq_sym e))).
-  Proof.
-    destruct e. simpl.
-    extensionality i. extensionality p. reflexivity.
-  Qed.
-
-End HOTT.
 
 Section DEP_FUN.
 
@@ -327,19 +234,18 @@ Section COMP.
          (fun _ _ f fx => map F2 (fun i x => map (F1 i) f x) fx)
          (fun X fxx i x => exists (j : C2) (fx : F1 j X),
               mem F2 fxx fx /\ mem (F1 j) fx x)
-         (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R)) _ _.
+         (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R))
+         (fun X fx =>
+            map F2 (fun i X0 => map (F1 i)
+                       (fun i0 x1 =>
+                          sigImply (fun i1 x => exists j fx0, mem F2 fx fx0 /\ mem (F1 j) fx0 x)
+                                   (fun i1 x (MEM : mem (F1 i) (projI1 X0) x) =>
+                                      ex_intro _ i (ex_intro _ (projI1 X0) (conj (projI2 X0) MEM))) x1)
+                       (tag X (projI1 X0))) (tag (fun i : C2 => F1 i X) fx))
+         _.
   Next Obligation.
     unfold Comp in *.
-    eapply (map _ _ (tag _ fx)). Unshelve.
-
-    intros i X0. 
-    apply (map _ (fun i0 x1 => (sigImply _ (fun i1 x MEM => (ex_intro _ i (ex_intro _ (projI1 X0) (conj (projI2 X0) MEM)))) x1)) (tag _ (projI1 X0))). 
-
-  Defined.
-  Next Obligation.
-    simpl. 
-    unfold Comp, Comp_Functor_obligation_1 in *. simpl.
-    rewrite MAP_COMPOSE. simpl. rewrite <- TAG. f_equal.
+    rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
     extensionality i. extensionality x. destruct x.
     simpl. rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
   Qed.
@@ -470,7 +376,87 @@ existT
         exists p2. reflexivity.
   Qed.
   Next Obligation.
-    unfold Comp_SPF_obligation_1; split; intros; simpl in *;
+    unfold Comp_SPF_obligation_1; split; intros; simpl in *.
+    - apply REL_COMMUTE in H1. simpl in H1.
+      apply CONTAINER_REL2 in H1. simpl in *. unfold Comp in *.
+      destruct (NT ISO fx), (NT ISO fy). simpl in *.
+      destruct H1. subst. simpl in *. clear fx fy.
+
+      assert (forall i (p : P F2 x i), rel _ R (NT ISO (f i p)) (NT ISO (f0 i p))). {
+        intros. apply REL_COMMUTE. apply H1.
+      } clear H1. simpl in *.
+      
+      apply CONTAINER_REL2. simpl in *.
+
+      eexists.
+      intros. destruct p. destruct s. simpl.
+      specialize (H2 x0 x1). apply CONTAINER_REL2 in H2.
+      destruct H2. specialize (H1 i p).
+
+      match goal with
+      | [|- R i ?a ?b] => replace b with (eq_rect (projT1 (NT ISO (f0 x0 x1)))
+            (fun s : S (F1 x0) => forall i : C1, P (F1 x0) s i -> Y i)
+            (projT2 (NT ISO (f0 x0 x1))) (projT1 (NT ISO (f x0 x1))) x2 i p) end;
+        [apply H1|].
+      
+      repeat rewrite eq_rect_fun. simpl.
+      
+      repeat rewrite eq_rect_fun2. simpl.
+      repeat rewrite eq_rect_fun. simpl.
+      repeat rewrite eq_rect_fun2. simpl.
+      repeat rewrite eq_rect_const. simpl.
+      repeat rewrite eq_rect_fun2. simpl.
+      
+      
+
+
+      specialize H5 i p.
+
+
+      assert (fun 
+
+      assert (ext _ fn1 fn2). {
+        unfold fn1, fn2, ext.
+        intros i. intro p.
+
+
+      assert (fn2 = fn1). giveup.
+
+      apply CONTAINER_REL2. simpl in *.
+
+      exists (f_equal (fun x => existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i)) s x) H4).
+
+      intros. simpl in *.
+
+      destruct p. destruct s0. simpl in *.
+
+      specialize (H5 x x0). inversion H5. subst. simpl in *.
+
+      repeat rewrite eq_rect_fun.
+      repeat rewrite eq_rect_fun2. simpl in *.
+      repeat rewrite eq_rect_fun. simpl in *.
+      repeat rewrite eq_rect_fun2. simpl in *.
+      repeat rewrite eq_rect_fun. simpl in *.
+      destruct H7. simpl.
+
+      destruct H4.
+
+      destruct H4.
+ 
+      
+
+
+      set (fn1 := 
+      
+      clear H1 fx fy H2 H3.
+
+      apply CONTAINER_REL2. simpl in *.
+      
+
+      
+      
+
+
     giveup.
   Qed.
   Next Obligation.

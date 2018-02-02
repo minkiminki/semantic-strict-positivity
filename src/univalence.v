@@ -473,15 +473,8 @@ Section CONTAINER.
     - intro. reflexivity.
     - intro. destruct b. reflexivity.
   Defined.
-    
-  Lemma mu_eq_bij : forall (x y : mu), (x = y) -> mu_equal x y.
-    fix 1.
-    intros. destruct x. destruct y.
-    inversion H. apply _mu_refl.
-    destruct c0. apply _container_rel.
-    intros. apply mu_eq_bij. apply eq_refl.
-  Defined.
 
+End CONTAINER.
 
 
 

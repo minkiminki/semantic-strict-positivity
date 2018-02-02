@@ -4,7 +4,7 @@ Require Import JMeq.
 
 Set Implicit Arguments.
 
-Require Import index wf IFunctor ISPFunctor icombinator.
+Require Import index wf IFunctor ISPFunctor icombinator hott.
 
 (* Ident *)
 
@@ -171,10 +171,21 @@ Section COPROD.
       + constructor. apply REL_COMMUTE.
         apply CONTAINER_REL2. apply CONTAINER_REL2 in H1. simpl in *.
         destruct (NT ISO f0), (NT ISO f). destruct H1. simpl in *.
-        giveup.
+        assert (e : sig (fun (e' : x = x0) => f_equal inl e' = x2)). {          
+          exists ((sum_eq_inl x (inl x0)).(fn1) x2).
+          apply ((sum_eq_inl x (inl x0)).(bij1) x2).
+        }
+        destruct e. subst. exists eq_refl. apply H1.
       + inversion H1.
       + inversion H1.
-      + giveup.
+      + constructor. apply REL_COMMUTE.
+        apply CONTAINER_REL2. apply CONTAINER_REL2 in H1. simpl in *.
+        destruct (NT ISO _), (NT ISO _). destruct H1. simpl in *.
+        assert (e : sig (fun (e' : x = x0) => f_equal _ e' = x2)). {
+          exists ((sum_eq_inr x (inr x0)).(fn1) x2).
+          apply ((sum_eq_inr x (inr x0)).(bij1) x2).
+        }
+        destruct e. subst. exists eq_refl. apply H1.
   Qed.
   Next Obligation.
     destruct fx; simpl; f_equal;
@@ -242,8 +253,43 @@ Section PROD.
     - destruct H1. destruct x0; [left | right];
       apply MEM_COMMUTE; exists p; apply H1.
   Qed.
-  Next Obligation. 
-    giveup.
+  Next Obligation.
+    split; intros.
+    - destruct H1. apply REL_COMMUTE in H1. apply REL_COMMUTE in H2.
+      destruct H1. destruct H2. simpl.
+      constructor. intros.
+      destruct p; [apply H1 | apply H2].
+    - assert (rel R (NT ISO (fst fx)) (NT ISO (fst fy)) /\
+              rel R (NT ISO (snd fx)) (NT ISO (snd fy)));
+        [ | split; apply REL_COMMUTE; tauto].
+      destruct (NT ISO (fst fx)), (NT ISO (fst fy)),
+      (NT ISO (snd fx)), (NT ISO (snd fy)).
+      apply CONTAINER_REL2 in H1. destruct H1. simpl in *.
+      
+      revert x0 y x3 y0 H1.
+      
+      assert (forall (x0 : forall i : C, P F (fst (x, x2)) i -> X i) (y : forall i : C, P F (fst (x1, x4)) i -> Y i)
+    (x3 : forall i : C, P G (snd (x, x2)) i -> X i) (y0 : forall i : C, P G (snd (x1, x4)) i -> Y i),
+  (forall (i : C) (p : P F (fst (x, x2)) i + P G (snd (x, x2)) i),
+   R i match p with
+       | inl fp => x0 i fp
+       | inr gp => x3 i gp
+       end
+     (eq_rect (x1, x4)
+        (fun s : S F * S G =>
+         forall i0 : C, P F (fst s) i0 + P G (snd s) i0 -> Y i0)
+        (fun (i0 : C) (p0 : P F (fst (x1, x4)) i0 + P G (snd (x1, x4)) i0) =>
+         match p0 with
+         | inl fp => y i0 fp
+         | inr gp => y0 i0 gp
+         end) (x, x2) x5 i p)) ->
+  container_rel R (existT (fun s : S F => forall i : C, P F s i -> X i) (fst (x, x2)) x0)
+    (existT (fun s : S F => forall i : C, P F s i -> Y i) (fst (x1, x4)) y) /\
+  container_rel R (existT (fun s : S G => forall i : C, P G s i -> X i) (snd (x, x2)) x3)
+    (existT (fun s : S G => forall i : C, P G s i -> Y i) (snd (x1, x4)) y0)); auto.
+      destruct x5. simpl. intros. 
+      split; constructor; intros;
+        [ apply (H1 i (inl p)) | apply (H1 i (inr p))].
   Qed.
   Next Obligation.
     destruct fx.
@@ -272,7 +318,15 @@ Section DEP_SUM.
       Dep_sum_rel R (existT _ a fx) (existT _ a fy)
   .
 
-  Goal True. auto. Qed.
+  Lemma DEP_SUM_REL X Y (R : forall i : C, X i -> Y i -> Prop) x y :
+    Dep_sum_rel R x y <-> exists (e : projT1 y = projT1 x),
+      rel R (projT2 x) (eq_rect (projT1 y) (fun a => B a Y) (projT2 y) (projT1 x) e).
+  Proof.
+    split; intro.
+    - inversion H0. exists eq_refl. apply REL.
+    - destruct x, y. destruct H0. simpl in *. subst. constructor.
+      apply H0.
+  Qed.
 
   Program Definition Dep_sum_Functor : Functor Dep_sum
     := Build_Functor Dep_sum
@@ -301,21 +355,80 @@ Section DEP_SUM.
   Next Obligation.
     rewrite MAP_COMMUTE. reflexivity.
   Qed.
-  Next Obligation. giveup. Qed.
-  Next Obligation. giveup. Qed.
+  Next Obligation. 
+    split; intro.
+    - apply MEM_COMMUTE in H0. apply H0.
+    - apply MEM_COMMUTE. apply H0.
+  Qed.
+  Next Obligation.
+    split; intro. destruct H0. simpl. apply REL_COMMUTE in REL.
+    - destruct (NT ISO fx), (NT ISO fy). simpl in *.   
+      apply CONTAINER_REL in REL. destruct REL as [s [f1 [f2 [EQ1 [EQ2 REL]]]]].
+      inversion EQ1. subst. inversion EQ2. subst.
+      constructor. apply REL.
+    - apply DEP_SUM_REL.
+
+      assert (exists e : projT1 fy = projT1 fx,
+                 rel R (NT ISO (projT2 fx))
+                     (eq_rect (projT1 fy) (fun x => Container (P (B x)) Y)
+                              (NT ISO (projT2 fy)) (projT1 fx) e)).
+      
+      +
+
+        apply CONTAINER_REL2 in H0. simpl in *. destruct H0.
+
+        rewrite <- ((sig_eq _ _).(bij1) x) in H0. simpl in *.
+        remember (sig_eq1 x). clear x Heqs. simpl in *.
+        destruct s.
+        exists x. apply CONTAINER_REL2.
+
+        assert (projT1
+           (eq_rect (projT1 fy) (fun x0 : A => Container (P (B x0)) Y)
+              (NT ISO (projT2 fy)) (projT1 fx) x) =
+               eq_rect (projT1 fy) (fun a : A => S (B a)) (projT1 (NT ISO (projT2 fy)))
+        (projT1 fx) x). {
+          giveup.
+        }
+        exists (eq_trans H1 e).
+        intros.
+
+        specialize (H0 i p). 
+        
+        match goal with
+        | [|- R i ?temp ?temp1] => replace temp1 with
+              (eq_rect
+            (existT (fun a : A => S (B a)) (projT1 fy) (projT1 (NT ISO (projT2 fy))))
+            (fun s : {a : A & S (B a)} =>
+             forall i : C, P (B (projT1 s)) (projT2 s) i -> Y i)
+            (projT2 (NT ISO (projT2 fy)))
+            (existT (fun a : A => S (B a)) (projT1 fx) (projT1 (NT ISO (projT2 fx))))
+            (sig_eq2
+               (existT (fun a : A => S (B a)) (projT1 fy) (projT1 (NT ISO (projT2 fy))))
+               (existT (fun a : A => S (B a)) (projT1 fx) (projT1 (NT ISO (projT2 fx))))
+               (existT
+                  (fun e : projT1 fy = projT1 fx =>
+                   eq_rect (projT1 fy) (fun a : A => S (B a))
+                     (projT1 (NT ISO (projT2 fy))) (projT1 fx) e =
+                   projT1 (NT ISO (projT2 fx))) x e)) i p) end; [apply H0|].
+
+        clear H0. Opaque sig_eq2.
+        repeat rewrite eq_rect_fun. 
+        repeat rewrite eq_rect_fun2. simpl.
+        giveup.
+      + destruct H1. exists x. apply REL_COMMUTE.
+
+        replace (NT ISO (eq_rect (projT1 fy) (fun a : A => B a Y) (projT2 fy) (projT1 fx) x)) with (eq_rect (projT1 fy) (fun x : A => Container (P (B x)) Y) 
+            (NT ISO (projT2 fy)) (projT1 fx) x); [apply H1 | ].
+        clear H0 H1. destruct x. reflexivity.
+  Qed.
   Next Obligation. 
     rewrite sigT_eta. f_equal. rewrite <- sigT_eta. apply BIJECTION1.
   Qed.
   Next Obligation. 
     rewrite sigT_eta. rewrite BIJECTION2. simpl.
-    destruct (projT1 gx).
-    destruct gx. simpl. reflexivity.
-    repeat rewrite <- sigT_eta.
-    f_equal.
-    - intros. simpl.
-    rewrite sigT_eta. simpl.
+    destruct gx. destruct x. reflexivity.
+  Qed.
 
-giveup. Qed.
 End DEP_SUM.
 
 Section EXPN.
@@ -353,89 +466,6 @@ Section SUBST.
       + apply Const_SPF.
       + apply Ident_SPF.
   Defined.
-
-(*
-  Arguments map {C} F {Functor X Y}.
-
-
-  Definition maybe (X : C -> Type) :=
-    (fun i => match i with
-              | inl c0 => T c0
-              | inr c => X c
-              end). 
-
-  Definition Subst (X : C -> Type) :=
-    F (maybe X).
-
-  Program Definition Subst_Functor : Functor Subst
-    := Build_Functor _ _ (fun X fx i => @mem _ _ _ (maybe X) fx (inr i)) _ _ _.
-  Next Obligation.
-    eapply (map F _ X0).
-    Unshelve.
-    intro. destruct i.
-    - apply id.
-    - apply (f c).
-  Defined.
-  Next Obligation.
-    set (@rel _ F _ (maybe X) (maybe Y)).
-    eapply (P _ fx fy).
-    Unshelve.
-    intro. destruct i.
-    - apply eq.
-    - apply R.
-  Defined.
-  Next Obligation.
-    unfold Subst in *.
-    set (tag _ fx). simpl in *.
-    eapply (map _ _ f). Unshelve.
-    intros. destruct X0. destruct i.
-    - apply x.
-    - simpl in *.
-      apply (existI x). apply m.
-  Defined.
-  Next Obligation.
-    unfold Subst_Functor_obligation_1, Subst_Functor_obligation_2, Subst_Functor_obligation_3. simpl.
-    rewrite MAP_COMPOSE. rewrite <- (@TAG _ F _ _ fx) at 3.
-    f_equal. extensionality i. extensionality x.
-    destruct x. destruct i; reflexivity.
-  Qed.
- 
-  Program Instance Subst_SPF : SPFunctor Subst
-    := @Build_SPFunctor _ _ Subst_Functor (S F + S G)%type
-                        (fun s => match s with
-                                  | inl sf => (P F) sf
-                                  | inr sg => (P G) sg end)
-                        (Build_NatIso _ _
-                                      (fun _ fx =>
-                                         match fx with
-                                         | inl f =>
-                                           existT _ (inl (projT1 (NT ISO f))) 
-                                                  (projT2 (NT ISO f))
-                                         | inr g =>
-                                           existT _ (inr (projT1 (NT ISO g))) 
-                                                  (projT2 (NT ISO g))
-                                         end)
-                                      (fun X fx =>
-                                         match fx with
-                                         | existT _ s p =>
-                                           match s as s return
-                                                 ((forall i : C,
-                                                      match s as s' return (s' = s -> C -> Type) with
-                                                      | inl sf =>
-                                                        fun _ : inl sf = s => P F sf
-                                                      | inr sg =>
-                                                        fun _ : inr sg = s => P G sg
-                                                      end eq_refl i -> X i)
-                                                  -> Coprod X)
-                                           with
-                                           | inl s' =>
-                                             fun f => inl (NTinv ISO (existT _ s' f))
-                                           | inr s' =>
-                                             fun f => inr (NTinv ISO (existT _ s' f))
-                                           end p end) _ _ _ _ _).
-  Next Obligation.
-
-*)
 
 End SUBST.  
 
