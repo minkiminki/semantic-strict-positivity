@@ -13,19 +13,18 @@ Section IFUNCTOR.
       mem {X} : F X -> forall {i}, X i -> Prop;
       rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
       tag X (fx: F X) : F (sigI (@mem _ fx));
-
-      TAG X (fx: F X) : map (@projI1 _ _ _) (tag fx) = fx;
 (*
-      TAG X (fx: F X)
-          (MAP_COMPOSE : forall X Y Z (f: forall i, X i -> Y i) (g: forall i, Y i -> Z i)
-                                fx, map g (map f fx) = map (fun i x => g i (f i x)) fx)
-      : map (@projI1 _ _ _) (tag fx) = fx;
+      MAP_COMPOSE X Y Z (f: forall i, X i -> Y i) (g: forall i, Y i -> Z i) fx :
+        map g (map f fx) = map (fun i x => g i (f i x)) fx;
 *)
+      TAG X (fx: F X) : map (@projI1 _ _ _) (tag fx) = fx;
     }.
 
+(*
   Definition MAP_COMPOSE C (F : iType C -> Type) `{Functor _ F} : Prop :=
     forall (X Y Z: iType C) (f: forall i, X i -> Y i) (g: forall i, Y i -> Z i) fx,
       map g (map f fx) = map (fun i x => g i (f i x)) fx.
+*)
 
   Definition MAP_ID C (F : iType C -> Type) `{Functor _ F} : Prop :=
     forall (X: iType C) fx, map (fun i (x : X i) => x) fx = fx.
@@ -48,28 +47,41 @@ Section IFUNCTOR.
   Arguments NTinv {C F G H H0 NatIso X}.
   (* instances *)
 
-  Program Definition Symmetric_NatIso C (F G: iType C -> Type) `{NatIso _ F G} : NatIso G F
-    := Build_NatIso _ _ (@NTinv _ _ _ _ _ _ ) (@NT _ _ _ _ _ _ ) _ _ _ _ _.
-  Next Obligation.
-    rewrite <- (BIJECTION1 _ (map f (NTinv fx))).
-    rewrite MAP_COMMUTE. rewrite BIJECTION2.
-    reflexivity.
-  Qed.
-  Next Obligation.
+  Lemma MAP_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X1 X2
+        (f : forall i, X1 i -> X2 i) (fx : G X1) :
+    NTinv (map f fx) = (map f) (NTinv fx).
+  Proof.
+    pattern fx at 1. rewrite <- (BIJECTION2 _ fx).
+    rewrite <- MAP_COMMUTE.
+    apply BIJECTION1.
+  Qed.    
+
+  Lemma MEM_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X i (fx : G X) (x : X i)
+    : mem fx x <-> mem (NTinv fx) x.
+  Proof.
     rewrite <- (BIJECTION2 _ fx). rewrite BIJECTION1.
     symmetry. apply MEM_COMMUTE.
-  Qed.
-  Next Obligation.
+  Qed.    
+
+  Lemma REL_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X Y R
+        (fx : G X) (fy : G Y) :
+    rel R fx fy <-> rel R (NTinv fx) (NTinv fy).
+  Proof.
     rewrite <- (BIJECTION2 _ fx). rewrite <- (BIJECTION2 _ fy).
     repeat rewrite BIJECTION1.
     symmetry. apply REL_COMMUTE.
-  Qed.
-  Next Obligation.
-    apply BIJECTION2.
-  Qed.
-  Next Obligation.
-    apply BIJECTION1.
-  Qed.
+  Qed.    
+
+
+  Program Definition Symmetric_NatIso C (F G: iType C -> Type) `{NatIso _ F G} : NatIso G F
+    := Build_NatIso _ _
+                    (@NTinv _ _ _ _ _ _ )
+                    (@NT _ _ _ _ _ _ )
+                    (@MAP_COMMUTE_R _ _ _ _ _ _) 
+                    (@MEM_COMMUTE_R _ _ _ _ _ _)
+                    (@REL_COMMUTE_R _ _ _ _ _ _) 
+                    (@BIJECTION2 _ _ _ _ _ _)
+                    (@BIJECTION1 _ _ _ _ _ _).
   
   Program Definition Reflexive_NatIso C (F : iType C -> Type) `{Functor _ F} : NatIso F F
     := Build_NatIso _ _ (fun _ => id) (fun _ => id) _ _ _ _ _.

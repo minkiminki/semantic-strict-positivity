@@ -11,20 +11,14 @@ Arguments P {C} F {SPFunctor}.
 Arguments NT {C F G H H0} NatIso {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 
-(* Ident *)
-
 Axiom GIVEUP : forall (A : Type), A.
 Ltac giveup := apply GIVEUP.
 
 Section DEP_FUN.
 
   Variable C A : Type.
-  Variable (B : A -> (C -> Type) -> Type).
+  Variable (B: A -> (C -> Type) -> Type).
   Context `{forall (a : A), SPFunctor (B a)}.
-
-  (*
-  Instance FunctorBa (a : A) : Functor (B a) := @Fn _ _ (H a).
-*)
 
   Definition Dep_fun (X : C -> Type) := forall a, B a X.
 
@@ -38,178 +32,44 @@ Section DEP_FUN.
             fun a => (map (sigImply _ (fun i x (MEM: mem (fx a) x)
                                        => ex_intro _ a MEM)) (tag _ (fx a)))) _.
   Next Obligation.
-    extensionality a.
-    rewrite MAP_COMPOSE. rewrite <- TAG. reflexivity.
+    extensionality a. rewrite MAP_COMPOSE. apply TAG.
   Qed.
- 
-  Program Instance Dep_fun_SPF : SPFunctor Dep_fun
-    := @Build_SPFunctor
-         _ _ Dep_fun_Functor (forall a : A, S (B a))
-         (fun s i => sigT (fun a => P (B a) (s a) i))
-         (Build_NatIso
-            _ _
-            (fun _ fx =>
-               (existT _ (fun a => projT1 (NT ISO (fx a)))
-                       (fun i fx' => (projT2 (NT ISO (fx (projT1 fx'))))
-                                       i (projT2 fx'))))
-            (fun X fx =>
-               fun a => NTinv ISO (existT _ (projT1 fx a)
-                                          (fun i p => projT2 fx i (existT _ a p))))
-            _ _ _ _ _).
-  Next Obligation.
-    unfold sigTimply. simpl.
-    set (fn1 := (fun a : A => NT ISO (map f (fx a)))).
-    set (fn2 := (fun a : A => map f (NT ISO (fx a)))).
-
-    match goal with
-    | [|- ?G] => replace G with
-          (existT
-    (fun s : forall a : A, S (B a) =>
-     forall i : C, {a : A & P (B a) (s a) i} -> X2 i) (fun a : A => projT1 (fn1 a))
-    (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn1 a)) i}) =>
-     projT2 (fn1 (projT1 X0)) i (projT2 X0)) =
-  existT
-    (fun s : forall a : A, S (B a) =>
-     forall i : C, {a : A & P (B a) (s a) i} -> X2 i) (fun a : A => projT1 (fn2 a))
-    (fun (i : C) (X0 : {a : A & P (B a) (projT1 (fn2 a)) i}) =>
-       projT2 (fn2 (projT1 X0)) i (projT2 X0))) end; auto.
-    replace fn1 with fn2; auto.
-    extensionality a. unfold fn1, fn2. symmetry. apply MAP_COMMUTE.
-  Qed.    
-  Next Obligation.
-    split; intros.
-    - destruct H0 as [a H0]. apply MEM_COMMUTE in H0. destruct H0.
-      exists (existT _ a x0). apply H0.
-    - destruct H0 as [[a p] H0].
-      exists a. apply MEM_COMMUTE. exists p. apply H0.
-  Qed.
-  Next Obligation.
-    split; intros.
-    - 
-
-      set (fn1 := (fun a : A => projT1 (NT ISO (fy a)))).
-      set (fn2 := (fun a : A => projT1 (NT ISO (fx a)))).
-      assert (fn1 = fn2). {
-        unfold fn1, fn2.
-        extensionality a.
-        specialize (H0 a). apply REL_COMMUTE in H0. destruct H0. reflexivity.
-      }
-
- match goal with
-    | [|- ?G] => replace G with
-(container_rel R
-    (existT
-       (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
-       fn2
-       (fun (i : C) (fx' : {a : A & P (B a) (fn2 a) i}) =>
-        projT2 (NT ISO (fx (projT1 fx'))) i (projT2 fx')))
-    (existT
-       (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> Y i)
-       fn1
-       (fun (i : C) (fx' : {a : A & P (B a) (fn1 a) i}) =>
-        projT2 (NT ISO (fy (projT1 fx'))) i (projT2 fx')))) end; auto.
-      giveup. - giveup.
-  Qed.
-  Next Obligation.
-    extensionality a.
-    rewrite <- (BIJECTION1 _ (fx a)). f_equal.
-    rewrite BIJECTION1.
-    destruct (NT _ (fx a)) eqn : EQ.
-    simpl. f_equal.
-  Qed.
-  Next Obligation.
-    simpl. destruct gx. simpl.
-    
-    set (fn1 := fun a (s : {s : S (B a) & forall i : C, P (B a) s i -> X i}) =>
-                  (NT ISO (NTinv ISO s))).
-
-    assert (existT (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
-    (fun a : A =>
-     projT1
-       (NT ISO
-          (NTinv ISO
-             (existT (fun s : S (B a) => forall i : C, P (B a) s i -> X i) (x a)
-                (fun (i : C) (p : P (B a) (x a) i) => x0 i (existT (fun a0 : A => P (B a0) (x a0) i) a p))))))
-    (fun (i : C)
-       (X1 : {a : A &
-             P (B a)
-               (projT1
-                  (NT ISO
-                     (NTinv ISO
-                        (existT (fun s : S (B a) => forall i0 : C, P (B a) s i0 -> X i0) (x a)
-                           (fun (i0 : C) (p : P (B a) (x a) i0) => x0 i0 (existT (fun a0 : A => P (B a0) (x a0) i0) a p)))))) i}) =>
-     projT2
-       (NT ISO
-          (NTinv ISO
-             (existT (fun s : S (B (projT1 X1)) => forall i0 : C, P (B (projT1 X1)) s i0 -> X i0) (x (projT1 X1))
-                (fun (i0 : C) (p : P (B (projT1 X1)) (x (projT1 X1)) i0) => x0 i0 (existT (fun a : A => P (B a) (x a) i0) (projT1 X1) p)))))
-       i (projT2 X1)) = existT (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
-    (fun a : A =>
-     projT1
-       (fn1 _ (existT (fun s : S (B a) => forall i : C, P (B a) s i -> X i) (x a)
-                (fun (i : C) (p : P (B a) (x a) i) => x0 i (existT (fun a0 : A => P (B a0) (x a0) i) a p)))))
-(fun (i : C)
-       (X1 : {a : A &
-             P (B a)
-               (projT1
-                  (fn1 _ (existT (fun s : S (B a) => forall i0 : C, P (B a) s i0 -> X i0) (x a)
-                           (fun (i0 : C) (p : P (B a) (x a) i0) => x0 i0 (existT (fun a0 : A => P (B a0) (x a0) i0) a p))))) i}) =>
-     projT2
-       (fn1 _ (existT (fun s : S (B (projT1 X1)) => forall i0 : C, P (B (projT1 X1)) s i0 -> X i0) (x (projT1 X1))
-                (fun (i0 : C) (p : P (B (projT1 X1)) (x (projT1 X1)) i0) => x0 i0 (existT (fun a : A => P (B a) (x a) i0) (projT1 X1) p))))
-       i (projT2 X1))). {
-      unfold fn1. reflexivity.
-    } rewrite H0. clear H0.
-
-    set (fn0 := fun (a : A) (s : {s : S (B a) & forall i : C, P (B a) s i -> X i}) => s).
-
-    assert (fn1 = fn0). {
-      extensionality a. extensionality s. unfold fn1, fn0. apply BIJECTION2.
-    }
-
-    assert (existT (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
-    (fun a : A =>
-     projT1
-       (fn1 a
-          (existT (fun s : S (B a) => forall i : C, P (B a) s i -> X i) (x a)
-             (fun (i : C) (p : P (B a) (x a) i) => x0 i (existT (fun a0 : A => P (B a0) (x a0) i) a p)))))
-    (fun (i : C)
-       (X1 : {a : A &
-             P (B a)
-               (projT1
-                  (fn1 a
-                     (existT (fun s : S (B a) => forall i0 : C, P (B a) s i0 -> X i0) (x a)
-                        (fun (i0 : C) (p : P (B a) (x a) i0) => x0 i0 (existT (fun a0 : A => P (B a0) (x a0) i0) a p))))) i}) =>
-     projT2
-       (fn1 (projT1 X1)
-          (existT (fun s : S (B (projT1 X1)) => forall i0 : C, P (B (projT1 X1)) s i0 -> X i0) (x (projT1 X1))
-             (fun (i0 : C) (p : P (B (projT1 X1)) (x (projT1 X1)) i0) => x0 i0 (existT (fun a : A => P (B a) (x a) i0) (projT1 X1) p))))
-       i (projT2 X1)) = 
-            existT (fun s : forall a : A, S (B a) => forall i : C, {a : A & P (B a) (s a) i} -> X i)
-    (fun a : A =>
-     projT1
-       (fn0 a
-          (existT (fun s : S (B a) => forall i : C, P (B a) s i -> X i) (x a)
-             (fun (i : C) (p : P (B a) (x a) i) => x0 i (existT (fun a0 : A => P (B a0) (x a0) i) a p)))))
-    (fun (i : C)
-       (X1 : {a : A &
-             P (B a)
-               (projT1
-                  (fn0 a
-                     (existT (fun s : S (B a) => forall i0 : C, P (B a) s i0 -> X i0) (x a)
-                        (fun (i0 : C) (p : P (B a) (x a) i0) => x0 i0 (existT (fun a0 : A => P (B a0) (x a0) i0) a p))))) i}) =>
-     projT2
-       (fn0 (projT1 X1)
-          (existT (fun s : S (B (projT1 X1)) => forall i0 : C, P (B (projT1 X1)) s i0 -> X i0) (x (projT1 X1))
-             (fun (i0 : C) (p : P (B (projT1 X1)) (x (projT1 X1)) i0) => x0 i0 (existT (fun a : A => P (B a) (x a) i0) (projT1 X1) p))))
-       i (projT2 X1))). {
-      destruct H0. reflexivity.
-    }
-    rewrite H1. clear H1. unfold fn0. simpl. f_equal.
-    extensionality i. extensionality p. destruct p. reflexivity.
-  Qed.    
 
 End DEP_FUN.
+
+Section DEP_FUN_ISO.
+
+  Variable C A : Type.
+  Variable (B1 B2 : A -> (C -> Type) -> Type).
+  Context `{forall (a : A), SPFunctor (B1 a)}.
+  Context `{forall (a : A), SPFunctor (B2 a)}.
+
+  Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
+
+  Program Definition Dep_Fun_Iso : @NatIso C _ _ (Dep_fun_Functor B1)
+                                           (Dep_fun_Functor B2) :=
+    Build_NatIso _ _
+                 (fun X fx a => NT _ (fx a))
+                 (fun X fx a => NTinv _ (fx a))
+                 _ _ _ _ _.
+  Next Obligation.
+    extensionality a. apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    split; intro; destruct H2; exists x0;
+      apply (@MEM_COMMUTE _ _ _ _ _ (H1 x0)) in H2; apply H2.
+  Qed.
+  Next Obligation.
+    split; intros; apply (@REL_COMMUTE _ _ _ _ _ (H1 a)); apply H2.
+  Qed.
+  Next Obligation.
+    extensionality a. apply BIJECTION1.
+  Qed.
+  Next Obligation.
+    extensionality a. apply BIJECTION2.
+  Qed.
+
+End DEP_FUN_ISO.
 
 Section COMP.
 
@@ -225,8 +85,6 @@ Section COMP.
   Arguments rel {C} F {Functor X Y} R fx fy.
 
   Definition Comp (X : C1 -> Type) := F2 (fun (i : C2) => F1 i X).
-
-  Goal True. apply I. Qed.
 
   Program Definition Comp_Functor : Functor Comp
     := Build_Functor
@@ -244,667 +102,312 @@ Section COMP.
                        (tag X (projI1 X0))) (tag (fun i : C2 => F1 i X) fx))
          _.
   Next Obligation.
-    unfold Comp in *.
-    rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
-    extensionality i. extensionality x. destruct x.
-    simpl. rewrite MAP_COMPOSE. rewrite <- TAG. f_equal.
+    rewrite MAP_COMPOSE. unfold Comp in *.
+    pattern fx at 20. rewrite <- (TAG _ fx).
+    f_equal. extensionality i. extensionality x.
+    rewrite MAP_COMPOSE. apply TAG.
   Qed.
-
-  Program Instance Comp_SPF : SPFunctor Comp
-    := @Build_SPFunctor _ _ Comp_Functor
-                        (sigT (fun s : S F2 =>
-                                 (forall (i : C2), P F2 s i -> S (F1 i))))
-                        (fun s (j : C1) =>
-                           sigT (fun (i : C2) => sigT (fun (p : P F2 (projT1 s) i) =>
-                                     P (F1 i) ((projT2 s) i p) j)))
-                        (Build_NatIso _ _
-                                      _
-                                      _ _ _ _ _ _).
-  Next Obligation.
-    apply (existT _ (existT (fun s : S F2 => forall i : C2, P F2 s i -> S (F1 i)) (projT1 (@NT _ F2 _ _ _ ISO _ X0))
-                            (fun i p => projT1 (NT ISO ((projT2 (@NT _ F2 _ _ _ ISO _ X0)) i p)))) (fun i x => (projT2 (NT ISO ((projT2 (@NT _ F2 _ _ _ ISO _ X0)) (projT1 x) (projT1 (projT2 x))))) i (projT2 (projT2 x)))).
-  Defined.
-  Next Obligation.
-    apply (@NTinv _ F2 _ _ _ ISO).    
-    exists (projT1 (projT1 X0)).
-    intros i p.
-    apply (NTinv ISO).
-    exists ((projT2 (projT1 X0)) i p).
-    apply (fun j p' => (projT2 X0) j (existT _ i (existT _ p p'))).
-  Defined.
-  Next Obligation.
-    unfold Comp_SPF_obligation_1. simpl.
-
-    set (f1 := fun x => (NT ISO
-                (map F2 (fun (i0 : C2) (x0 : F1 i0 X1) => map (F1 i0) f x0) x))).
-    set (f2 := fun (x : F2 (fun i0 : C2 => F1 i0 X1)) => map (Container (P F2)) (fun (i0 : C2) (x0 : F1 i0 X1) => map (F1 i0) f x0) (@NT _ F2 _ _ _ ISO _ x)).
-    assert (EQ : f1 = f2). {
-      extensionality x. unfold f1, f2. apply MAP_COMMUTE.
-    }
-
-    assert (existT
-    (fun x : {s : S F2 & forall i : C2, P F2 s i -> S (F1 i)} =>
-     forall x0 : C1,
-     {i : C2 & {p : P F2 (projT1 x) i & P (F1 i) (projT2 x i p) x0}} -> X2 x0)
-    (existT (fun s : S F2 => forall i : C2, P F2 s i -> S (F1 i))
-       (projT1 (f1 fx))
-       (fun (i : C2) (p : P F2 (projT1 (f1 fx)) i) =>
-        projT1 (NT ISO (projT2 (f1 fx) i p))))
-    (fun (i : C1)
-       (x : {i0 : C2 & {p : P F2 (projT1 (f1 fx)) i0 &
-            P (F1 i0) (projT1 (NT ISO (projT2 (f1 fx) i0 p))) i}}) =>
-     projT2 (NT ISO (projT2 (f1 fx)
-             (projT1 x) (projT1 (projT2 x)))) i (projT2 (projT2 x)))
-    =
-existT
-    (fun x : {s : S F2 & forall i : C2, P F2 s i -> S (F1 i)} =>
-     forall x0 : C1,
-     {i : C2 & {p : P F2 (projT1 x) i & P (F1 i) (projT2 x i p) x0}} -> X2 x0)
-    (existT (fun s : S F2 => forall i : C2, P F2 s i -> S (F1 i))
-       (projT1 (f2 fx))
-       (fun (i : C2) (p : P F2 (projT1 (f2 fx)) i) =>
-        projT1 (NT ISO (projT2 (f2 fx) i p))))
-    (fun (i : C1)
-       (x : {i0 : C2 & {p : P F2 (projT1 (f2 fx)) i0 &
-            P (F1 i0) (projT1 (NT ISO (projT2 (f2 fx) i0 p))) i}}) =>
-     projT2 (NT ISO (projT2 (f2 fx)
-             (projT1 x) (projT1 (projT2 x)))) i (projT2 (projT2 x)))). {
-      destruct EQ. reflexivity.
-    }
-    unfold f1, f2 in H1. rewrite H1. clear EQ f1 f2 H1. simpl in *.
-
-    set (f3 := fun i x => NT ISO (map (F1 i) f x)).
-    set (f4 := fun i (x : F1 i X1) => map _ f (NT ISO x)).
-    assert (EQ : f3 = f4). {
-      extensionality i. extensionality x. apply MAP_COMMUTE.
-    }
-
-    assert (existT
-    (fun x : {s : S F2 & forall i : C2, P F2 s i -> S (F1 i)} =>
-     forall x0 : C1,
-     {i : C2 & {p : P F2 (projT1 x) i & P (F1 i) (projT2 x i p) x0}} -> X2 x0)
-    (existT (fun s : S F2 => forall i : C2, P F2 s i -> S (F1 i))
-       (projT1 (@NT _ F2 _ _ _ ISO _ fx))
-       (fun (i : C2) (p : P F2 (projT1 (@NT _ F2 _ _ _ ISO _ fx)) i) =>
-        projT1 (f3 i (projT2 (@NT _ F2 _ _ _ ISO _ fx) i p))))
-    (fun (i : C1)
-       (x : {i0 : C2 &
-            {p : P F2 (projT1 (@NT _ F2 _ _ _ ISO _ fx)) i0 &
-            P (F1 i0) (projT1 (f3 _ (projT2 (@NT _ F2 _ _ _ ISO _ fx) i0 p))) i}})
-     =>
-     projT2
-       (f3 _ (projT2 (@NT _ F2 _ _ _ ISO _ fx) (projT1 x) (projT1 (projT2 x)))) i
-       (projT2 (projT2 x)))
-    =
-
-    existT
-    (fun x : {s : S F2 & forall i : C2, P F2 s i -> S (F1 i)} =>
-     forall x0 : C1,
-     {i : C2 & {p : P F2 (projT1 x) i & P (F1 i) (projT2 x i p) x0}} -> X2 x0)
-    (existT (fun s : S F2 => forall i : C2, P F2 s i -> S (F1 i))
-       (projT1 (@NT _ F2 _ _ _ ISO _ fx))
-       (fun (i : C2) (p : P F2 (projT1 (@NT _ F2 _ _ _ ISO _ fx)) i) =>
-        projT1 (f4 i (projT2 (@NT _ F2 _ _ _ ISO _ fx) i p))))
-    (fun (i : C1)
-       (x : {i0 : C2 &
-            {p : P F2 (projT1 (@NT _ F2 _ _ _ ISO _ fx)) i0 &
-            P (F1 i0) (projT1 (f4 _ (projT2 (@NT _ F2 _ _ _ ISO _ fx) i0 p))) i}})
-     =>
-     projT2
-       (f4 _ (projT2 (@NT _ F2 _ _ _ ISO _ fx) (projT1 x) (projT1 (projT2 x)))) i
-       (projT2 (projT2 x)))). {
-      destruct EQ. reflexivity.
-    }
-
-    unfold f3, f4 in H1. rewrite H1. clear EQ f3 f3 H1. simpl.
-    reflexivity.
-  Qed.
-  Next Obligation.
-    unfold Comp_SPF_obligation_1; split; intros.
-    - destruct H1 as [j [fx0 [H1 H2]]].
-      apply MEM_COMMUTE in H1.
-      apply MEM_COMMUTE in H2. simpl in *.
-      destruct H1 as [p1 EQ1].
-      destruct H2 as [p2 EQ2]. subst.
-      exists (existT _ j (existT _ p1 p2)). reflexivity.
-    - destruct H1 as [[i0 [p1 p2]] H1]. simpl in *.
-      exists i0. subst. 
-      exists (projT2 (@NT _ F2 _ _ _ ISO _ fx) i0 p1). split.
-      + apply MEM_COMMUTE. simpl.
-        exists p1. reflexivity.
-      + apply MEM_COMMUTE. simpl.
-        exists p2. reflexivity.
-  Qed.
-  Next Obligation.
-    unfold Comp_SPF_obligation_1; split; intros; simpl in *.
-    - apply REL_COMMUTE in H1. simpl in H1.
-      apply CONTAINER_REL2 in H1. simpl in *. unfold Comp in *.
-      destruct (NT ISO fx), (NT ISO fy). simpl in *.
-      destruct H1. subst. simpl in *. clear fx fy.
-
-      assert (forall i (p : P F2 x i), rel _ R (NT ISO (f i p)) (NT ISO (f0 i p))). {
-        intros. apply REL_COMMUTE. apply H1.
-      } clear H1. simpl in *.
-      
-      apply CONTAINER_REL2. simpl in *.
-
-      eexists.
-      intros. destruct p. destruct s. simpl.
-      specialize (H2 x0 x1). apply CONTAINER_REL2 in H2.
-      destruct H2. specialize (H1 i p).
-
-      match goal with
-      | [|- R i ?a ?b] => replace b with (eq_rect (projT1 (NT ISO (f0 x0 x1)))
-            (fun s : S (F1 x0) => forall i : C1, P (F1 x0) s i -> Y i)
-            (projT2 (NT ISO (f0 x0 x1))) (projT1 (NT ISO (f x0 x1))) x2 i p) end;
-        [apply H1|].
-      
-      repeat rewrite eq_rect_fun. simpl.
-      
-      repeat rewrite eq_rect_fun2. simpl.
-      repeat rewrite eq_rect_fun. simpl.
-      repeat rewrite eq_rect_fun2. simpl.
-      repeat rewrite eq_rect_const. simpl.
-      repeat rewrite eq_rect_fun2. simpl.
-      
-      
-
-
-      specialize H5 i p.
-
-
-      assert (fun 
-
-      assert (ext _ fn1 fn2). {
-        unfold fn1, fn2, ext.
-        intros i. intro p.
-
-
-      assert (fn2 = fn1). giveup.
-
-      apply CONTAINER_REL2. simpl in *.
-
-      exists (f_equal (fun x => existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i)) s x) H4).
-
-      intros. simpl in *.
-
-      destruct p. destruct s0. simpl in *.
-
-      specialize (H5 x x0). inversion H5. subst. simpl in *.
-
-      repeat rewrite eq_rect_fun.
-      repeat rewrite eq_rect_fun2. simpl in *.
-      repeat rewrite eq_rect_fun. simpl in *.
-      repeat rewrite eq_rect_fun2. simpl in *.
-      repeat rewrite eq_rect_fun. simpl in *.
-      destruct H7. simpl.
-
-      destruct H4.
-
-      destruct H4.
- 
-      
-
-
-      set (fn1 := 
-      
-      clear H1 fx fy H2 H3.
-
-      apply CONTAINER_REL2. simpl in *.
-      
-
-      
-      
-
-
-    giveup.
-  Qed.
-  Next Obligation.
-    Arguments NT {C} F {G H H0} NatIso {X} f.
-    Arguments NTinv {C} F {G H H0} NatIso {X} f.
-    unfold Comp_SPF_obligation_1, Comp_SPF_obligation_2. simpl.
-    rewrite <- (@BIJECTION1 _ F2 _ _ _ _ _ fx). f_equal.
-    rewrite (sigT_eta (NT F2 ISO fx)) at 2.
-
-    set (f1 := fun (x : Comp X) => NTinv F2 ISO (NT F2 ISO x)).
-    set (f2 := @id (Comp X)).
-    assert (EQ : f1 = f2). {
-      extensionality x.
-      unfold f1, f2. rewrite BIJECTION1. reflexivity.
-    }
-
-    assert (existT (fun s : S F2 => forall i : C2, P F2 s i -> F1 i X)
-    (projT1 (NT F2 ISO (f1 fx)))
-    (fun (i : C2) (p : P F2 (projT1 (NT F2 ISO (f1 fx))) i)
-     =>
-     NTinv (F1 i) ISO
-       (existT (fun s : S (F1 i) => forall i0 : C1, P (F1 i) s i0 -> X i0)
-          (projT1
-             (NT (F1 i) ISO (projT2 (NT F2 ISO (f1 fx)) i p)))
-          (fun (j : C1)
-             (p' : P (F1 i)
-                     (projT1
-                        (NT (F1 i) ISO
-                           (projT2 (NT F2 ISO (f1 fx)) i p)))
-                     j) =>
-           projT2
-             (NT (F1 i) ISO (projT2 (NT F2 ISO (f1 fx)) i p))
-             j p'))) = existT (fun a : S F2 => forall i : C2, P F2 a i -> F1 i X)
-    (projT1 (NT F2 ISO (f2 fx)))
-    (fun (i : C2) (p : P F2 (projT1 (NT F2 ISO (f2 fx))) i)
-     =>
-     NTinv (F1 i) ISO
-       (existT (fun s : S (F1 i) => forall i0 : C1, P (F1 i) s i0 -> X i0)
-          (projT1
-             (NT (F1 i) ISO (projT2 (NT F2 ISO (f2 fx)) i p)))
-          (fun (j : C1)
-             (p' : P (F1 i)
-                     (projT1
-                        (NT (F1 i) ISO
-                           (projT2 (NT F2 ISO (f2 fx)) i p)))
-                     j) =>
-           projT2
-             (NT (F1 i) ISO (projT2 (NT F2 ISO (f2 fx)) i p))
-             j p')))
-           ). {
-      destruct EQ. reflexivity.
-    }
-    clear EQ. unfold f1, f2, id in H1. rewrite H1. clear H1.
-    f_equal. extensionality i. extensionality p.
-
-    rewrite <- (BIJECTION1 _ (projT2 (NT F2 ISO fx) i p)) at 2. f_equal.
-    symmetry.
-    apply (sigT_eta (NT (F1 i) ISO (projT2 (NT F2 ISO fx) i p))). 
-  Qed.
-  Next Obligation.
-    unfold Comp_SPF_obligation_1, Comp_SPF_obligation_2. simpl. destruct gx. simpl.
-    destruct x. simpl.
-
-    set (f1 := fun (x : sigT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> F1 i X))
-                   => NT F2 ISO (NTinv F2 ISO x)).
-    set (f2 := @id (sigT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> F1 i X))).
-    assert (EQ : f1 = f2). {
-      extensionality p. unfold f1, f2.
-      apply BIJECTION2.
-    }
-
-    assert (existT
-    (fun x1 : {s0 : S F2 & forall i : C2, P F2 s0 i -> S (F1 i)} =>
-     forall x2 : C1,
-     {i : C2 & {p : P F2 (projT1 x1) i & P (F1 i) (projT2 x1 i p) x2}} -> X x2)
-    (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i))
-       (projT1
-          (f1 (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> F1 i X) x
-                   (fun (i : C2) (p : P F2 x i) =>
-                    NTinv (F1 i) ISO
-                      (existT
-                         (fun s0 : S (F1 i) =>
-                          forall i0 : C1, P (F1 i) s0 i0 -> X i0) 
-                         (s i p)
-                         (fun (j : C1) (p' : P (F1 i) (s i p) j) =>
-                          x0 j
-                            (existT
-                               (fun i0 : C2 =>
-                                {p0 : P F2 x i0 & P (F1 i0) (s i0 p0) j}) i
-                               (existT (fun p0 : P F2 x i => P (F1 i) (s i p0) j) p
-                                  p'))))))))
-       (fun (i : C2)
-          (p : P F2
-                 (projT1
-                    (f1 (existT
-                             (fun s0 : S F2 =>
-                              forall i0 : C2, P F2 s0 i0 -> F1 i0 X) x
-                             (fun (i0 : C2) (p : P F2 x i0) =>
-                              NTinv (F1 i0) ISO
-                                (existT
-                                   (fun s0 : S (F1 i0) =>
-                                    forall i1 : C1, P (F1 i0) s0 i1 -> X i1)
-                                   (s i0 p)
-                                   (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                                    x0 j
-                                      (existT
-                                         (fun i1 : C2 =>
-                                          {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j})
-                                         i0
-                                         (existT
-                                            (fun p0 : P F2 x i0 =>
-                                             P (F1 i0) (s i0 p0) j) p p')))))))) i)
-        =>
-        projT1
-          (NT (F1 i) ISO
-             (projT2
-                (f1 (existT
-                         (fun s0 : S F2 => forall i0 : C2, P F2 s0 i0 -> F1 i0 X) x
-                         (fun (i0 : C2) (p0 : P F2 x i0) =>
-                          NTinv (F1 i0) ISO
-                            (existT
-                               (fun s0 : S (F1 i0) =>
-                                forall i1 : C1, P (F1 i0) s0 i1 -> X i1) 
-                               (s i0 p0)
-                               (fun (j : C1) (p' : P (F1 i0) (s i0 p0) j) =>
-                                x0 j
-                                  (existT
-                                     (fun i1 : C2 =>
-                                      {p1 : P F2 x i1 & P (F1 i1) (s i1 p1) j}) i0
-                                     (existT
-                                        (fun p1 : P F2 x i0 =>
-                                         P (F1 i0) (s i0 p1) j) p0 p'))))))) i p))))
-    (fun (i : C1)
-       (x1 : {i0 : C2 &
-             {p
-             : P F2
-                 (projT1
-                    (f1 (existT
-                             (fun s0 : S F2 =>
-                              forall i1 : C2, P F2 s0 i1 -> F1 i1 X) x
-                             (fun (i1 : C2) (p : P F2 x i1) =>
-                              NTinv (F1 i1) ISO
-                                (existT
-                                   (fun s0 : S (F1 i1) =>
-                                    forall i2 : C1, P (F1 i1) s0 i2 -> X i2)
-                                   (s i1 p)
-                                   (fun (j : C1) (p' : P (F1 i1) (s i1 p) j) =>
-                                    x0 j
-                                      (existT
-                                         (fun i2 : C2 =>
-                                          {p0 : P F2 x i2 & P (F1 i2) (s i2 p0) j})
-                                         i1
-                                         (existT
-                                            (fun p0 : P F2 x i1 =>
-                                             P (F1 i1) (s i1 p0) j) p p'))))))))
-                 i0 &
-             P (F1 i0)
-               (projT1
-                  (NT (F1 i0) ISO
-                     (projT2
-                        (f1 (existT
-                                 (fun s0 : S F2 =>
-                                  forall i1 : C2, P F2 s0 i1 -> F1 i1 X) x
-                                 (fun (i1 : C2) (p0 : P F2 x i1) =>
-                                  NTinv (F1 i1) ISO
-                                    (existT
-                                       (fun s0 : S (F1 i1) =>
-                                        forall i2 : C1, P (F1 i1) s0 i2 -> X i2)
-                                       (s i1 p0)
-                                       (fun (j : C1) (p' : P (F1 i1) (s i1 p0) j)
-                                        =>
-                                        x0 j
-                                          (existT
-                                             (fun i2 : C2 =>
-                                              {p1 : P F2 x i2 &
-                                              P (F1 i2) (s i2 p1) j}) i1
-                                             (existT
-                                                (fun p1 : P F2 x i1 =>
-                                                 P (F1 i1) (s i1 p1) j) p0 p')))))))
-                        i0 p))) i}}) =>
-     projT2
-       (NT (F1 (projT1 x1)) ISO
-          (projT2
-             (f1 (existT (fun s0 : S F2 => forall i0 : C2, P F2 s0 i0 -> F1 i0 X)
-                      x
-                      (fun (i0 : C2) (p : P F2 x i0) =>
-                       NTinv (F1 i0) ISO
-                         (existT
-                            (fun s0 : S (F1 i0) =>
-                             forall i1 : C1, P (F1 i0) s0 i1 -> X i1) 
-                            (s i0 p)
-                            (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                             x0 j
-                               (existT
-                                  (fun i1 : C2 =>
-                                   {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j}) i0
-                                  (existT
-                                     (fun p0 : P F2 x i0 => P (F1 i0) (s i0 p0) j)
-                                     p p'))))))) (projT1 x1) 
-             (projT1 (projT2 x1)))) i (projT2 (projT2 x1))) =
-
-            existT
-    (fun x1 : {s0 : S F2 & forall i : C2, P F2 s0 i -> S (F1 i)} =>
-     forall x2 : C1,
-     {i : C2 & {p : P F2 (projT1 x1) i & P (F1 i) (projT2 x1 i p) x2}} -> X x2)
-    (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i))
-       (projT1
-          (f2 (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> F1 i X) x
-                   (fun (i : C2) (p : P F2 x i) =>
-                    NTinv (F1 i) ISO
-                      (existT
-                         (fun s0 : S (F1 i) =>
-                          forall i0 : C1, P (F1 i) s0 i0 -> X i0) 
-                         (s i p)
-                         (fun (j : C1) (p' : P (F1 i) (s i p) j) =>
-                          x0 j
-                            (existT
-                               (fun i0 : C2 =>
-                                {p0 : P F2 x i0 & P (F1 i0) (s i0 p0) j}) i
-                               (existT (fun p0 : P F2 x i => P (F1 i) (s i p0) j) p
-                                  p'))))))))
-       (fun (i : C2)
-          (p : P F2
-                 (projT1
-                    (f2 (existT
-                             (fun s0 : S F2 =>
-                              forall i0 : C2, P F2 s0 i0 -> F1 i0 X) x
-                             (fun (i0 : C2) (p : P F2 x i0) =>
-                              NTinv (F1 i0) ISO
-                                (existT
-                                   (fun s0 : S (F1 i0) =>
-                                    forall i1 : C1, P (F1 i0) s0 i1 -> X i1)
-                                   (s i0 p)
-                                   (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                                    x0 j
-                                      (existT
-                                         (fun i1 : C2 =>
-                                          {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j})
-                                         i0
-                                         (existT
-                                            (fun p0 : P F2 x i0 =>
-                                             P (F1 i0) (s i0 p0) j) p p')))))))) i)
-        =>
-        projT1
-          (NT (F1 i) ISO
-             (projT2
-                (f2 (existT
-                         (fun s0 : S F2 => forall i0 : C2, P F2 s0 i0 -> F1 i0 X) x
-                         (fun (i0 : C2) (p0 : P F2 x i0) =>
-                          NTinv (F1 i0) ISO
-                            (existT
-                               (fun s0 : S (F1 i0) =>
-                                forall i1 : C1, P (F1 i0) s0 i1 -> X i1) 
-                               (s i0 p0)
-                               (fun (j : C1) (p' : P (F1 i0) (s i0 p0) j) =>
-                                x0 j
-                                  (existT
-                                     (fun i1 : C2 =>
-                                      {p1 : P F2 x i1 & P (F1 i1) (s i1 p1) j}) i0
-                                     (existT
-                                        (fun p1 : P F2 x i0 =>
-                                         P (F1 i0) (s i0 p1) j) p0 p'))))))) i p))))
-    (fun (i : C1)
-       (x1 : {i0 : C2 &
-             {p
-             : P F2
-                 (projT1
-                    (f2 (existT
-                             (fun s0 : S F2 =>
-                              forall i1 : C2, P F2 s0 i1 -> F1 i1 X) x
-                             (fun (i1 : C2) (p : P F2 x i1) =>
-                              NTinv (F1 i1) ISO
-                                (existT
-                                   (fun s0 : S (F1 i1) =>
-                                    forall i2 : C1, P (F1 i1) s0 i2 -> X i2)
-                                   (s i1 p)
-                                   (fun (j : C1) (p' : P (F1 i1) (s i1 p) j) =>
-                                    x0 j
-                                      (existT
-                                         (fun i2 : C2 =>
-                                          {p0 : P F2 x i2 & P (F1 i2) (s i2 p0) j})
-                                         i1
-                                         (existT
-                                            (fun p0 : P F2 x i1 =>
-                                             P (F1 i1) (s i1 p0) j) p p'))))))))
-                 i0 &
-             P (F1 i0)
-               (projT1
-                  (NT (F1 i0) ISO
-                     (projT2
-                        (f2 (existT
-                                 (fun s0 : S F2 =>
-                                  forall i1 : C2, P F2 s0 i1 -> F1 i1 X) x
-                                 (fun (i1 : C2) (p0 : P F2 x i1) =>
-                                  NTinv (F1 i1) ISO
-                                    (existT
-                                       (fun s0 : S (F1 i1) =>
-                                        forall i2 : C1, P (F1 i1) s0 i2 -> X i2)
-                                       (s i1 p0)
-                                       (fun (j : C1) (p' : P (F1 i1) (s i1 p0) j)
-                                        =>
-                                        x0 j
-                                          (existT
-                                             (fun i2 : C2 =>
-                                              {p1 : P F2 x i2 &
-                                              P (F1 i2) (s i2 p1) j}) i1
-                                             (existT
-                                                (fun p1 : P F2 x i1 =>
-                                                 P (F1 i1) (s i1 p1) j) p0 p')))))))
-                        i0 p))) i}}) =>
-     projT2
-       (NT (F1 (projT1 x1)) ISO
-          (projT2
-             (f2 (existT (fun s0 : S F2 => forall i0 : C2, P F2 s0 i0 -> F1 i0 X)
-                      x
-                      (fun (i0 : C2) (p : P F2 x i0) =>
-                       NTinv (F1 i0) ISO
-                         (existT
-                            (fun s0 : S (F1 i0) =>
-                             forall i1 : C1, P (F1 i0) s0 i1 -> X i1) 
-                            (s i0 p)
-                            (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                             x0 j
-                               (existT
-                                  (fun i1 : C2 =>
-                                   {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j}) i0
-                                  (existT
-                                     (fun p0 : P F2 x i0 => P (F1 i0) (s i0 p0) j)
-                                     p p'))))))) (projT1 x1) 
-             (projT1 (projT2 x1)))) i (projT2 (projT2 x1)))). {
-      destruct EQ. reflexivity.
-    }
-
-    unfold f1, f2, id in H1. clear EQ f1 f2. simpl in *. rewrite H1. clear H1.
-    
-    set (f3 := fun i (x : sigT (fun s0 : S (F1 i) => forall i1 : C1, P (F1 i) s0 i1 -> X i1)) => NT (F1 i) ISO (NTinv (F1 i) ISO x)).
-    set (f4 := fun i (x : sigT (fun s0 : S (F1 i) => forall i1 : C1, P (F1 i) s0 i1 -> X i1)) => x).
-    assert (EQ : f3 = f4). {
-      extensionality i. extensionality p.
-      unfold f3, f4. apply BIJECTION2.
-    }
-
-    assert (existT
-    (fun x1 : {s0 : S F2 & forall i : C2, P F2 s0 i -> S (F1 i)} =>
-     forall x2 : C1,
-     {i : C2 & {p : P F2 (projT1 x1) i & P (F1 i) (projT2 x1 i p) x2}} -> X x2)
-    (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i)) x
-       (fun (i : C2) (p : P F2 x i) =>
-        projT1
-          (f3 i (existT
-                   (fun s0 : S (F1 i) => forall i1 : C1, P (F1 i) s0 i1 -> X i1)
-                   (s i p)
-                   (fun (j : C1) (p' : P (F1 i) (s i p) j) =>
-                    x0 j
-                      (existT
-                         (fun i1 : C2 => {p1 : P F2 x i1 & P (F1 i1) (s i1 p1) j})
-                         i (existT (fun p1 : P F2 x i => P (F1 i) (s i p1) j) p p')))))))
-    (fun (i : C1)
-       (x1 : {i0 : C2 &
-             {p : P F2 x i0 &
-             P (F1 i0)
-               (projT1
-                  (f3 i0 (existT
-                           (fun s0 : S (F1 i0) =>
-                            forall i2 : C1, P (F1 i0) s0 i2 -> X i2) 
-                           (s i0 p)
-                           (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                            x0 j
-                              (existT
-                                 (fun i2 : C2 =>
-                                  {p1 : P F2 x i2 & P (F1 i2) (s i2 p1) j}) i0
-                                 (existT
-                                    (fun p1 : P F2 x i0 => P (F1 i0) (s i0 p1) j) p
-                                    p')))))) i}}) =>
-     projT2
-       (f3 (projT1 x1) (existT
-                (fun s0 : S (F1 (projT1 x1)) =>
-                 forall i1 : C1, P (F1 (projT1 x1)) s0 i1 -> X i1)
-                (s (projT1 x1) (projT1 (projT2 x1)))
-                (fun (j : C1)
-                   (p' : P (F1 (projT1 x1)) (s (projT1 x1) (projT1 (projT2 x1))) j)
-                 =>
-                 x0 j
-                   (existT
-                      (fun i1 : C2 => {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j})
-                      (projT1 x1)
-                      (existT
-                         (fun p0 : P F2 x (projT1 x1) =>
-                          P (F1 (projT1 x1)) (s (projT1 x1) p0) j)
-                         (projT1 (projT2 x1)) p'))))) i 
-       (projT2 (projT2 x1)))
-    =
-    existT
-    (fun x1 : {s0 : S F2 & forall i : C2, P F2 s0 i -> S (F1 i)} =>
-     forall x2 : C1,
-     {i : C2 & {p : P F2 (projT1 x1) i & P (F1 i) (projT2 x1 i p) x2}} -> X x2)
-    (existT (fun s0 : S F2 => forall i : C2, P F2 s0 i -> S (F1 i)) x
-       (fun (i : C2) (p : P F2 x i) =>
-        projT1
-          (f4 i (existT
-                   (fun s0 : S (F1 i) => forall i1 : C1, P (F1 i) s0 i1 -> X i1)
-                   (s i p)
-                   (fun (j : C1) (p' : P (F1 i) (s i p) j) =>
-                    x0 j
-                      (existT
-                         (fun i1 : C2 => {p1 : P F2 x i1 & P (F1 i1) (s i1 p1) j})
-                         i (existT (fun p1 : P F2 x i => P (F1 i) (s i p1) j) p p')))))))
-    (fun (i : C1)
-       (x1 : {i0 : C2 &
-             {p : P F2 x i0 &
-             P (F1 i0)
-               (projT1
-                  (f4 i0 (existT
-                           (fun s0 : S (F1 i0) =>
-                            forall i2 : C1, P (F1 i0) s0 i2 -> X i2) 
-                           (s i0 p)
-                           (fun (j : C1) (p' : P (F1 i0) (s i0 p) j) =>
-                            x0 j
-                              (existT
-                                 (fun i2 : C2 =>
-                                  {p1 : P F2 x i2 & P (F1 i2) (s i2 p1) j}) i0
-                                 (existT
-                                    (fun p1 : P F2 x i0 => P (F1 i0) (s i0 p1) j) p
-                                    p')))))) i}}) =>
-     projT2
-       (f4 (projT1 x1) (existT
-                (fun s0 : S (F1 (projT1 x1)) =>
-                 forall i1 : C1, P (F1 (projT1 x1)) s0 i1 -> X i1)
-                (s (projT1 x1) (projT1 (projT2 x1)))
-                (fun (j : C1)
-                   (p' : P (F1 (projT1 x1)) (s (projT1 x1) (projT1 (projT2 x1))) j)
-                 =>
-                 x0 j
-                   (existT
-                      (fun i1 : C2 => {p0 : P F2 x i1 & P (F1 i1) (s i1 p0) j})
-                      (projT1 x1)
-                      (existT
-                         (fun p0 : P F2 x (projT1 x1) =>
-                          P (F1 (projT1 x1)) (s (projT1 x1) p0) j)
-                         (projT1 (projT2 x1)) p'))))) i 
-       (projT2 (projT2 x1)))). {
-      destruct EQ. reflexivity.
-    }
-    unfold f3, f4 in H1. simpl in *. clear EQ f3 f4. rewrite H1. clear H1.
-
-    f_equal. extensionality i. extensionality p. f_equal.
-    rewrite (sigT_eta p) at 7. f_equal.
-    symmetry. apply sigT_eta.
-  Qed.    
 
 End COMP.
+
+Section COMP_ISO.
+
+  Variable C1 C2 : Type.
+  Variable F1 F1' : C2 -> (C1 -> Type) -> Type.
+  Variable F2 F2' : (C2 -> Type) -> Type.
+
+  Context `{SPFunctor _ F2}.
+  Context `{SPFunctor _ F2'}.
+  Context `{forall (i : C2), SPFunctor (F1 i)}.
+  Context `{forall (i : C2), SPFunctor (F1' i)}.
+
+  Arguments map {C} F {Functor X Y}.
+  Arguments mem {C} F {Functor X} f {i} x.
+  Arguments rel {C} F {Functor X Y} R fx fy.
+  
+  Context `{@NatIso _ F2 F2' _ _}.
+  Context `{forall (i : C2), @NatIso _ (F1 i) (F1' i) _ _}.
+
+  Program Definition Comp_Iso : @NatIso C1 _ _
+                                        (@Comp_Functor _ _ F1 F2 _ _)
+                                        (@Comp_Functor _ _ F1' F2' _ _) :=
+    Build_NatIso _ _ 
+                 (fun X fx => NT H3 (map F2 (fun i => NT (H4 i)) fx))
+                 (fun X fx => NTinv H3 (map F2' (fun i => NTinv (H4 i)) fx))
+                 _ _ _ _ _.
+  Next Obligation.
+    repeat rewrite MAP_COMMUTE. repeat rewrite MAP_COMPOSE. f_equal.
+    extensionality i. extensionality x. apply MAP_COMMUTE.
+  Qed.    
+  Next Obligation.    
+    split; intro.
+    - destruct H5 as [h [fx0 [H5 H6]]]. exists h. exists (NT _ fx0). split. 
+      + apply (@MEM_COMMUTE _ _ _ _ _ H3).
+        apply (MEM_MAP _ _ (fun i0 : C2 => NT (H4 i0)) _ _ _ H5).
+      + apply (@MEM_COMMUTE _ _ _ _ _ (H4 h)). apply H6.
+    -  destruct H5 as [j [fx0 [H5 H6]]]. exists j. exists (NTinv _ fx0). split.
+      + apply (@MEM_COMMUTE _ _ _ _ _ H3) in H5.
+        apply (MEM_MAP _ _ (fun i0 : C2 => NTinv (H4 i0))) in H5.
+        rewrite MAP_COMPOSE in H5. unfold Comp in *.
+        rewrite <- (MAP_ID _ fx).
+        replace (fun (i0 : C2) (x0 : F1 i0 X) => x0) with
+            (fun (i : C2) (x : F1 i X) => NTinv (H4 i) (NT (H4 i) x)); [apply H5|].
+        extensionality i0. extensionality x0. apply BIJECTION1.
+      + apply (@MEM_COMMUTE _ _ _ _ _ (H4 j)). rewrite BIJECTION2. apply H6.
+  Qed.
+  Next Obligation.
+    split; intro. 
+    - apply (@REL_COMMUTE _ _ _ _ _ H3). apply MAP_REL.
+      apply (REL_EQ _ _ _ _ (fun (i : C2) => @REL_COMMUTE _ _ _ _ _ (H4 i) _ _ R)). 
+      apply H5.
+    - apply (@REL_COMMUTE _ _ _ _ _ H3) in H5. apply MAP_REL in H5.
+      apply (REL_EQ _ _ _ _ (fun (i : C2) => @REL_COMMUTE _ _ _ _ _ (H4 i) _ _ R)). 
+      apply H5.
+  Qed.
+  Next Obligation.
+    rewrite MAP_COMMUTE. rewrite MAP_COMPOSE.
+    replace (fun (i : C2) (x : F1 i X) => NTinv (H4 i) (NT (H4 i) x)) with
+        (fun (i : C2) (x : F1 i X) => x).
+    - rewrite MAP_ID. apply (@BIJECTION1 _ _ _ _ _ H3).
+    - extensionality i. extensionality x. symmetry. apply BIJECTION1.
+  Qed.
+  Next Obligation.
+    rewrite <- MAP_COMMUTE_R. rewrite MAP_COMPOSE.
+    replace (fun (i : C2) (x : F1' i X) => NT (H4 i) (NTinv (H4 i) x)) with
+        (fun (i : C2) (x : F1' i X) => x).
+    - rewrite MAP_ID. apply (@BIJECTION2 _ _ _ _ _ H3).
+    - extensionality i. extensionality x. symmetry. apply BIJECTION2.
+  Qed.
+
+End COMP_ISO.
+
+Section COPROD.
+
+  Variable C : Type.
+  Variable (F G : (C -> Type) -> Type).
+  Context `{SPFunctor _ F}.
+  Context `{SPFunctor _ G}.
+
+  Definition Coprod (X : C -> Type) := (F X + G X)%type.
+
+  Inductive Coprod_rel X Y (R : forall i : C, X i -> Y i -> Prop)
+    : Coprod X -> Coprod Y -> Prop :=
+  | coprod_rel_inl fx fy (REL : rel R fx fy) : Coprod_rel R (inl fx) (inl fy)
+  | coprod_rel_inr gx gy (REL : rel R gx gy) : Coprod_rel R (inr gx) (inr gy)
+  .
+
+  Program Definition Coprod_Functor : Functor Coprod
+    := Build_Functor _ (fun X Y f x => match x return Coprod Y with
+                                       | inl fx => inl (map f fx)
+                                       | inr gx => inr (map f gx) end)
+                     (fun X x => match x return (forall i, X i -> Prop) with
+                                 | inl fx => @mem _ _ _ _ fx
+                                 | inr gx => @mem _ _ _ _ gx end)
+                     (fun X Y R x y =>
+                        match x return Prop with
+                        | inl fx =>
+                          match y return Prop with
+                          | inl fy => rel R fx fy
+                          | inr gy => False end
+                        | inr gx =>
+                          match y return Prop with
+                          | inl fy => False
+                          | inr gy => rel R gx gy end
+                        end)
+                     (fun X fx => match fx as fx' return
+                                        (Coprod (sigI (_ X fx'))) with
+                                  | inl f => inl (tag _ f)
+                                  | inr g => inr (tag _ g)
+                                  end)
+                     _.
+  Next Obligation.
+    destruct fx; simpl; f_equal; apply TAG.
+  Defined.
+
+End COPROD.
+
+Section COPROD_ISO.
+
+  Variable C : Type.
+  Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
+  Context `{SPFunctor _ F1}.
+  Context `{SPFunctor _ G1}.
+  Context `{SPFunctor _ F2}.
+  Context `{SPFunctor _ G2}.
+
+  Context `{@NatIso _ F1 F2 _ _}.
+  Context `{@NatIso _ G1 G2 _ _}.
+
+  Program Instance Coprod_Iso : @NatIso _ _ _ (@Coprod_Functor _ F1 G1 _ _ )
+                                        (@Coprod_Functor _ F2 G2 _ _) :=
+    Build_NatIso _ _ 
+                 (fun X x => match x return (Coprod F2 G2 X) with
+                             | inl fx => inl (NT _ fx)
+                             | inr gx => inr (NT _ gx)
+                             end)
+                 (fun X x => match x return (Coprod F1 G1 X) with
+                             | inl fx => inl (NTinv _ fx)
+                             | inr gx => inr (NTinv _ gx)
+                             end) _ _ _ _ _.
+  Next Obligation.
+    destruct fx; f_equal; apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    destruct fx; apply MEM_COMMUTE.
+  Qed.
+  Next Obligation.
+    destruct fx, fy; try reflexivity; apply REL_COMMUTE.
+  Qed.
+  Next Obligation.
+    destruct fx; f_equal; apply BIJECTION1.
+  Qed.
+  Next Obligation.
+    destruct gx; f_equal; apply BIJECTION2.
+  Qed.
+
+End COPROD_ISO.
+     
+Section PROD.
+
+  Variable C : Type.
+  Variable (F G : (C -> Type) -> Type).
+  Context `{SPFunctor _ F}.
+  Context `{SPFunctor _ G}.
+
+  Definition Prod (X : C -> Type) := (F X * G X)%type.
+
+  Program Definition Prod_Functor : Functor Prod
+    := Build_Functor _ (fun X Y f x => (map f (fst x), map f (snd x)))
+                     (fun X x _ a => (mem (fst x) a \/ mem (snd x) a))
+                     (fun _ _ R x y => rel R (fst x) (fst y)/\ rel R (snd x) (snd y))
+                     (fun X x => ((map (sigImply _ (fun i x => @or_introl _ _))
+                                       (tag _ (fst x))),
+                                  (map (sigImply _ (fun i x => @or_intror _ _))
+                                       (tag _ (snd x))))) _.
+  Next Obligation.
+    repeat rewrite MAP_COMPOSE. destruct fx. f_equal;
+    rewrite <- TAG; reflexivity.
+  Qed.
+
+End PROD.
+
+Section PROD_ISO.
+
+  Variable C : Type.
+  Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
+  Context `{SPFunctor _ F1}.
+  Context `{SPFunctor _ G1}.
+  Context `{SPFunctor _ F2}.
+  Context `{SPFunctor _ G2}.
+
+  Context `{@NatIso _ F1 F2 _ _}.
+  Context `{@NatIso _ G1 G2 _ _}.
+
+  Program Instance Prod_Iso : @NatIso _ _ _ (@Prod_Functor _ F1 G1 _ _)
+                                      (@Prod_Functor _ F2 G2 _ _)
+    := Build_NatIso _ _
+                     (fun X x => (NT _ (fst x), NT _ (snd x)))
+                     (fun X x => (NTinv _ (fst x), NTinv _ (snd x))) _ _ _ _ _.
+  Next Obligation.
+    f_equal; apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    split; intro MEM; destruct MEM.
+    - left. apply (@MEM_COMMUTE _ _ _ _ _ H3), H5.
+    - right. apply (@MEM_COMMUTE _ _ _ _ _ H4), H5.
+    - left. apply (@MEM_COMMUTE _ _ _ _ _ H3), H5.
+    - right. apply (@MEM_COMMUTE _ _ _ _ _ H4), H5.
+  Qed.
+  Next Obligation.
+    split; intro REL; destruct REL; split.
+    - apply (@REL_COMMUTE _ _ _ _ _ H3), H5.
+    - apply (@REL_COMMUTE _ _ _ _ _ H4), H6.
+    - apply (@REL_COMMUTE _ _ _ _ _ H3), H5.
+    - apply (@REL_COMMUTE _ _ _ _ _ H4), H6.
+  Qed.
+  Next Obligation.
+    repeat rewrite BIJECTION1. symmetry. apply surjective_pairing.
+  Qed.
+  Next Obligation.
+    repeat rewrite BIJECTION2. symmetry. apply surjective_pairing.
+  Qed.
+
+End PROD_ISO.
+
+Section DEP_SUM.
+
+  Variable C A : Type.
+  Variable (B : A -> (C -> Type) -> Type).
+  Context `{forall (a : A), SPFunctor (B a)}.
+
+  Definition Dep_sum (X : C -> Type) := sigT (fun a => B a X).
+
+  Inductive Dep_sum_rel X Y (R : forall i : C, X i -> Y i -> Prop)
+    : Dep_sum X -> Dep_sum Y -> Prop :=
+  | dep_sum_rel a (fx : B a X) (fy : B a Y) (REL : rel R fx fy) :
+      Dep_sum_rel R (existT _ a fx) (existT _ a fy)
+  .
+
+  Lemma DEP_SUM_REL X Y (R : forall i : C, X i -> Y i -> Prop) x y :
+    Dep_sum_rel R x y <-> exists (e : projT1 y = projT1 x),
+      rel R (projT2 x) (eq_rect (projT1 y) (fun a => B a Y) (projT2 y) (projT1 x) e).
+  Proof.
+    split; intro.
+    - inversion H0. exists eq_refl. apply REL.
+    - destruct x, y. destruct H0. simpl in *. subst. constructor.
+      apply H0.
+  Qed.
+
+  Program Definition Dep_sum_Functor : Functor Dep_sum
+    := Build_Functor Dep_sum
+                     (fun _ _ f fx => existT _ (projT1 fx) (map f (projT2 fx)))
+                     (fun _ fx => @mem _ _ _ _ (projT2 fx))
+                     Dep_sum_rel
+                     (fun _ fx => existT _ (projT1 fx) (tag _ (projT2 fx)))
+                     _.
+  Next Obligation.
+    rewrite sigT_eta. f_equal. apply TAG.
+  Qed.
+
+End DEP_SUM.
+
+Section DEP_SUM_ISO.
+
+  Variable C A : Type.
+  Variable (B1 B2 : A -> (C -> Type) -> Type).
+  Context `{forall (a : A), SPFunctor (B1 a)}.
+  Context `{forall (a : A), SPFunctor (B2 a)}.
+
+  Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
+
+  Program Definition Dep_sum_Iso : @NatIso _ _ _ (Dep_sum_Functor B1)
+                                           (Dep_sum_Functor B2) :=
+    Build_NatIso _ _
+                 (fun X fx => existT _ (projT1 fx) (NT _ (projT2 fx)))
+                 (fun X fx => existT _ (projT1 fx) (NTinv _ (projT2 fx))) _ _ _ _ _.
+  Next Obligation.
+    f_equal. apply MAP_COMMUTE.
+  Qed.
+  Next Obligation. 
+    apply MEM_COMMUTE.
+  Qed.
+  Next Obligation.
+    split; intro; apply DEP_SUM_REL in H2; apply DEP_SUM_REL;
+      destruct H2 as [e REL]; exists e; simpl in *.
+    - apply (@REL_COMMUTE _ _ _ _ _ (H1 _)) in REL.
+      destruct fx, fy. simpl in *. destruct e. apply REL.
+    - apply (@REL_COMMUTE _ _ _ _ _ (H1 _)).
+      destruct fx, fy. simpl in *. destruct e. apply REL.
+  Qed.
+  Next Obligation.
+    pattern fx at 17.
+    rewrite sigT_eta. f_equal.
+    apply BIJECTION1.
+  Qed.
+  Next Obligation.
+    pattern gx at 17.
+    rewrite sigT_eta. f_equal.
+    apply BIJECTION2.
+  Qed.
+
+End DEP_SUM_ISO.

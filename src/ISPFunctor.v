@@ -3,7 +3,7 @@ Require Import Program.
 
 Set Implicit Arguments.
 
-Require Import index wf IFunctor.
+Require Import index wf IFunctor hott.
 
 
 Section CONTAINER.
@@ -46,7 +46,6 @@ Section CONTAINER.
       extensionality i. extensionality p.
       apply H.
   Qed.
-
 
   Arguments existT {A} {P} x p.
 
@@ -153,6 +152,35 @@ Section SPFUNCTOR_FACTS.
   Proof.
     intro. apply REL_COMMUTE. apply REL_COMMUTE in H0.
     apply (CONTAINER_REL_MONOTONE _ MON H0).
+  Qed.
+
+  Lemma MAP_REL X1 Y1 X2 Y2 (f : forall i, X1 i -> X2 i) (g : forall i, Y1 i -> Y2 i)
+        (R : forall (i : C), X2 i -> Y2 i -> Prop) (fx : F X1) (fy : F Y1) :
+    rel (fun i (x : X1 i) (y : Y1 i) => R i (f i x) (g i y)) fx fy <->
+    rel R (map f fx) (map g fy).
+  Proof.
+    split; intro.
+    - apply REL_COMMUTE. apply REL_COMMUTE in H0.
+      repeat rewrite MAP_COMMUTE. destruct H0.
+      constructor. apply H0.
+    - apply REL_COMMUTE in H0. apply REL_COMMUTE.
+      repeat rewrite MAP_COMMUTE in H0.
+      apply CONTAINER_REL2 in H0. destruct H0. simpl in *.
+      apply CONTAINER_REL2. exists x.
+      intros. specialize (H0 i p).
+      rewrite eq_rect_fun in H0.
+      rewrite eq_rect_fun2 in H0.
+      rewrite eq_rect_const in H0.
+      rewrite eq_rect_fun.
+      rewrite eq_rect_fun2.
+      rewrite eq_rect_const. apply H0.
+  Qed.
+
+  Lemma REL_EQ X Y (R R' : forall (i: C), X i -> Y i -> Prop)
+        (EQ : forall i x y, R i x y <-> R' i x y) (fx : F X) (fy : F Y) :
+    rel R fx fy <-> rel R' fx fy.
+  Proof.
+    split; apply REL_MONOTONE; apply EQ.
   Qed.
 
 End SPFUNCTOR_FACTS.
