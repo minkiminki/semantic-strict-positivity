@@ -1,4 +1,4 @@
-Require Import FunctionalExtensionality.
+(*Require Import FunctionalExtensionality.
 Require Import Program.
 Require Import JMeq.
 
@@ -161,3 +161,4 @@ Instance Nu_SPF C1 C2 (F : C2 -> (C1 + C2 -> Type) -> Type)
 
 
 End MU.
+*)

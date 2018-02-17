@@ -18,7 +18,7 @@ Section DEP_FUN.
 
   Variable C A : Type.
   Variable (B: A -> (C -> Type) -> Type).
-  Context `{forall (a : A), SPFunctor (B a)}.
+  Context `{forall (a : A), Functor (B a)}.
 
   Definition Dep_fun (X : C -> Type) := forall a, B a X.
 
@@ -30,10 +30,7 @@ Section DEP_FUN.
          (fun _ _ R fx fy => forall (a : A), rel R (fx a) (fy a))
          (fun _ fx =>
             fun a => (map (sigImply _ (fun i x (MEM: mem (fx a) x)
-                                       => ex_intro _ a MEM)) (tag _ (fx a)))) _.
-  Next Obligation.
-    extensionality a. rewrite MAP_COMPOSE. apply TAG.
-  Qed.
+                                       => ex_intro _ a MEM)) (tag _ (fx a)))).
 
 End DEP_FUN.
 
@@ -41,8 +38,8 @@ Section DEP_FUN_ISO.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), SPFunctor (B1 a)}.
-  Context `{forall (a : A), SPFunctor (B2 a)}.
+  Context `{forall (a : A), Functor (B1 a)}.
+  Context `{forall (a : A), Functor (B2 a)}.
 
   Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
 
@@ -77,8 +74,8 @@ Section COMP.
   Variable F1 : C2 -> (C1 -> Type) -> Type.
   Variable F2 : (C2 -> Type) -> Type.
 
-  Context `{SPFunctor _ F2}.
-  Context `{forall (i : C2), SPFunctor (F1 i)}.
+  Context `{Functor _ F2}.
+  Context `{forall (i : C2), Functor (F1 i)}.
 
   Arguments map {C} F {Functor X Y}.
   Arguments mem {C} F {Functor X} f {i} x.
@@ -89,7 +86,7 @@ Section COMP.
   Program Definition Comp_Functor : Functor Comp
     := Build_Functor
          Comp
-         (fun _ _ f fx => map F2 (fun i x => map (F1 i) f x) fx)
+         (fun _ _ f => map F2 (fun i x => map (F1 i) f x))
          (fun X fxx i x => exists (j : C2) (fx : F1 j X),
               mem F2 fxx fx /\ mem (F1 j) fx x)
          (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R))
@@ -99,94 +96,112 @@ Section COMP.
                           sigImply (fun i1 x => exists j fx0, mem F2 fx fx0 /\ mem (F1 j) fx0 x)
                                    (fun i1 x (MEM : mem (F1 i) (projI1 X0) x) =>
                                       ex_intro _ i (ex_intro _ (projI1 X0) (conj (projI2 X0) MEM))) x1)
-                       (tag X (projI1 X0))) (tag (fun i : C2 => F1 i X) fx))
-         _.
-  Next Obligation.
-    rewrite MAP_COMPOSE. unfold Comp in *.
-    pattern fx at 20. rewrite <- (TAG _ fx).
-    f_equal. extensionality i. extensionality x.
-    rewrite MAP_COMPOSE. apply TAG.
-  Qed.
+                       (tag X (projI1 X0))) (tag (fun i : C2 => F1 i X) fx)).
 
 End COMP.
 
-Section COMP_ISO.
+
+Section COMP_ISO1.
 
   Variable C1 C2 : Type.
-  Variable F1 F1' : C2 -> (C1 -> Type) -> Type.
+  Variable F1 : C2 -> (C1 -> Type) -> Type.
   Variable F2 F2' : (C2 -> Type) -> Type.
 
-  Context `{SPFunctor _ F2}.
-  Context `{SPFunctor _ F2'}.
-  Context `{forall (i : C2), SPFunctor (F1 i)}.
-  Context `{forall (i : C2), SPFunctor (F1' i)}.
+  Context `{Functor _ F2}.
+  Context `{Functor _ F2'}.
+  Context `{forall (i : C2), Functor (F1 i)}.
 
   Arguments map {C} F {Functor X Y}.
   Arguments mem {C} F {Functor X} f {i} x.
   Arguments rel {C} F {Functor X Y} R fx fy.
   
   Context `{@NatIso _ F2 F2' _ _}.
+
+  Program Definition Comp_Iso1 : @NatIso C1 _ _
+                                         (@Comp_Functor _ _ F1 F2 _ _)
+                                         (@Comp_Functor _ _ F1 F2' _ _) :=
+    Build_NatIso _ _ (fun X => NT H2) (fun X => NTinv H2)
+                 (fun X1 X2 f  => MAP_COMMUTE _ _ (fun i => map (F1 i) f)) _
+                 (fun X Y R => REL_COMMUTE _ _ (fun i => rel (F1 i) R))
+                 (fun X => BIJECTION1 (fun i => F1 i X))
+                 (fun X => BIJECTION2 (fun i => F1 i X)).
+  Next Obligation.
+    split; intro;
+      destruct H3 as [j [fx0 [H3 H4]]]; exists j; exists fx0;
+        (split; [apply (@MEM_COMMUTE _ _ _ _ _ H2); apply H3 | apply H4]).
+  Qed.
+
+End COMP_ISO1.
+
+Section COMP_ISO2.
+
+  Variable C1 C2 : Type.
+  Variable F1 F1' : C2 -> (C1 -> Type) -> Type.
+  Variable CS : Type.
+  Variable CP : CS -> C2 -> Type.
+
+  Context `{forall (i : C2), Functor (F1 i)}.
+  Context `{forall (i : C2), Functor (F1' i)}.
+
+  Arguments map {C} F {Functor X Y}.
+  Arguments mem {C} F {Functor X} f {i} x.
+  Arguments rel {C} F {Functor X Y} R fx fy.
+  
   Context `{forall (i : C2), @NatIso _ (F1 i) (F1' i) _ _}.
 
-  Program Definition Comp_Iso : @NatIso C1 _ _
-                                        (@Comp_Functor _ _ F1 F2 _ _)
-                                        (@Comp_Functor _ _ F1' F2' _ _) :=
+  Program Definition Comp_Iso2 : @NatIso C1 _ _
+                                        (@Comp_Functor _ _ F1 (Container CP) _ _)
+                                        (@Comp_Functor _ _ F1' (Container CP) _ _) :=
     Build_NatIso _ _ 
-                 (fun X fx => NT H3 (map F2 (fun i => NT (H4 i)) fx))
-                 (fun X fx => NTinv H3 (map F2' (fun i => NTinv (H4 i)) fx))
-                 _ _ _ _ _.
+                 (fun X => map (Container CP) (fun i => NT (H1 i)))
+                 (fun X => map (Container CP) (fun i => NTinv (H1 i)))_ _ _ _ _.
   Next Obligation.
-    repeat rewrite MAP_COMMUTE. repeat rewrite MAP_COMPOSE. f_equal.
-    extensionality i. extensionality x. apply MAP_COMMUTE.
-  Qed.    
-  Next Obligation.    
+    unfold sigTimply. simpl. f_equal.
+    extensionality i. extensionality p.
+    apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
     split; intro.
-    - destruct H5 as [h [fx0 [H5 H6]]]. exists h. exists (NT _ fx0). split. 
-      + apply (@MEM_COMMUTE _ _ _ _ _ H3).
-        apply (MEM_MAP _ _ (fun i0 : C2 => NT (H4 i0)) _ _ _ H5).
-      + apply (@MEM_COMMUTE _ _ _ _ _ (H4 h)). apply H6.
-    -  destruct H5 as [j [fx0 [H5 H6]]]. exists j. exists (NTinv _ fx0). split.
-      + apply (@MEM_COMMUTE _ _ _ _ _ H3) in H5.
-        apply (MEM_MAP _ _ (fun i0 : C2 => NTinv (H4 i0))) in H5.
-        rewrite MAP_COMPOSE in H5. unfold Comp in *.
-        rewrite <- (MAP_ID _ fx).
-        replace (fun (i0 : C2) (x0 : F1 i0 X) => x0) with
-            (fun (i : C2) (x : F1 i X) => NTinv (H4 i) (NT (H4 i) x)); [apply H5|].
-        extensionality i0. extensionality x0. apply BIJECTION1.
-      + apply (@MEM_COMMUTE _ _ _ _ _ (H4 j)). rewrite BIJECTION2. apply H6.
+    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
+      exists j. exists (NT (H1 j) fx0). split.
+      + exists p. f_equal. apply EQ.
+      + apply MEM_COMMUTE. apply MEM.
+    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
+      exists j. exists (NTinv (H1 j) fx0). split.
+      + exists p. apply (INJECTIVE (H1 := H1 j)).
+        rewrite BIJECTION2. apply EQ. 
+      + apply MEM_COMMUTE_R. apply MEM.
   Qed.
   Next Obligation.
-    split; intro. 
-    - apply (@REL_COMMUTE _ _ _ _ _ H3). apply MAP_REL.
-      apply (REL_EQ _ _ _ _ (fun (i : C2) => @REL_COMMUTE _ _ _ _ _ (H4 i) _ _ R)). 
-      apply H5.
-    - apply (@REL_COMMUTE _ _ _ _ _ H3) in H5. apply MAP_REL in H5.
-      apply (REL_EQ _ _ _ _ (fun (i : C2) => @REL_COMMUTE _ _ _ _ _ (H4 i) _ _ R)). 
-      apply H5.
+    split; intro.
+    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))).
+      apply REL_EQ_C with 
+          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)) in H2.
+      apply H2. apply (fun i => REL_COMMUTE _ _ _).
+    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))) in H2.
+      apply REL_EQ_C with 
+          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)).
+      apply (fun i => REL_COMMUTE _ _ _). apply H2.
   Qed.
   Next Obligation.
-    rewrite MAP_COMMUTE. rewrite MAP_COMPOSE.
-    replace (fun (i : C2) (x : F1 i X) => NTinv (H4 i) (NT (H4 i) x)) with
-        (fun (i : C2) (x : F1 i X) => x).
-    - rewrite MAP_ID. apply (@BIJECTION1 _ _ _ _ _ H3).
-    - extensionality i. extensionality x. symmetry. apply BIJECTION1.
+    destruct fx. unfold sigTimply. simpl. f_equal.
+    extensionality i. extensionality p.
+    apply BIJECTION1.
   Qed.
   Next Obligation.
-    rewrite <- MAP_COMMUTE_R. rewrite MAP_COMPOSE.
-    replace (fun (i : C2) (x : F1' i X) => NT (H4 i) (NTinv (H4 i) x)) with
-        (fun (i : C2) (x : F1' i X) => x).
-    - rewrite MAP_ID. apply (@BIJECTION2 _ _ _ _ _ H3).
-    - extensionality i. extensionality x. symmetry. apply BIJECTION2.
+    destruct gx. unfold sigTimply. simpl. f_equal.
+    extensionality i. extensionality p.
+    apply BIJECTION2.
   Qed.
 
-End COMP_ISO.
+End COMP_ISO2.
 
 Section COPROD.
 
   Variable C : Type.
   Variable (F G : (C -> Type) -> Type).
-  Context `{SPFunctor _ F}.
-  Context `{SPFunctor _ G}.
+  Context `{Functor _ F}.
+  Context `{Functor _ G}.
 
   Definition Coprod (X : C -> Type) := (F X + G X)%type.
 
@@ -218,11 +233,7 @@ Section COPROD.
                                         (Coprod (sigI (_ X fx'))) with
                                   | inl f => inl (tag _ f)
                                   | inr g => inr (tag _ g)
-                                  end)
-                     _.
-  Next Obligation.
-    destruct fx; simpl; f_equal; apply TAG.
-  Defined.
+                                  end).
 
 End COPROD.
 
@@ -230,10 +241,10 @@ Section COPROD_ISO.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{SPFunctor _ F1}.
-  Context `{SPFunctor _ G1}.
-  Context `{SPFunctor _ F2}.
-  Context `{SPFunctor _ G2}.
+  Context `{Functor _ F1}.
+  Context `{Functor _ G1}.
+  Context `{Functor _ F2}.
+  Context `{Functor _ G2}.
 
   Context `{@NatIso _ F1 F2 _ _}.
   Context `{@NatIso _ G1 G2 _ _}.
@@ -271,8 +282,8 @@ Section PROD.
 
   Variable C : Type.
   Variable (F G : (C -> Type) -> Type).
-  Context `{SPFunctor _ F}.
-  Context `{SPFunctor _ G}.
+  Context `{Functor _ F}.
+  Context `{Functor _ G}.
 
   Definition Prod (X : C -> Type) := (F X * G X)%type.
 
@@ -283,11 +294,7 @@ Section PROD.
                      (fun X x => ((map (sigImply _ (fun i x => @or_introl _ _))
                                        (tag _ (fst x))),
                                   (map (sigImply _ (fun i x => @or_intror _ _))
-                                       (tag _ (snd x))))) _.
-  Next Obligation.
-    repeat rewrite MAP_COMPOSE. destruct fx. f_equal;
-    rewrite <- TAG; reflexivity.
-  Qed.
+                                       (tag _ (snd x))))).
 
 End PROD.
 
@@ -295,10 +302,10 @@ Section PROD_ISO.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{SPFunctor _ F1}.
-  Context `{SPFunctor _ G1}.
-  Context `{SPFunctor _ F2}.
-  Context `{SPFunctor _ G2}.
+  Context `{Functor _ F1}.
+  Context `{Functor _ G1}.
+  Context `{Functor _ F2}.
+  Context `{Functor _ G2}.
 
   Context `{@NatIso _ F1 F2 _ _}.
   Context `{@NatIso _ G1 G2 _ _}.
@@ -338,7 +345,7 @@ Section DEP_SUM.
 
   Variable C A : Type.
   Variable (B : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), SPFunctor (B a)}.
+  Context `{forall (a : A), Functor (B a)}.
 
   Definition Dep_sum (X : C -> Type) := sigT (fun a => B a X).
 
@@ -363,11 +370,7 @@ Section DEP_SUM.
                      (fun _ _ f fx => existT _ (projT1 fx) (map f (projT2 fx)))
                      (fun _ fx => @mem _ _ _ _ (projT2 fx))
                      Dep_sum_rel
-                     (fun _ fx => existT _ (projT1 fx) (tag _ (projT2 fx)))
-                     _.
-  Next Obligation.
-    rewrite sigT_eta. f_equal. apply TAG.
-  Qed.
+                     (fun _ fx => existT _ (projT1 fx) (tag _ (projT2 fx))).
 
 End DEP_SUM.
 
@@ -375,8 +378,8 @@ Section DEP_SUM_ISO.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), SPFunctor (B1 a)}.
-  Context `{forall (a : A), SPFunctor (B2 a)}.
+  Context `{forall (a : A), Functor (B1 a)}.
+  Context `{forall (a : A), Functor (B2 a)}.
 
   Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
 
@@ -400,12 +403,12 @@ Section DEP_SUM_ISO.
       destruct fx, fy. simpl in *. destruct e. apply REL.
   Qed.
   Next Obligation.
-    pattern fx at 17.
+    pattern fx at 13.
     rewrite sigT_eta. f_equal.
     apply BIJECTION1.
   Qed.
   Next Obligation.
-    pattern gx at 17.
+    pattern gx at 13.
     rewrite sigT_eta. f_equal.
     apply BIJECTION2.
   Qed.

@@ -179,3 +179,22 @@ Section EQRECTFACTS.
   Defined.
 
 End EQRECTFACTS.
+
+
+Section EQ_COMMUTE.
+
+  Variable A B C : Type.
+  Variable a1 a2 : A.
+  Variable b1 b2 : B.
+  Variable f : A -> B -> Type.
+  Axiom EQA : a1 = a2.
+  Axiom EQB : b1 = b2.
+  Variable x : f a1 b1.
+
+  Goal eq_rect a1 (fun a => f a b2) (eq_rect b1 (fun b => f a1 b) x b2 EQB) a2 EQA = 
+   eq_rect b1 (fun b => f a2 b) (eq_rect a1 (fun a => f a b1) x a2 EQA) b2 EQB.
+  Proof.
+    destruct EQA. destruct EQB. reflexivity.
+  Defined.
+
+End EQ_COMMUTE.

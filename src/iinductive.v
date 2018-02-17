@@ -184,6 +184,8 @@ Section INDUCTIVE.
     apply (prim_rec1_red FIX).
   Qed.
 
+  
+
 
 
 (*

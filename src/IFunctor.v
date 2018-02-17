@@ -13,18 +13,7 @@ Section IFUNCTOR.
       mem {X} : F X -> forall {i}, X i -> Prop;
       rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
       tag X (fx: F X) : F (sigI (@mem _ fx));
-(*
-      MAP_COMPOSE X Y Z (f: forall i, X i -> Y i) (g: forall i, Y i -> Z i) fx :
-        map g (map f fx) = map (fun i x => g i (f i x)) fx;
-*)
-      TAG X (fx: F X) : map (@projI1 _ _ _) (tag fx) = fx;
     }.
-
-(*
-  Definition MAP_COMPOSE C (F : iType C -> Type) `{Functor _ F} : Prop :=
-    forall (X Y Z: iType C) (f: forall i, X i -> Y i) (g: forall i, Y i -> Z i) fx,
-      map g (map f fx) = map (fun i x => g i (f i x)) fx.
-*)
 
   Definition MAP_ID C (F : iType C -> Type) `{Functor _ F} : Prop :=
     forall (X: iType C) fx, map (fun i (x : X i) => x) fx = fx.
@@ -47,13 +36,21 @@ Section IFUNCTOR.
   Arguments NTinv {C F G H H0 NatIso X}.
   (* instances *)
 
+  Lemma INJECTIVE C (F G: iType C -> Type) `{NatIso _ F G} (X : iType C)
+        (fx fy : F X) (EQ : NT fx = NT fy) : fx = fy.
+  Proof.
+    apply f_equal with (f := NTinv) in EQ.
+    repeat rewrite BIJECTION1 in EQ.
+    apply EQ.
+  Qed.
+
   Lemma MAP_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X1 X2
         (f : forall i, X1 i -> X2 i) (fx : G X1) :
     NTinv (map f fx) = (map f) (NTinv fx).
   Proof.
-    pattern fx at 1. rewrite <- (BIJECTION2 _ fx).
-    rewrite <- MAP_COMMUTE.
-    apply BIJECTION1.
+    apply (INJECTIVE (H1 := H1)).
+    rewrite MAP_COMMUTE.
+    repeat rewrite BIJECTION2. reflexivity.
   Qed.    
 
   Lemma MEM_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X i (fx : G X) (x : X i)
@@ -92,7 +89,7 @@ Section IFUNCTOR.
     reflexivity.
   Qed.
 
-  Program Definition Tranitive_NatIso C (F G H: iType C -> Type)
+  Program Definition Transitive_NatIso C (F G H: iType C -> Type)
           `{FnF : Functor _ F} `{FnG : Functor _ G} `{FnH : Functor _ H}
           `{@NatIso _ _ _ FnF FnG} `{@NatIso _ _ _ FnG FnH}: NatIso F H
     := Build_NatIso _ _ (fun _ fx => NT (NT fx)) (fun _ hx => NTinv (NTinv hx)) _ _ _ _ _.
