@@ -29,7 +29,7 @@ Section IDENT.
     := Build_Functor _ (fun _ _ f => f i) Ident_eq (fun _ _ R => @R i)
                      (fun X fx => existI fx (Ident_eq_refl _ fx)).
 
-  Program Instance Ident_SPF : SPFunctor Ident
+  Global Program Instance Ident_SPF : SPFunctor Ident
     := @Build_SPFunctor _ _ Ident_Functor unit (fun _ j => i = j)
                         (Build_NatIso _ _
                                       (fun X fx =>
@@ -73,7 +73,7 @@ Section CONST.
     := Build_Functor _ (fun _ _ _ => @id D) (fun _ _ _ _ => False) (fun _ _ _ => eq)
                      (fun _ => id).
 
-  Program Instance Const_SPF : SPFunctor Const
+  Global Program Instance Const_SPF : SPFunctor Const
     := @Build_SPFunctor _ _ Const_Functor D (fun _ _ => False)
                         (Build_NatIso _ _
                                       (fun _ fx => existT _ fx (fun _ => False_rect _))
@@ -108,7 +108,7 @@ Section PROD.
   Context `{SPF_F : SPFunctor _ F}.
   Context `{SPF_G : SPFunctor _ G}.
 
-  Program Instance Prod_SPF : SPFunctor (Prod F G) := 
+  Global Program Instance Prod_SPF : SPFunctor (Prod F G) := 
     @Build_SPFunctor _ _ (@Prod_Functor _ F G Fn Fn) _ _
                      (Transitive_NatIso
                         (@Prod_Iso _ _ _ _ _ _ _ _ _ (ISO SPF_F) (ISO SPF_G))
@@ -127,7 +127,7 @@ Section COPROD.
   Context `{SPF_F : SPFunctor _ F}.
   Context `{SPF_G : SPFunctor _ G}.
 
-  Program Instance Coprod_SPF : SPFunctor (Coprod F G) := 
+  Global Program Instance Coprod_SPF : SPFunctor (Coprod F G) := 
     @Build_SPFunctor _ _ (@Coprod_Functor _ F G Fn Fn) _ _
                      (Transitive_NatIso
                         (@Coprod_Iso _ _ _ _ _ _ _ _ _ (ISO SPF_F) (ISO SPF_G))
@@ -144,7 +144,7 @@ Section DEP_FUN.
   Variable (B: A -> (C -> Type) -> Type).
   Context `{SPF_F : forall (a : A), SPFunctor (B a)}.
 
-  Program Instance Dep_fun_SPF : SPFunctor (Dep_fun B) := 
+  Global Program Instance Dep_fun_SPF : SPFunctor (Dep_fun B) := 
     @Build_SPFunctor _ _ (@Dep_fun_Functor _ _ B (fun a => Fn)) _ _
                      (Transitive_NatIso
                         (@Dep_Fun_Iso _ _ _ _ _ _ (fun a => ISO (SPF_F a)))
@@ -161,7 +161,7 @@ Section DEP_SUM.
   Variable (B: A -> (C -> Type) -> Type).
   Context `{SPF_F : forall (a : A), SPFunctor (B a)}.
 
-  Program Instance Dep_sum_SPF : SPFunctor (Dep_sum B) := 
+  Global Program Instance Dep_sum_SPF : SPFunctor (Dep_sum B) := 
     @Build_SPFunctor _ _ (@Dep_sum_Functor _ _ B (fun a => Fn)) _ _
                      (Transitive_NatIso
                         (@Dep_sum_Iso _ _ _ _ _ _ (fun a => ISO (SPF_F a)))
@@ -181,7 +181,7 @@ Section COMP.
   Context `{SPF_F2 : SPFunctor _ F2}.
   Context `{SPF_F1 : forall (i : C2), SPFunctor (F1 i)}.
 
-  Program Instance Comp_SPF : SPFunctor (Comp F1 F2) := 
+  Global Program Instance Comp_SPF : SPFunctor (Comp F1 F2) := 
     @Build_SPFunctor _ _ (@Comp_Functor _ _ _ _ Fn (fun i => Fn)) _ _ 
                      (Transitive_NatIso (Transitive_NatIso
                                            (@Comp_Iso1 _ _ F1 _ _ _ _ _ (ISO SPF_F2))

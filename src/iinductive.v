@@ -11,16 +11,15 @@ Section INDUCTIVE.
   Variable F : O -> (O -> Type) -> Type.
 
   Context `{H : forall c, SPFunctor (F c)}.
-  Variable X : (iType O).
-
-  Inductive Mu : O -> Type :=
-  | Con' o : Container (@P _ _ (H o)) Mu -> Mu o.
+  
+  Inductive Mu o : Type :=
+  | Con' : Container (@P _ _ (H o)) Mu -> Mu o.
 
   Definition Con o (fx : F o Mu) : Mu o := Con' o (NT _ fx).
 
   Definition Des' o (m : Mu o) : Container (@P _ _ (H o)) Mu :=
     match m with
-    | Con' o s => s end.
+    | Con' _ s => s end.
 
   Definition Des o (m : Mu o) : F o Mu := NTinv _ (Des' m).
 
@@ -156,35 +155,77 @@ Section INDUCTIVE.
     simpl. rewrite TAG. apply eta_expand1.
   Qed.
 
-  Definition prim_rec1 (P : forall (o : O), Type)
+  Definition prim_rec (P : forall (o : O), Type)
              (FIX : forall o, F o P -> P o) :=
     rec_simpl1 P (fun o1 m1 f => FIX _ (map (fun o fx => f _ (projI1 fx) (projI2 fx))
                                             (Des_ord m1))).
 
-  Lemma prim_rec1_red (P : forall (o : O), Type)
+  Lemma prim_rec_red (P : forall (o : O), Type)
         (FIX : forall o, F o P -> P o) o (fx : F o Mu) :
-    prim_rec1 FIX (Con fx) = FIX o (map (prim_rec1 FIX) fx).
+    prim_rec FIX (Con fx) = FIX o (map (prim_rec FIX) fx).
   Proof.
-    unfold prim_rec1.
-    rewrite rec_simpl1_red.
-    pattern fx at 5.
-    rewrite <- (Des_ord_correct fx).
+    unfold prim_rec. rewrite rec_simpl1_red.
+    pattern fx at 5. rewrite <- (Des_ord_correct fx).
     rewrite MAP_COMPOSE. reflexivity.
-  Qed.    
-
-  Definition prim_rec2 T
-             (FIX : forall o, F o (fun _ => T) -> T) :
-    forall o, Mu o -> T :=
-    prim_rec1 FIX.
-  
-  Lemma prim_rec2_red T (FIX : forall o, F o (fun _ => T) -> T)
-        o (fx : F o Mu) :
-    prim_rec2 FIX (Con fx) = FIX _ (map (prim_rec2 FIX) fx).
-  Proof.
-    apply (prim_rec1_red FIX).
   Qed.
 
+  Definition simple_rec T
+             (FIX : forall o, F o (fun _ => T) -> T) :
+    forall o, Mu o -> T :=
+    prim_rec FIX.
   
+  Lemma simple_rec_red T (FIX : forall o, F o (fun _ => T) -> T)
+        o (fx : F o Mu) :
+    simple_rec FIX (Con fx) = FIX _ (map (simple_rec FIX) fx).
+  Proof.
+    apply (prim_rec_red FIX).
+  Qed.
+
+  Lemma Con_injective o (fx1 fx2 : F o Mu) (EQ : Con fx1 = Con fx2) :
+    fx1 = fx2.
+  Proof.
+    unfold Con in *. apply (INJECTIVE (H1 := ISO)).
+    inversion EQ. reflexivity.
+  Qed.
+
+  Lemma Des_injective o (m1 m2 : Mu o) (EQ : Des m1 = Des m2) :
+    m1 = m2.
+  Proof.
+    unfold Des in *. apply (INJECTIVE_R (H1 := ISO)) in EQ. 
+    destruct m1, m2. simpl in *. destruct EQ.
+    reflexivity.
+  Qed.
+
+  Lemma mu_eq_eq : forall o (fx1 : F o Mu) (fx2 : F o Mu),
+      Con fx1 = Con fx2 <-> rel (fun _ => eq) fx1 fx2.
+  Proof.
+    intros. split; intro EQ.
+    - apply REL_EQ_EQ, Con_injective, EQ.
+    - f_equal. apply REL_EQ_EQ in EQ. apply EQ.
+  Qed.
+
+  Lemma fun_unique (T : O -> Type) (f1 f2 : forall o, Mu o -> T o)
+        (FIX : forall o, F o T -> T o) :
+    (forall o (fx : F o Mu), f1 o (Con fx) = FIX o (map f1 fx)) ->
+    (forall o (fx : F o Mu), f2 o (Con fx) = FIX o (map f2 fx)) ->
+    forall o (m : Mu o), f1 o m = f2 o m.
+  Proof.
+    intros COM1 COM2.
+    apply mem_induction_principle. intros.
+    rewrite COM1. rewrite COM2. f_equal.
+    apply MAP_POINTWISE. apply H0.
+  Qed.    
+
+  Lemma mu_universal (P : forall (o : O), Type)
+        (FIX : forall o, F o P -> P o) :
+    exists! (f : forall o, Mu o -> P o),
+      (forall o (fx : F o Mu), f o (Con fx) = FIX o (map f fx)).
+  Proof.
+    exists (prim_rec FIX). split.
+    - apply prim_rec_red.
+    - intros f EQ. extensionality o. extensionality fx.
+      apply fun_unique with (FIX := FIX); [apply prim_rec_red | apply EQ].
+  Qed.
 
 
 

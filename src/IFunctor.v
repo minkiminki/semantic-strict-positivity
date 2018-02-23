@@ -44,6 +44,14 @@ Section IFUNCTOR.
     apply EQ.
   Qed.
 
+  Lemma INJECTIVE_R C (F G: iType C -> Type) `{NatIso _ F G} (X : iType C)
+        (gx gy : G X) (EQ : NTinv gx = NTinv gy) : gx = gy.
+  Proof.
+    apply f_equal with (f := NT) in EQ.
+    repeat rewrite BIJECTION2 in EQ.
+    apply EQ.
+  Qed.
+
   Lemma MAP_COMMUTE_R C (F G: iType C -> Type) `{NatIso _ F G} X1 X2
         (f : forall i, X1 i -> X2 i) (fx : G X1) :
     NTinv (map f fx) = (map f) (NTinv fx).

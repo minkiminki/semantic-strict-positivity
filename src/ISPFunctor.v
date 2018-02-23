@@ -127,6 +127,32 @@ Section CONTAINER.
     split; apply REL_MONOTONE_C; apply EQ.
   Qed.
 
+  Lemma MAP_POINTWISE_C X Y (f1 f2 : forall i, X i -> Y i) (fx : Container X)
+        (PW : forall i (x : X i), mem fx x -> f1 i x = f2 i x)
+    : map f1 fx = map f2 fx.
+  Proof.
+    simpl. unfold sigTimply. f_equal.
+    extensionality i. extensionality p.
+    apply PW. exists p. reflexivity.
+  Qed.
+
+  Lemma MAP_INJECTIVE_C X Y (f : forall i, X i -> Y i)
+        (INJ : forall i (x1 x2 : X i), f i x1 = f i x2 -> x1 = x2) :
+    forall fx1 fx2, map f fx1 = map f fx2 -> fx1 = fx2.
+  Proof.
+    intros. simpl in *. unfold sigTimply in *.
+    apply EqdepFacts.eq_sigT_sig_eq in H. destruct H.
+    rewrite (sigT_eta fx1). rewrite (sigT_eta fx2).
+    apply EqdepFacts.eq_sigT_sig_eq. exists x.
+    extensionality i. extensionality p. 
+    apply equal_f_dep with (x0 := i) in e.
+    apply equal_f_dep with (x0 := p) in e. 
+    rewrite eq_rect_fun in e. rewrite eq_rect_fun2 in e. rewrite eq_rect_const in e. 
+    apply INJ in e.
+    rewrite eq_rect_fun. rewrite eq_rect_fun2. rewrite eq_rect_const.
+    apply e.
+  Qed.
+
 End CONTAINER.
 
 
@@ -209,5 +235,24 @@ Section SPFUNCTOR_FACTS.
   Proof.
     split; apply REL_MONOTONE; apply EQ.
   Qed.
+
+  Lemma MAP_POINTWISE X Y (f1 f2 : forall i, X i -> Y i) (fx : F X)
+        (PW : forall i (x : X i), mem fx x -> f1 i x = f2 i x)
+    : map f1 fx = map f2 fx.
+  Proof.
+    apply (INJECTIVE (H1 := ISO)). repeat rewrite MAP_COMMUTE.
+    apply MAP_POINTWISE_C. intros. apply PW.
+    apply MEM_COMMUTE. apply H0.
+  Qed.
+
+  Lemma MAP_INJECTIVE X Y (f : forall i, X i -> Y i)
+        (INJ : forall i (x1 x2 : X i), f i x1 = f i x2 -> x1 = x2) :
+    forall (fx1 fx2 : F X), map f fx1 = map f fx2 -> fx1 = fx2.
+  Proof.
+    intros. apply (INJECTIVE (H1 := ISO)).
+    apply (MAP_INJECTIVE_C INJ).
+    repeat rewrite <- MAP_COMMUTE. 
+    f_equal. apply H0.
+  Qed.    
 
 End SPFUNCTOR_FACTS.
