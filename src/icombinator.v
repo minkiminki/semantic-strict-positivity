@@ -3,7 +3,7 @@ Require Import Program.
 Require Import JMeq.
 
 Set Implicit Arguments.
-
+(*
 Require Import index wf IFunctor ISPFunctor iinductive hott.
 
 Section Mu.
@@ -69,3 +69,5 @@ apply (existI x). sigI
 
   Definition mu_map b (X Y : A ->
   
+
+*)

@@ -8,7 +8,7 @@ Require Import index wf IFunctor ISPFunctor hott.
 
 Arguments S {C} F {SPFunctor}.
 Arguments P {C} F {SPFunctor}.
-Arguments NT {C F G H H0} NatIso {X} f.
+Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 
 Axiom GIVEUP : forall (A : Type), A.
@@ -34,6 +34,33 @@ Section DEP_FUN.
 
 End DEP_FUN.
 
+Section DEP_FUN_TR.
+
+  Variable C A : Type.
+  Variable (B1 B2 : A -> (C -> Type) -> Type).
+  Context `{forall (a : A), Functor (B1 a)}.
+  Context `{forall (a : A), Functor (B2 a)}.
+
+  Context `{forall (a : A), @NatTr _ (B1 a) (B2 a) _ _}.
+
+  Program Definition Dep_Fun_Tr : @NatTr C _ _ (Dep_fun_Functor B1)
+                                           (Dep_fun_Functor B2) :=
+    Build_NatTr _ _
+                 (fun X fx a => NT _ (fx a))
+                 _ _ _.
+  Next Obligation.
+    extensionality a. apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    split; intro; destruct H2; exists x0;
+      apply (@MEM_COMMUTE _ _ _ _ _ (H1 x0)) in H2; apply H2.
+  Qed.
+  Next Obligation.
+    split; intros; apply (@REL_COMMUTE _ _ _ _ _ (H1 a)); apply H2.
+  Qed.
+
+End DEP_FUN_TR.
+
 Section DEP_FUN_ISO.
 
   Variable C A : Type.
@@ -45,20 +72,9 @@ Section DEP_FUN_ISO.
 
   Program Definition Dep_Fun_Iso : @NatIso C _ _ (Dep_fun_Functor B1)
                                            (Dep_fun_Functor B2) :=
-    Build_NatIso _ _
-                 (fun X fx a => NT _ (fx a))
+    Build_NatIso (Dep_Fun_Tr B1 B2)
                  (fun X fx a => NTinv _ (fx a))
-                 _ _ _ _ _.
-  Next Obligation.
-    extensionality a. apply MAP_COMMUTE.
-  Qed.
-  Next Obligation.
-    split; intro; destruct H2; exists x0;
-      apply (@MEM_COMMUTE _ _ _ _ _ (H1 x0)) in H2; apply H2.
-  Qed.
-  Next Obligation.
-    split; intros; apply (@REL_COMMUTE _ _ _ _ _ (H1 a)); apply H2.
-  Qed.
+                 _ _.
   Next Obligation.
     extensionality a. apply BIJECTION1.
   Qed.
@@ -100,6 +116,35 @@ Section COMP.
 
 End COMP.
 
+Section COMP_TR1.
+
+  Variable C1 C2 : Type.
+  Variable F1 : C2 -> (C1 -> Type) -> Type.
+  Variable F2 F2' : (C2 -> Type) -> Type.
+
+  Context `{Functor _ F2}.
+  Context `{Functor _ F2'}.
+  Context `{forall (i : C2), Functor (F1 i)}.
+
+  Arguments map {C} F {Functor X Y}.
+  Arguments mem {C} F {Functor X} f {i} x.
+  Arguments rel {C} F {Functor X Y} R fx fy.
+  
+  Context `{@NatTr _ F2 F2' _ _}.
+
+  Program Definition Comp_Tr1 : @NatTr C1 _ _
+                                         (@Comp_Functor _ _ F1 F2 _ _)
+                                         (@Comp_Functor _ _ F1 F2' _ _) :=
+    Build_NatTr _ _ (fun X => NT H2)
+                 (fun X1 X2 f  => MAP_COMMUTE _ _ (fun i => map (F1 i) f)) _
+                 (fun X Y R => REL_COMMUTE _ _ (fun i => rel (F1 i) R)).
+  Next Obligation.
+    split; intro;
+      destruct H3 as [j [fx0 [H3 H4]]]; exists j; exists fx0;
+        (split; [apply (@MEM_COMMUTE _ _ _ _ _ H2); apply H3 | apply H4]).
+  Qed.
+
+End COMP_TR1.
 
 Section COMP_ISO1.
 
@@ -117,21 +162,65 @@ Section COMP_ISO1.
   
   Context `{@NatIso _ F2 F2' _ _}.
 
-  Program Definition Comp_Iso1 : @NatIso C1 _ _
+  Definition Comp_Iso1 : @NatIso C1 _ _
                                          (@Comp_Functor _ _ F1 F2 _ _)
                                          (@Comp_Functor _ _ F1 F2' _ _) :=
-    Build_NatIso _ _ (fun X => NT H2) (fun X => NTinv H2)
-                 (fun X1 X2 f  => MAP_COMMUTE _ _ (fun i => map (F1 i) f)) _
-                 (fun X Y R => REL_COMMUTE _ _ (fun i => rel (F1 i) R))
+    Build_NatIso (@Comp_Tr1 _ _ _ _ _ _ _ _ _) (fun X => NTinv H2)
                  (fun X => BIJECTION1 (fun i => F1 i X))
                  (fun X => BIJECTION2 (fun i => F1 i X)).
-  Next Obligation.
-    split; intro;
-      destruct H3 as [j [fx0 [H3 H4]]]; exists j; exists fx0;
-        (split; [apply (@MEM_COMMUTE _ _ _ _ _ H2); apply H3 | apply H4]).
-  Qed.
 
 End COMP_ISO1.
+
+Section COMP_TR2.
+
+  Variable C1 C2 : Type.
+  Variable F1 F1' : C2 -> (C1 -> Type) -> Type.
+  Variable CS : Type.
+  Variable CP : CS -> C2 -> Type.
+
+  Context `{forall (i : C2), Functor (F1 i)}.
+  Context `{forall (i : C2), Functor (F1' i)}.
+
+  Arguments map {C} F {Functor X Y}.
+  Arguments mem {C} F {Functor X} f {i} x.
+  Arguments rel {C} F {Functor X Y} R fx fy.
+  
+  Context `{forall (i : C2), @NatTr _ (F1 i) (F1' i) _ _}.
+
+  Program Definition Comp_Tr2 : @NatTr C1 _ _
+                                        (@Comp_Functor _ _ F1 (Container CP) _ _)
+                                        (@Comp_Functor _ _ F1' (Container CP) _ _) :=
+    Build_NatTr _ _ 
+                 (fun X => map (Container CP) (fun i => NT (H1 i))) _ _ _.
+  Next Obligation.
+    unfold sigTimply. simpl. f_equal.
+    extensionality i. extensionality p.
+    apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    split; intro.
+    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
+      exists j. exists (NT (H1 j) fx0). split.
+      + exists p. f_equal. apply EQ.
+      + apply MEM_COMMUTE. apply MEM.
+    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
+      exists j. exists (projT2 fx j p). split.
+      + exists p. reflexivity.
+      + apply MEM_COMMUTE. rewrite EQ. apply MEM.
+  Qed.
+  Next Obligation.
+    split; intro.
+    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))).
+      apply REL_EQ_C with 
+          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)) in H2.
+      apply H2. apply (fun i => REL_COMMUTE _ _ _).
+    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))) in H2.
+      apply REL_EQ_C with 
+          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)).
+      apply (fun i => REL_COMMUTE _ _ _). apply H2.
+  Qed.
+
+End COMP_TR2.
 
 Section COMP_ISO2.
 
@@ -152,37 +241,9 @@ Section COMP_ISO2.
   Program Definition Comp_Iso2 : @NatIso C1 _ _
                                         (@Comp_Functor _ _ F1 (Container CP) _ _)
                                         (@Comp_Functor _ _ F1' (Container CP) _ _) :=
-    Build_NatIso _ _ 
-                 (fun X => map (Container CP) (fun i => NT (H1 i)))
-                 (fun X => map (Container CP) (fun i => NTinv (H1 i)))_ _ _ _ _.
-  Next Obligation.
-    unfold sigTimply. simpl. f_equal.
-    extensionality i. extensionality p.
-    apply MAP_COMMUTE.
-  Qed.
-  Next Obligation.
-    split; intro.
-    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
-      exists j. exists (NT (H1 j) fx0). split.
-      + exists p. f_equal. apply EQ.
-      + apply MEM_COMMUTE. apply MEM.
-    - destruct H2 as [j [fx0 [[p EQ] MEM]]].
-      exists j. exists (NTinv (H1 j) fx0). split.
-      + exists p. apply (INJECTIVE (H1 := H1 j)).
-        rewrite BIJECTION2. apply EQ. 
-      + apply MEM_COMMUTE_R. apply MEM.
-  Qed.
-  Next Obligation.
-    split; intro.
-    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))).
-      apply REL_EQ_C with 
-          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)) in H2.
-      apply H2. apply (fun i => REL_COMMUTE _ _ _).
-    - apply (MAP_REL_C _ _ (fun i => NT (H1 i)) (fun i => NT (H1 i))) in H2.
-      apply REL_EQ_C with 
-          (R' := fun i x y => rel (F1' i) R (NT (H1 i) x) (NT (H1 i) y)).
-      apply (fun i => REL_COMMUTE _ _ _). apply H2.
-  Qed.
+    Build_NatIso (Comp_Tr2 _ _ _) 
+                 (fun X => map (Container CP) (fun i => NTinv (H1 i)))
+                 _ _.
   Next Obligation.
     destruct fx. unfold sigTimply. simpl. f_equal.
     extensionality i. extensionality p.
@@ -237,6 +298,37 @@ Section COPROD.
 
 End COPROD.
 
+Section COPROD_TR.
+
+  Variable C : Type.
+  Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
+  Context `{Functor _ F1}.
+  Context `{Functor _ G1}.
+  Context `{Functor _ F2}.
+  Context `{Functor _ G2}.
+
+  Context `{@NatTr _ F1 F2 _ _}.
+  Context `{@NatTr _ G1 G2 _ _}.
+
+  Program Instance Coprod_Tr : @NatTr _ _ _ (@Coprod_Functor _ F1 G1 _ _ )
+                                        (@Coprod_Functor _ F2 G2 _ _) :=
+    Build_NatTr _ _ 
+                 (fun X x => match x return (Coprod F2 G2 X) with
+                             | inl fx => inl (NT _ fx)
+                             | inr gx => inr (NT _ gx)
+                             end) _ _ _.
+  Next Obligation.
+    destruct fx; f_equal; apply MAP_COMMUTE.
+  Qed.
+  Next Obligation.
+    destruct fx; apply MEM_COMMUTE.
+  Qed.
+  Next Obligation.
+    destruct fx, fy; try reflexivity; apply REL_COMMUTE.
+  Qed.
+
+End COPROD_TR.
+
 Section COPROD_ISO.
 
   Variable C : Type.
@@ -251,24 +343,11 @@ Section COPROD_ISO.
 
   Program Instance Coprod_Iso : @NatIso _ _ _ (@Coprod_Functor _ F1 G1 _ _ )
                                         (@Coprod_Functor _ F2 G2 _ _) :=
-    Build_NatIso _ _ 
-                 (fun X x => match x return (Coprod F2 G2 X) with
-                             | inl fx => inl (NT _ fx)
-                             | inr gx => inr (NT _ gx)
-                             end)
+    Build_NatIso (@Coprod_Tr _ _ _ _ _ _ _ _ _ _ _)
                  (fun X x => match x return (Coprod F1 G1 X) with
                              | inl fx => inl (NTinv _ fx)
                              | inr gx => inr (NTinv _ gx)
-                             end) _ _ _ _ _.
-  Next Obligation.
-    destruct fx; f_equal; apply MAP_COMMUTE.
-  Qed.
-  Next Obligation.
-    destruct fx; apply MEM_COMMUTE.
-  Qed.
-  Next Obligation.
-    destruct fx, fy; try reflexivity; apply REL_COMMUTE.
-  Qed.
+                             end) _ _.
   Next Obligation.
     destruct fx; f_equal; apply BIJECTION1.
   Qed.
@@ -298,7 +377,7 @@ Section PROD.
 
 End PROD.
 
-Section PROD_ISO.
+Section PROD_TR.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
@@ -307,14 +386,14 @@ Section PROD_ISO.
   Context `{Functor _ F2}.
   Context `{Functor _ G2}.
 
-  Context `{@NatIso _ F1 F2 _ _}.
-  Context `{@NatIso _ G1 G2 _ _}.
+  Context `{@NatTr _ F1 F2 _ _}.
+  Context `{@NatTr _ G1 G2 _ _}.
 
-  Program Instance Prod_Iso : @NatIso _ _ _ (@Prod_Functor _ F1 G1 _ _)
-                                      (@Prod_Functor _ F2 G2 _ _)
-    := Build_NatIso _ _
-                     (fun X x => (NT _ (fst x), NT _ (snd x)))
-                     (fun X x => (NTinv _ (fst x), NTinv _ (snd x))) _ _ _ _ _.
+  Program Instance Prod_Tr : @NatTr _ _ _ (@Prod_Functor _ F1 G1 _ _)
+                                    (@Prod_Functor _ F2 G2 _ _)
+    := Build_NatTr _ _
+                   (fun X x => (NT _ (fst x), NT _ (snd x)))
+                   _ _ _.
   Next Obligation.
     f_equal; apply MAP_COMMUTE.
   Qed.
@@ -332,6 +411,25 @@ Section PROD_ISO.
     - apply (@REL_COMMUTE _ _ _ _ _ H3), H5.
     - apply (@REL_COMMUTE _ _ _ _ _ H4), H6.
   Qed.
+
+End PROD_TR.
+
+Section PROD_ISO.
+
+  Variable C : Type.
+  Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
+  Context `{Functor _ F1}.
+  Context `{Functor _ G1}.
+  Context `{Functor _ F2}.
+  Context `{Functor _ G2}.
+
+  Context `{@NatIso _ F1 F2 _ _}.
+  Context `{@NatIso _ G1 G2 _ _}.
+
+  Program Instance Prod_Iso : @NatIso _ _ _ (@Prod_Functor _ F1 G1 _ _)
+                                      (@Prod_Functor _ F2 G2 _ _)
+    := Build_NatIso (@Prod_Tr _ _ _ _ _ _ _ _ _ _ _ )
+                    (fun X x => (NTinv _ (fst x), NTinv _ (snd x))) _ _.
   Next Obligation.
     repeat rewrite BIJECTION1. symmetry. apply surjective_pairing.
   Qed.
@@ -374,20 +472,20 @@ Section DEP_SUM.
 
 End DEP_SUM.
 
-Section DEP_SUM_ISO.
+Section DEP_SUM_TR.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
   Context `{forall (a : A), Functor (B1 a)}.
   Context `{forall (a : A), Functor (B2 a)}.
 
-  Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
+  Context `{forall (a : A), @NatTr _ (B1 a) (B2 a) _ _}.
 
-  Program Definition Dep_sum_Iso : @NatIso _ _ _ (Dep_sum_Functor B1)
-                                           (Dep_sum_Functor B2) :=
-    Build_NatIso _ _
-                 (fun X fx => existT _ (projT1 fx) (NT _ (projT2 fx)))
-                 (fun X fx => existT _ (projT1 fx) (NTinv _ (projT2 fx))) _ _ _ _ _.
+  Program Definition Dep_sum_Tr : @NatTr _ _ _ (Dep_sum_Functor B1)
+                                         (Dep_sum_Functor B2) :=
+    Build_NatTr _ _
+                (fun X fx => existT _ (projT1 fx) (NT _ (projT2 fx)))
+                _ _ _.
   Next Obligation.
     f_equal. apply MAP_COMMUTE.
   Qed.
@@ -402,13 +500,29 @@ Section DEP_SUM_ISO.
     - apply (@REL_COMMUTE _ _ _ _ _ (H1 _)).
       destruct fx, fy. simpl in *. destruct e. apply REL.
   Qed.
+
+End DEP_SUM_TR.
+
+Section DEP_SUM_ISO.
+
+  Variable C A : Type.
+  Variable (B1 B2 : A -> (C -> Type) -> Type).
+  Context `{forall (a : A), Functor (B1 a)}.
+  Context `{forall (a : A), Functor (B2 a)}.
+
+  Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
+
+  Program Definition Dep_sum_Iso : @NatIso _ _ _ (Dep_sum_Functor B1)
+                                           (Dep_sum_Functor B2) :=
+    Build_NatIso (Dep_sum_Tr _ _)
+                 (fun X fx => existT _ (projT1 fx) (NTinv _ (projT2 fx))) _ _.
   Next Obligation.
-    pattern fx at 13.
+    pattern fx at 17.
     rewrite sigT_eta. f_equal.
     apply BIJECTION1.
   Qed.
   Next Obligation.
-    pattern gx at 13.
+    pattern gx at 17.
     rewrite sigT_eta. f_equal.
     apply BIJECTION2.
   Qed.

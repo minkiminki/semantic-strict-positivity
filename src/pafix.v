@@ -84,108 +84,25 @@ Section PAIN.
     - intros. f_equal. symmetry. apply MAP_ID.
   Qed.
 
-  Lemma pacorec_red A B (FIX : forall o, pa_Mu (A /+\ B) o -> A o)
+  Lemma painup_red A B (FIX : forall o, pa_Mu (A /+\ B) o -> A o)
         o m :
-    parec A FIX (Con _ o m) = parec A FIX (Con _ o m). 
-
-    unfold parec, painup at 1. rewrite prim_rec_red. simpl.
-    repeat rewrite MAP_COMPOSE. simpl.
-
-    set (painup A FIX). unfold painup in p.
-
-    set (FIX o
-    (Con
-       (fun o0 : O =>
-        Comp (fun o1 : O => Prod (Ident o1) (Const (A o1 * B o1))) (F o0)) o
-       (map
-          (fun (i : O)
-             (x : Prod (Ident i) (Const (B i))
-                    (Mu
-                       (fun o0 : O =>
-                        Comp (fun o1 : O => Prod (Ident o1) (Const (B o1))) (F o0))))
-           =>
-           (prim_rec (pa_Mu (A /+\ B))
-              (fun (o0 : O)
-                 (fx : Comp (fun o1 : O => Prod (Ident o1) (Const (B o1))) 
-                         (F o0) (pa_Mu (A /+\ B))) =>
-               Con
-                 (fun o1 : O =>
-                  Comp (fun o2 : O => Prod (Ident o2) (Const (A o2 * B o2))) (F o1))
-                 o0
-                 (map
-                    (fun (i0 : O)
-                       (x0 : pa_Mu (A /+\ B) i0 * Const (B i0) (pa_Mu (A /+\ B)))
-                     => (fst x0, (FIX i0 (fst x0), snd x0))) fx)) 
-              (fst x),
-           (FIX i
-              (prim_rec (pa_Mu (A /+\ B))
-                 (fun (o0 : O)
-                    (fx : Comp (fun o1 : O => Prod (Ident o1) (Const (B o1)))
-                            (F o0) (pa_Mu (A /+\ B))) =>
-                  Con
-                    (fun o1 : O =>
-                     Comp (fun o2 : O => Prod (Ident o2) (Const (A o2 * B o2)))
-                       (F o1)) o0
-                    (map
-                       (fun (i0 : O)
-                          (x0 : pa_Mu (A /+\ B) i0 * Const (B i0) (pa_Mu (A /+\ B)))
-                        => (fst x0, (FIX i0 (fst x0), snd x0))) fx)) 
-                 (fst x)), id (snd x)))) m))).
-
-rewrite prim_rec_red.
-    
-
-    assert (A o). -
-
-      
-    
-
-    simpl in *. 
-    
-
-    set (parec A FIX
-    (Con (fun o0 : O => Comp (fun o1 : O => Prod (Ident o1) (Const (B o1))) (F o0))
-       o m)).
-     simpl in *.
-
-
-  Lemma pacorec_red A B (FIX : forall o, pa_Mu (A /+\ B) o -> A o)
-        o m :
-    parec A FIX (Con _ o m) = parec A FIX (Con _ o m). 
-    set (parec A FIX
-    (Con (fun o0 : O => Comp (fun o1 : O => Prod (Ident o1) (Const (B o1))) (F o0))
-       o m)).
-     simpl in *.
-
-parec A B FIX o (Con m).
-    Des (pacorec A B FIX o a) = 
-    map (fun i (x : pa_Nu (A \+/ B) i + (A i + B i)) =>
-           match x with
-           | inl n => inl (pacodown A B FIX n)
-           | inr (inl a) => inl (pacorec A B FIX i a)
-           | inr (inr b) => inr b
-           end) (Des (FIX o a)).
+    painup A FIX (Con _ o m) =
+    Con
+      (fun o0 => Comp (fun o1 => Prod (Ident o1) (Const (A o1 * B o1))) (F o0)) o
+      (map (fun i x => (painup A FIX (fst x), (parec A FIX (fst x), (snd x)))) m).
   Proof.
-    unfold pacorec, pacodown at 1. rewrite corec_red. simpl.
-    rewrite MAP_COMPOSE. simpl.
-    f_equal. extensionality i. extensionality x.
-    destruct x as [x | [ax | bx]]; reflexivity.
+    unfold painup at 1. rewrite prim_rec_red. simpl. rewrite MAP_COMPOSE.
+    reflexivity.
   Qed.
 
-  Lemma pacodown_red A B (FIX : forall o, A o -> pa_Nu (A \+/ B) o) o
-        (fx : pa_Nu (A \+/ B) o) :
-    Des (pacodown A B FIX fx) =
-    map (fun i (x : pa_Nu (A \+/ B) i + (A i + B i)) =>
-           match x with
-           | inl n => inl (pacodown A B FIX n)
-           | inr (inl a) => inl (pacorec A B FIX i a)
-           | inr (inr b) => inr b
-           end) (Des fx).
+  Lemma parec_red A B (FIX : forall o, pa_Mu (A /+\ B) o -> A o)
+        o m :
+    parec A FIX (Con _ o m) =
+    FIX o (Con
+             (fun o0 => Comp (fun o1 => Prod (Ident o1) (Const (A o1 * B o1))) (F o0)) o
+             (map (fun i x => (painup A FIX (fst x), (parec A FIX (fst x), (snd x)))) m)).
   Proof.
-    unfold pacodown, pacorec at 1. rewrite corec_red. simpl.
-    rewrite MAP_COMPOSE. simpl.
-    f_equal. extensionality i. extensionality x.
-    destruct x as [x | [ax | bx]]; reflexivity.
+    unfold parec at 1. f_equal. apply painup_red.
   Qed.
 
-End PACO.
+End PAIN.

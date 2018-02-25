@@ -94,3 +94,22 @@ Definition sigTimply_proj2 A (P Q : A -> Type)
 Proof.
   reflexivity.
 Qed.
+
+Definition sig2I {C} (X Y : iType C) (R : forall i, X i -> Y i -> Prop) : iType C :=
+  sigTI (fun i x => sig (fun y => R i x y)).
+
+Definition exist2I {C} (X Y : iType C) (R : forall i, X i -> Y i -> Prop) :
+  forall i (x : X i) (y : Y i), R i x y -> sig2I _ _ R i :=
+  fun i x y r => existTI x (exist _ y r).
+
+Definition proj2I1 {C} (X Y : iType C) (R : forall i, X i -> Y i -> Prop) :
+  forall i, sig2I _ _ R i -> X i :=
+  fun i => @projTI1 _ _ _ _.
+
+Definition proj2I2 {C} (X Y : iType C) (R : forall i, X i -> Y i -> Prop) :
+  forall i, sig2I _ _ R i -> Y i :=
+  fun i x => proj1_sig (projTI2 x).
+
+Definition proj2I3 {C} (X Y : iType C) (R : forall i, X i -> Y i -> Prop) :
+  forall i (x : sig2I _ _ R i), R i (proj2I1 x) (proj2I2 x) :=
+  fun i x => proj2_sig (projTI2 x).

@@ -8,7 +8,7 @@ Require Import index wf IFunctor ISPFunctor hott iso.
 
 Arguments S {C} F {SPFunctor}.
 Arguments P {C} F {SPFunctor}.
-Arguments NT {C F G H H0} NatIso {X} f.
+Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 
 Section DEP_FUN_CONTAINER.
@@ -22,10 +22,13 @@ Section DEP_FUN_CONTAINER.
               (Dep_fun_Functor (fun a => Container (@BP a)))
               (Functor_Container (fun f i => sigT (fun a => BP (f a) i)))
     :=
-      Build_NatIso _ _
-                   (fun X fx => existT _ (fun a => projT1 (fx a))
-                                       (fun i x => projT2 (fx (projT1 x)) i (projT2 x))) (fun X fx a => existT _ (projT1 fx a)
-                                                                                                               (fun i x => projT2 fx i (existT _ a x))) _ _ _ _ _.
+      Build_NatIso (Build_NatTr _ _ 
+                                (fun X fx => existT _ (fun a => projT1 (fx a))
+                                                    (fun i x => projT2 (fx (projT1 x)) i
+                                                                       (projT2 x)))
+                                (fun _ _ _ _ => eq_refl) _ _)
+                   (fun X fx a => existT _ (projT1 fx a)
+                                         (fun i x => projT2 fx i (existT _ a x))) _ _.
   Next Obligation.
     split; intro.
     - destruct H as [a [p EQ]]. 
@@ -35,10 +38,9 @@ Section DEP_FUN_CONTAINER.
   Qed.
   Next Obligation. 
     split; intro. - giveup.
-
     - apply CONTAINER_REL2 in H. destruct H. simpl in *.
       intro. apply CONTAINER_REL2.
- 
+      
       exists (eqext _ x a). intros.
 
       specialize (H i (existT _ a p)). simpl in *.
@@ -66,11 +68,11 @@ Section COPROD_CONTAINER.
   Program Instance Coprod_Container
     : @NatIso _ _ _ (@Coprod_Functor _ (Container P1) (Container P2) _ _ )
               (Functor_Container (sum_rect _ P1 P2)) :=
-    Build_NatIso _ _
+    Build_NatIso (Build_NatTr _ _ 
                  (fun X x => match x return (Container (sum_rect _ P1 P2) X) with
                              | inl fx => existT _ (inl (projT1 fx)) (projT2 fx)
                              | inr gx => existT _ (inr (projT1 gx)) (projT2 gx)
-                             end)
+                             end) _ _ _)
                  (fun X fx => match (projT1 fx) as s' return
                                     ((forall i, (sum_rect (fun _ => C -> Type) P1 P2 s') i -> X i)
                                      -> Container P1 X + Container P2 X) with
@@ -78,7 +80,7 @@ Section COPROD_CONTAINER.
                                 fun x => inl (existT _ s x)
                               | inr s =>
                                 fun x => inr (existT _ s x)
-                              end (projT2 fx)) _ _ _ _ _.
+                              end (projT2 fx)) _ _.
   Next Obligation.
     destruct fx; reflexivity.
   Qed.
@@ -116,15 +118,14 @@ Section PROD_CONTAINER.
   Program Instance Prod_Container
     : @NatIso _ _ _ (@Prod_Functor _ (Container P1) (Container P2) _ _ )
               (Functor_Container (fun s i => (P1 (fst s) i + P2 (snd s) i)%type)) :=
-    Build_NatIso _ _
+    Build_NatIso (Build_NatTr _ _
                  (fun X fx => existT _ (projT1 (fst fx), projT1 (snd fx))
                                      (fun i => sum_rect _ (projT2 (fst fx) i)
-                                                        (projT2 (snd fx) i)))
+                                                        (projT2 (snd fx) i))) _ _ _)
                  (fun X fx => (existT _ (fst (projT1 fx))
                                       (fun i p => projT2 fx i (inl p)),
                                existT _ (snd (projT1 fx))
-                                      (fun i p => projT2 fx i (inr p))))
-                 _ _ _ _ _.
+                                      (fun i p => projT2 fx i (inr p)))) _ _.
   Next Obligation.
     unfold sigTimply. simpl. f_equal.
     extensionality i. extensionality p. destruct p; reflexivity.
@@ -168,15 +169,14 @@ Section DEP_SUM_CONTAINER.
               (Dep_sum_Functor (fun a => Container (@BP a)))
               (Functor_Container (fun (s : sigT BS) => BP (projT2 s)))
     :=
-      Build_NatIso _ _
+      Build_NatIso (Build_NatTr _ _
                    (fun X fx => existT _ (existT _ (projT1 fx) (projT1 (projT2 fx)))
                                        (projT2 (projT2 fx)))
+                   (fun _ _ _ _ => eq_refl)
+                   (fun _ _ _ _ => iff_refl _) _)
                    (fun X fx => existT _ (projT1 (projT1 fx))
                                        (existT _ (projT2 (projT1 fx)) (projT2 fx)))
-                   _ _ _ _ _.
-  Next Obligation.
-    split; apply id.
-  Qed.
+                   _ _.
   Next Obligation.
     giveup.
   Qed.
@@ -185,7 +185,7 @@ Section DEP_SUM_CONTAINER.
   Qed.
   Next Obligation.
     destruct gx as [[a s] f]; reflexivity.
-  Qed.    
+  Qed.
 
 End DEP_SUM_CONTAINER.
 
@@ -207,18 +207,18 @@ Section COMP_CONTAINER.
                            sigT (fun (i : C2) => sigT (fun (p : P2 (projT1 s1) i) =>
                                                          P1 ((projT2 s1) i p) j))))
     :=
-      Build_NatIso _ _ 
+      Build_NatIso (Build_NatTr _ _ 
                    (fun X fx =>
                       existT _ (existT (fun s => forall i, P2 s i -> S1 i)
                                        (projT1 fx) (fun i p => projT1 (projT2 fx i p)))
                              (fun i p => projT2 (projT2 fx (projT1 p) (projT1 (projT2 p))) _
-                                                (projT2 (projT2 p))))
+                                                (projT2 (projT2 p)))) _ _ _)
                    (fun X fx =>
                       existT _ (projT1 (projT1 fx))
                              (fun i p1 => existT _ (projT2 (projT1 fx) i p1)
                                                  (fun j p2 => projT2 fx j (existT _ i
                                                                                   (existT _ p1 p2)))))
-                   _ _ _ _ _.
+                   _ _.
   Next Obligation.
     split; intro.
     - destruct H as [j [fx0 [[p1 EQ1] [p2 EQ2]]]]. subst.

@@ -15,21 +15,21 @@ Section COINDUCTIVE.
   Context `{H : forall c, SPFunctor (F c)}.
 
   CoInductive Nu (o : O) : Type :=
-   Con' { Des' : Container (@P _ _ (H o)) Nu }.
+   cCon' { cDes' : Container (@P _ _ (H o)) Nu }.
 
-  Definition Con o (fx : F o Nu) : Nu o := Con' o (NT _ fx).
+  Definition cCon o (fx : F o Nu) : Nu o := cCon' o (NT _ fx).
 
-  Definition Des o (m : Nu o) : F o Nu := NTinv _ (Des' m).
+  Definition cDes o (m : Nu o) : F o Nu := NTinv _ (cDes' m).
 
-  Lemma eta_expand1 : forall o (x : F o Nu), Des (Con x) = x.
+  Lemma c_eta_expand1 : forall o (x : F o Nu), cDes (cCon x) = x.
   Proof.
-    intros. unfold Des, Con.
+    intros. unfold cDes, cCon.
     rewrite <- BIJECTION1.
     destruct (NT Nu x). reflexivity.
   Qed.
 
   Definition bsm_gen' bsm' o (n1 : Nu o) (n2 : Nu o) :=
-    rel bsm' (Des' n1) (Des' n2).
+    rel bsm' (cDes' n1) (cDes' n2).
   Hint Unfold bsm_gen'.
 
   Definition bsm' o n1 n2 := paco3 bsm_gen' bot3 o n1 n2.
@@ -43,7 +43,7 @@ Section COINDUCTIVE.
   Hint Resolve bsm_gen_mon' : paco.
 
   Definition bsm_gen bsm o (n1 : Nu o) (n2 : Nu o) :=
-    rel bsm (Des n1) (Des n2).
+    rel bsm (cDes n1) (cDes n2).
   Hint Unfold bsm_gen.
 
   Definition bsm o n1 n2 := paco3 bsm_gen bot3 o n1 n2.
@@ -56,7 +56,6 @@ Section COINDUCTIVE.
   Qed.
   Hint Resolve bsm_gen_mon : paco.
 
-
   Lemma bsm_bsm'_gen_eq o R (n1 n2 : Nu o) : bsm_gen R n1 n2 <-> bsm_gen' R n1 n2.
   Proof.
     split; intro.
@@ -68,7 +67,7 @@ Section COINDUCTIVE.
   Lemma eq_bsm' : forall o (n : Nu o), bsm' n n.
   Proof.
     pcofix CIH. intros. pfold. unfold bsm_gen'.
-    destruct (Des' n). constructor.
+    destruct (cDes' n). constructor.
     intros. right. apply CIH.
   Qed.
 
@@ -96,7 +95,7 @@ Section COINDUCTIVE.
     - subst. apply bsm_bsm', eq_bsm'.
   Qed.
 
-  Lemma eta_expand2': forall o (x : Nu o), Con' o (Des' x) = x.
+  Lemma eta_expand2': forall o (x : Nu o), cCon' o (cDes' x) = x.
   Proof.
     intros. apply bsm'_eq. pfold.
     apply REL_MONOTONE_C with (R := fun _ => eq).
@@ -104,41 +103,49 @@ Section COINDUCTIVE.
     - apply REL_EQ_EQ_C. reflexivity.
   Qed.
   
-  Lemma eta_expand2: forall o (x : Nu o), Con (Des x) = x.
+  Lemma c_eta_expand2: forall o (x : Nu o), cCon (cDes x) = x.
   Proof.
-    unfold Con, Des. intros. rewrite BIJECTION2. apply eta_expand2'.
+    unfold cCon, cDes. intros. rewrite BIJECTION2. apply eta_expand2'.
   Qed.  
 
-  Lemma Con_injective o (fx1 fx2 : F o Nu) (EQ : Con fx1 = Con fx2) :
+  Lemma cCon_injective o (fx1 fx2 : F o Nu) (EQ : cCon fx1 = cCon fx2) :
     fx1 = fx2.
   Proof.
-    unfold Con in *. apply (INJECTIVE (H1 := ISO)).
+    unfold cCon in *. apply (INJECTIVE (H1 := ISO)).
     inversion EQ. reflexivity.
   Qed.
 
-  Lemma Des_injective o (n1 n2 : Nu o) (EQ : Des n1 = Des n2) :
+  Lemma cDes_injective o (n1 n2 : Nu o) (EQ : cDes n1 = cDes n2) :
     n1 = n2.
   Proof.
-    apply f_equal with (f := @Con _) in EQ.
-    repeat rewrite eta_expand2 in EQ. apply EQ.
+    apply f_equal with (f := @cCon _) in EQ.
+    repeat rewrite c_eta_expand2 in EQ. apply EQ.
+  Qed.
+
+  Lemma c_simple_destruct (P : forall o, Nu o -> Prop)
+             (FIX : forall o1 (fx : F o1 Nu), P _ (cCon fx)) :
+    forall o (m : Nu o), P o m.
+  Proof.
+    intros. rewrite <- c_eta_expand2.
+    apply FIX.
   Qed.
 
   Lemma nu_eq_eq : forall o (n1 n2 : Nu o),
-      n1 = n2 <-> rel (fun _ => eq) (Des n1) (Des n2).
+      n1 = n2 <-> rel (fun _ => eq) (cDes n1) (cDes n2).
   Proof.
     intros. split; intro EQ.
     - apply REL_EQ_EQ. f_equal. apply EQ.
-    - apply REL_EQ_EQ in EQ. apply Des_injective, EQ.
+    - apply REL_EQ_EQ in EQ. apply cDes_injective, EQ.
   Qed.
 
   CoFixpoint corec' (T : O -> Type)
              (FIX : forall o, T o -> Container (@P _ _ (H o)) T) :
     forall o, T o -> Nu o :=
-    fun o t =>  (Con' _ (map (corec' FIX) (FIX _ t))).
+    fun o t =>  (cCon' _ (map (corec' FIX) (FIX _ t))).
 
   Lemma corec'_red (T : O -> Type)
         (FIX : forall o, T o -> Container (@P _ _ (H o)) T) o (t : T o) :
-    Des' (corec' FIX o t) = map (corec' FIX) (FIX o t).
+    cDes' (corec' FIX o t) = map (corec' FIX) (FIX o t).
   Proof.
     reflexivity.
   Qed.
@@ -149,16 +156,16 @@ Section COINDUCTIVE.
 
   Lemma corec_red (T : O -> Type)
         (FIX : forall o, T o -> F o T) o (t : T o) :
-    Des (corec FIX o t) = map (corec FIX) (FIX o t).
+    cDes (corec FIX o t) = map (corec FIX) (FIX o t).
   Proof.
-    unfold corec, Des. rewrite corec'_red.
+    unfold corec, cDes. rewrite corec'_red.
     rewrite <- MAP_COMMUTE. apply BIJECTION1.
   Qed.
 
   Lemma cofun_bsm_unique (T : O -> Type) (f1 f2 : forall o, T o -> Nu o)
         (FIX : forall o, T o -> F o T) :
-    (forall o (t : T o), Des (f1 o t) = map f1 (FIX o t)) ->
-    (forall o (t : T o), Des (f2 o t) = map f2 (FIX o t)) ->
+    (forall o (t : T o), cDes (f1 o t) = map f1 (FIX o t)) ->
+    (forall o (t : T o), cDes (f2 o t) = map f2 (FIX o t)) ->
     forall o (t : T o), bsm (f1 o t) (f2 o t).
   Proof.
     intros COM1 COM2. pcofix BSM.
@@ -171,8 +178,8 @@ Section COINDUCTIVE.
 
   Lemma cofun_eq_unique (T : O -> Type) (f1 f2 : forall o, T o -> Nu o)
         (FIX : forall o, T o -> F o T) :
-    (forall o (t : T o), Des (f1 o t) = map f1 (FIX o t)) ->
-    (forall o (t : T o), Des (f2 o t) = map f2 (FIX o t)) ->
+    (forall o (t : T o), cDes (f1 o t) = map f1 (FIX o t)) ->
+    (forall o (t : T o), cDes (f2 o t) = map f2 (FIX o t)) ->
     forall o (t : T o), f1 o t = f2 o t.
   Proof.
     intros. apply bsm_eq. apply (cofun_bsm_unique _ _ _ H0 H1).
@@ -181,12 +188,23 @@ Section COINDUCTIVE.
   Lemma nu_universal (T : O -> Type)
         (FIX : forall o, T o -> F o T) :
     exists! (f : forall o, T o -> Nu o),
-      (forall o (t : T o), Des (f o t) = map f (FIX o t)).
+      (forall o (t : T o), cDes (f o t) = map f (FIX o t)).
   Proof.
     exists (corec FIX). split.
     - apply corec_red.
     - intros f EQ. extensionality o. extensionality t.
       apply cofun_eq_unique with (FIX := FIX); [apply corec_red | apply EQ].
   Qed.
+
+  Lemma c_inj_preserve (T : O -> Type) (f : forall o, T o -> Nu o)
+        (FIX : forall o, T o -> F o T)
+        (INJ : forall o t1 t2, FIX o t1 = FIX o t2 -> t1 = t2) :
+    (forall o (t : T o), cDes (f o t) = map f (FIX o t)) ->
+    (forall o t1 t2, f o t1 = f o t2 -> t1 = t2).
+  Proof.
+    intro COM.
+    intros. apply (f_equal (@cDes _)) in H0.
+    rewrite COM in H0. rewrite COM in H0.
+  Abort. (* is it true...? *)
 
 End COINDUCTIVE.

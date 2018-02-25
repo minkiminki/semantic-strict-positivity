@@ -8,7 +8,7 @@ Require Import index wf IFunctor ISPFunctor hott iso container_combinator.
 
 Arguments S {C} F {SPFunctor}.
 Arguments P {C} F {SPFunctor}.
-Arguments NT {C F G H H0} NatIso {X} f.
+Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 Arguments ISO {C F} SPFunctor.
 Arguments NatIso {C F G} H H0.
@@ -31,12 +31,12 @@ Section IDENT.
 
   Global Program Instance Ident_SPF : SPFunctor Ident
     := @Build_SPFunctor _ _ Ident_Functor unit (fun _ j => i = j)
-                        (Build_NatIso _ _
+                        (Build_NatIso (Build_NatTr _ _
                                       (fun X fx =>
                                          (existT _ tt
-                                                 (fun j EQ => eq_rect i X fx j EQ)))
+                                                 (fun j EQ => eq_rect i X fx j EQ))) _ _ _)
                                       (fun X gx => projT2 gx i eq_refl)
-                                      _ _ _ _ _) _.
+                                      _ _) _.
   Next Obligation.
     compute. f_equal.
     extensionality i0. extensionality e.
@@ -75,9 +75,10 @@ Section CONST.
 
   Global Program Instance Const_SPF : SPFunctor Const
     := @Build_SPFunctor _ _ Const_Functor D (fun _ _ => False)
-                        (Build_NatIso _ _
+                        (Build_NatIso (Build_NatTr _ _
                                       (fun _ fx => existT _ fx (fun _ => False_rect _))
-                                      (fun _ => @projT1 _ _) _ _ _ _ _) _.
+                                      _ _ _)
+                                      (fun _ => @projT1 _ _) _ _) _.
   Next Obligation.
     compute. f_equal.
     extensionality i. extensionality x. destruct x.

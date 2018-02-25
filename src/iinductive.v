@@ -214,7 +214,7 @@ Section INDUCTIVE.
     apply mem_induction_principle. intros.
     rewrite COM1. rewrite COM2. f_equal.
     apply MAP_POINTWISE. apply H0.
-  Qed.    
+  Qed.
 
   Lemma mu_universal (P : forall (o : O), Type)
         (FIX : forall o, F o P -> P o) :
@@ -227,7 +227,20 @@ Section INDUCTIVE.
       apply fun_unique with (FIX := FIX); [apply prim_rec_red | apply EQ].
   Qed.
 
-
+  Lemma inj_preserve (T : O -> Type) (f : forall o, Mu o -> T o)
+        (FIX : forall o, F o T -> T o)
+        (INJ : forall o fx1 fx2, FIX o fx1 = FIX o fx2 -> fx1 = fx2) :
+    (forall o (fx : F o Mu), f o (Con fx) = FIX o (map f fx)) ->
+    (forall o m1 m2, f o m1 = f o m2 -> m1 = m2).
+  Proof.
+    intro COM.
+    apply (mem_induction_principle (fun o m => forall m', f o m = f o m' -> m = m')).
+    intros o1 fx INH m'. rewrite <- (eta_expand2 m'). intro EQ.
+    rewrite COM in EQ. rewrite COM in EQ. f_equal.
+    apply INJ in EQ. apply MAP_MEM_INJECTIVE in EQ. 
+    - apply EQ. 
+    - apply INH.
+  Qed.
 
 (*
 
