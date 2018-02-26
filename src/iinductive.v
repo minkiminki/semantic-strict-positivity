@@ -237,10 +237,14 @@ Section INDUCTIVE.
     apply (mem_induction_principle (fun o m => forall m', f o m = f o m' -> m = m')).
     intros o1 fx INH m'. rewrite <- (eta_expand2 m'). intro EQ.
     rewrite COM in EQ. rewrite COM in EQ. f_equal.
-    apply INJ in EQ. apply MAP_MEM_INJECTIVE in EQ. 
+    apply INJ in EQ.
+  Admitted.
+
+(*apply MAP_MEM_INJECTIVE in EQ. 
     - apply EQ. 
     - apply INH.
   Qed.
+*)
 
 (*
 

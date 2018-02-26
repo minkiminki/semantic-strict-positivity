@@ -23,11 +23,12 @@ Section CONTAINER.
   Global Program Instance Functor_Container
     : Functor Container :=
     Build_Functor _
-                  (fun X Y f fx => (sigTimply _ (fun s (fn : forall i : C, P s i -> X i)
-                                                     i p => f i (fn i p)) fx))
-                  (fun X fx i x => exists p, projT2 fx i p = x)
-                  container_rel
-                  (fun X fx => existT _ _ (fun i p => existI _ (ex_intro _ p eq_refl))).
+      (fun X Y f fx =>
+                          (sigTimply _ (fun s (fn : forall i : C, P s i -> X i)
+                                            i p => f i (fn i p)) fx))
+      (fun X fx i x => exists p, projT2 fx i p = x)
+      container_rel
+      (fun X fx => existT _ _ (fun i p => existI _ (ex_intro _ p eq_refl))).
 
   Goal True. constructor. Qed.
   
@@ -362,33 +363,7 @@ Section SPFUNCTOR_FACTS.
     f_equal. apply H0.
   Qed.    
 
-  Lemma ALLP_COMMUTE X (Pr : forall i, X i -> Prop) :
-    forall (fx : F X),
-      allP _ Pr fx <-> allP _ Pr (NT _ fx).
-  Proof.
-    split; intro ALLP.
-    - destruct ALLP as [fp EQ]. exists (NT _ fp).
-      rewrite <- MAP_COMMUTE. rewrite EQ. reflexivity.
-    - destruct ALLP as [fp EQ]. exists (NTinv _ fp).
-      apply (INJECTIVE (H1 := ISO)).
-      rewrite <- MAP_COMMUTE_R. rewrite BIJECTION2.
-      apply EQ.
-  Qed.
-
-  Lemma ALLR_COMMUTE X Y (R : forall i, X i -> Y i -> Prop) :
-    forall (fx : F X) (fy : F Y),
-      allR _ _ R fx fy <-> allR _ _ R (NT _ fx) (NT _ fy).
-  Proof.
-    split; intro ALLR.
-    - destruct ALLR as [fr [EQ1 EQ2]]. exists (NT _ fr). split.
-      + rewrite <- MAP_COMMUTE. rewrite EQ1. reflexivity.
-      + rewrite <- MAP_COMMUTE. rewrite EQ2. reflexivity.
-    - destruct ALLR as [fr [EQ1 EQ2]]. exists (NTinv _ fr).
-      split; apply (INJECTIVE (H1 := ISO)).
-      + rewrite <- MAP_COMMUTE_R. rewrite BIJECTION2. apply EQ1.
-      + rewrite <- MAP_COMMUTE_R. rewrite BIJECTION2. apply EQ2.
-  Qed.
-
+(*
   Lemma ALLP_EQ X (Pr : forall i, X i -> Prop) :
     forall (fx: F X),
       allP _ Pr fx <-> (forall i x, mem fx x -> Pr i x).
@@ -398,7 +373,7 @@ Section SPFUNCTOR_FACTS.
       apply (ALLP_EQ_C Pr (NT _ fx)). 
       + apply ALLP_COMMUTE. apply ALLP.
       + apply MEM_COMMUTE. apply MEM.
-    - intro. apply ALLP_COMMUTE.
+    - intro. apply (ALLP_COMMUTE _).
       apply ALLP_EQ_C. intros i x MEM.
       apply H0. apply MEM_COMMUTE. apply MEM.
   Qed.
@@ -410,7 +385,7 @@ Section SPFUNCTOR_FACTS.
     intro; split; intro.
     - apply REL_COMMUTE. apply ALLR_EQ_C.
       apply ALLR_COMMUTE. apply H0.
-    - apply ALLR_COMMUTE. apply ALLR_EQ_C.
+    - apply (ALLR_COMMUTE _). apply ALLR_EQ_C.
       apply REL_COMMUTE. apply H0.
   Qed.
 
@@ -425,7 +400,7 @@ Section SPFUNCTOR_FACTS.
     - intro.
       apply MEM_COMMUTE. apply MEM_EQ_C.
       intros Pr ALLP. apply H0.
-      apply ALLP_COMMUTE. apply ALLP.
+      apply (ALLP_COMMUTE _). apply ALLP.
   Qed.
 
   Lemma REL_EQ_EQ2 X (fx fy : F X) :
@@ -463,12 +438,13 @@ Section SPFUNCTOR_FACTS.
         (INJ : forall i (x : X i), mem fx x -> forall x', f i x = f i x' -> x = x')
     : forall fx', map f fx = map f fx' -> fx = fx'.
   Proof.
-    apply ALLP_EQ in INJ. apply ALLP_COMMUTE in INJ.
+    apply ALLP_EQ in INJ. apply (ALLP_COMMUTE _) in INJ.
     intros fx' EQ. apply (INJECTIVE (H1 := ISO)).
     apply (f_equal (NT Y)) in EQ.
     rewrite MAP_COMMUTE in EQ. rewrite MAP_COMMUTE in EQ.
     apply (MAP_MEM_INJECTIVE_C (proj1 (ALLP_EQ_C _ (NT X fx)) INJ) EQ).
   Qed.
+*)
 
 (* tag2? pullback? equalizer? *)
 
@@ -523,3 +499,22 @@ Section SPFUNCTOR_FACTS.
 *)
 
 End SPFUNCTOR_FACTS.
+
+(*x
+Section SIMPLE_SPF.
+
+  Variable C : Type.
+  Variable F : iType C -> Type.
+  Context `{H : Functor _ F}.
+
+  Variable S : Type.
+  Variable P : S -> C -> Type.
+
+  Variable (N : forall X, F X -> Container P X).
+  Variable (NI : forall X, Container P X -> F X).
+  Variable (COMMUTE : forall X1 X2 (f: forall i, X1 i -> X2 i) fx,
+              N (map f fx) = (map f) (N fx)).
+  Variable BIJ1 : forall X (fx : F X), NI (N fx) = fx.
+  Variable BIJ2 : forall X (gx : Container P X), N (NI gx) = gx.
+
+*)

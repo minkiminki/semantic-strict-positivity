@@ -27,7 +27,7 @@ Section IDENT.
 
   Definition Ident_Functor : Functor Ident
     := Build_Functor _ (fun _ _ f => f i) Ident_eq (fun _ _ R => @R i)
-                     (fun X fx => existI fx (Ident_eq_refl _ fx)).
+                      (fun X fx => existI fx (Ident_eq_refl _ fx)).
 
   Global Program Instance Ident_SPF : SPFunctor Ident
     := @Build_SPFunctor _ _ Ident_Functor unit (fun _ j => i = j)
@@ -70,8 +70,8 @@ Section CONST.
   Definition Const (X : C -> Type) := D.
 
   Definition Const_Functor : Functor Const
-    := Build_Functor _ (fun _ _ _ => @id D) (fun _ _ _ _ => False) (fun _ _ _ => eq)
-                     (fun _ => id).
+    := Build_Functor  _ (fun _ _ _ => @id D) (fun _ _ _ _ => False)
+                      (fun _ _ _ => eq) (fun _ => id).
 
   Global Program Instance Const_SPF : SPFunctor Const
     := @Build_SPFunctor _ _ Const_Functor D (fun _ _ => False)
@@ -250,4 +250,5 @@ Section DEPEND.
     @Dep_sum_SPF _ _ _ (fun a => @Prod_SPF _ _ _ _ (Const_SPF B ((f a) = b))).
 
 End DEPEND.
+
 

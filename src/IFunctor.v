@@ -15,49 +15,33 @@ Section IFUNCTOR.
       tag X (fx: F X) : F (sigI (@mem _ fx));
     }.
 
+(*
   Class Functor C (F: iType C -> Type) : Type :=
     {
       map {X Y: iType C} (f: forall i, X i -> Y i) : F X -> F Y;
-      mem {X} : F X -> forall {i}, X i -> Prop;
-      rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
-      tag X (fx: F X) : F (sigI (@mem _ fx));
     }.
 
-  Definition defaut_rel C (F: iType C -> Type)
-             (map' : forall (X Y: iType C) (f: forall i, X i -> Y i), F X -> F Y)
+  Class SFunctor C (F: iType C -> Type) : Type :=
+    {
+      Fnr :> Functor F;
+      mem {X} : F X -> forall {i}, X i -> Prop;
+      rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
+    }.
+*)
+
+  Definition allR C (F: iType C -> Type) `{Functor _ F}
              X Y (R : forall i, X i -> Y i -> Prop) : F X -> F Y -> Prop :=
-    fun fx fy => exists (fr : F (sig2I _ _ R)),
-        map' _ _ (proj2I1 (R := R)) fr = fx /\
-        map' _ _ (proj2I2 (R := R)) fr = fy.
-
-  Definition allP C (F: iType C -> Type) `{Functor _ F} X
-             (P : forall i, X i -> Prop) : F X -> Prop :=
-    fun fx => exists (fx' : F (sigI P)), map (projI1 (P := P)) fx' = fx.
-
-
-  Definition default_mem C 
-
-
-(forall Pr, allP _ Pr fx -> Pr i x)
-
-
-
-  Definition default_allP C (F: iType C -> Type) `{Functor _ F} X
-             (P : forall i, X i -> Prop) : F X -> Prop :=
-    fun fx => exists (fx' : F (sigI P)), map (projI1 (P := P)) fx' = fx.
-
-
-(*
-  Definition allP C (F: iType C -> Type) `{Functor _ F} X
-             (P : forall i, X i -> Prop) : F X -> Prop :=
-    fun fx => exists (fx' : F (sigI P)), map (projI1 (P := P)) fx' = fx.
-
-  Definition allR C (F: iType C -> Type) `{Functor _ F} X Y
-             (R : forall i, X i -> Y i -> Prop) : F X -> F Y -> Prop :=
     fun fx fy => exists (fr : F (sig2I _ _ R)),
         map (proj2I1 (R := R)) fr = fx /\
         map (proj2I2 (R := R)) fr = fy.
-*)
+
+  Definition allP C (F: iType C -> Type) `{Functor _ F} X
+             (P : forall i, X i -> Prop) : F X -> Prop :=
+    fun fx => exists (fx' : F (sigI P)), map (projI1 (P := P)) fx' = fx.
+
+  Definition default_mem C (F: iType C -> Type) `{Functor _ F} X
+             (fx : F X) i (x : X i) : Prop :=
+    forall Pr, allP _ Pr fx -> Pr i x.
 
   Class NatTr C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
     {
@@ -69,6 +53,25 @@ Section IFUNCTOR.
       REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop) (fx : F X) (fy : F Y),
           rel R fx fy <-> rel R (NT fx) (NT fy);
     }.
+
+(*
+  Class NatTr C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
+    {
+      NT :> forall (X: iType C), F X -> G X;
+      MAP_COMMUTE : forall X1 X2 (f: forall i, X1 i -> X2 i) fx,
+          NT (map f fx) = (map f) (NT fx);
+    }.
+
+  Class SNatTr C (F G: iType C -> Type)
+        `{FnF : SFunctor _ F} `{FnG : SFunctor _ G} : Type :=
+    {
+      NtTr :> @NatTr _ F G (@Fnr _ _ FnF) (@Fnr _ _ FnG);
+      MEM_COMMUTE : forall X i (fx: F X) (x: X i),
+          mem fx x <-> mem (NT X fx) x;
+      REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop) (fx : F X) (fy : F Y),
+          rel R fx fy <-> rel R (NT _ fx) (NT _ fy);
+    }.
+*)
 
   Class NatIso C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
     {
@@ -86,7 +89,8 @@ Section IFUNCTOR.
 
   Definition NatEmbed C (F G : iType C -> Type) `{Functor _ F} `{Functor _ G}
              (N : NatTr F G) : Prop :=
-    forall X (x1 x2 : F X), NT (NatTr:=N) x1 = NT (NatTr:=N) x2 -> x1 = x2.
+    forall X (x1 x2 : F X), NT (NatTr:=N) x1
+                            = NT (NatTr:=N) x2 -> x1 = x2.
 
   Lemma INJECTIVE C (F G: iType C -> Type) `{NatIso _ F G} (X : iType C)
         (fx fy : F X) (EQ : NT fx = NT fy) : fx = fy.
