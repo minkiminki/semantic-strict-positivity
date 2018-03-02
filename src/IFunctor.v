@@ -10,24 +10,7 @@ Section IFUNCTOR.
   Class Functor C (F: iType C -> Type) : Type :=
     {
       map {X Y: iType C} (f: forall i, X i -> Y i) : F X -> F Y;
-      mem {X} : F X -> forall {i}, X i -> Prop;
-      rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
-      tag X (fx: F X) : F (sigI (@mem _ fx));
     }.
-
-(*
-  Class Functor C (F: iType C -> Type) : Type :=
-    {
-      map {X Y: iType C} (f: forall i, X i -> Y i) : F X -> F Y;
-    }.
-
-  Class SFunctor C (F: iType C -> Type) : Type :=
-    {
-      Fnr :> Functor F;
-      mem {X} : F X -> forall {i}, X i -> Prop;
-      rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
-    }.
-*)
 
   Definition allR C (F: iType C -> Type) `{Functor _ F}
              X Y (R : forall i, X i -> Y i -> Prop) : F X -> F Y -> Prop :=
@@ -43,37 +26,40 @@ Section IFUNCTOR.
              (fx : F X) i (x : X i) : Prop :=
     forall Pr, allP _ Pr fx -> Pr i x.
 
-  Class NatTr C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
+  Class SFunctor C (F: iType C -> Type) : Type :=
+    {
+      Fn :> Functor F;
+      mem {X} : F X -> forall {i}, X i -> Prop;
+      rel {X Y} (R: forall {i}, X i -> Y i -> Prop) (fx: F X) (fy: F Y) : Prop;
+      tag X (fx: F X) : F (sigI (@mem _ fx));
+    }.
+
+  Class NatTr C (F G: iType C -> Type) `{SFunctor _ F} `{SFunctor _ G} : Type :=
     {
       NT :> forall (X: iType C), F X -> G X;
       MAP_COMMUTE : forall X1 X2 (f: forall i, X1 i -> X2 i) fx,
           NT (map f fx) = (map f) (NT fx);
       MEM_COMMUTE : forall X i (fx: F X) (x: X i),
-          mem fx x <-> mem (NT fx) x;
-      REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop) (fx : F X) (fy : F Y),
+        mem fx x <-> mem (NT fx) x;
+      REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop)
+                           (fx : F X) (fy : F Y),
           rel R fx fy <-> rel R (NT fx) (NT fy);
     }.
 
-(*
-  Class NatTr C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
-    {
-      NT :> forall (X: iType C), F X -> G X;
-      MAP_COMMUTE : forall X1 X2 (f: forall i, X1 i -> X2 i) fx,
-          NT (map f fx) = (map f) (NT fx);
-    }.
 
-  Class SNatTr C (F G: iType C -> Type)
-        `{FnF : SFunctor _ F} `{FnG : SFunctor _ G} : Type :=
+(*
+  Class SNatTr C (F G: iType C -> Type) `{SFunctor _ F} `{SFunctor _ G}
+        `{NatTr _ F G}: Type :=
     {
-      NtTr :> @NatTr _ F G (@Fnr _ _ FnF) (@Fnr _ _ FnG);
       MEM_COMMUTE : forall X i (fx: F X) (x: X i),
-          mem fx x <-> mem (NT X fx) x;
-      REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop) (fx : F X) (fy : F Y),
+        mem fx x <-> mem (NT _ fx) x;
+      REL_COMMUTE : forall X Y (R: forall i, X i -> Y i -> Prop)
+                           (fx : F X) (fy : F Y),
           rel R fx fy <-> rel R (NT _ fx) (NT _ fy);
     }.
 *)
 
-  Class NatIso C (F G: iType C -> Type) `{Functor _ F} `{Functor _ G} : Type :=
+  Class NatIso C (F G: iType C -> Type) `{SFunctor _ F} `{SFunctor _ G} : Type :=
     {
       Tr :> @NatTr C F G _ _;
       NTinv : forall (X: iType C), G X -> F X;
@@ -87,7 +73,7 @@ Section IFUNCTOR.
   Arguments NTinv {C F G H H0 NatIso X}.
   (* instances *)
 
-  Definition NatEmbed C (F G : iType C -> Type) `{Functor _ F} `{Functor _ G}
+  Definition NatEmbed C (F G : iType C -> Type) `{SFunctor _ F} `{SFunctor _ G}
              (N : NatTr F G) : Prop :=
     forall X (x1 x2 : F X), NT (NatTr:=N) x1
                             = NT (NatTr:=N) x2 -> x1 = x2.
@@ -99,7 +85,7 @@ Section IFUNCTOR.
                     (eq_trans (f_equal NTinv EQ) (BIJECTION1 _ fy))).
   Qed.
 
-  Lemma NatIso_Embed C (F G : iType C -> Type) `{Functor _ F} `{Functor _ G}
+  Lemma NatIso_Embed C (F G : iType C -> Type) `{SFunctor _ F} `{SFunctor _ G}
         (N : NatIso F G) : NatEmbed (@Tr _ _ _ _ _ N).
   Proof.
     intro X. apply INJECTIVE.
@@ -147,13 +133,13 @@ Section IFUNCTOR.
                     (@BIJECTION2 _ _ _ _ _ _)
                     (@BIJECTION1 _ _ _ _ _ _).
 
-  Definition Reflexive_NatTr C (F : iType C -> Type) `{Functor _ F} : NatTr F F
+  Definition Reflexive_NatTr C (F : iType C -> Type) `{SFunctor _ F} : NatTr F F
     := Build_NatTr _ _ (fun _ => id)
                    (fun _ _ _ _ => eq_refl)
                    (fun _ _ _ _ => iff_refl _)
                    (fun _ _ _ _ _ => iff_refl _).
 
-  Definition Reflexive_NatIso C (F : iType C -> Type) `{Functor _ F} : NatIso F F
+  Definition Reflexive_NatIso C (F : iType C -> Type) `{SFunctor _ F} : NatIso F F
     := Build_NatIso Reflexive_NatTr
                     (fun _ => id)
                     (fun _ _ => eq_refl)

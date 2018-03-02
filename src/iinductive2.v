@@ -21,21 +21,6 @@ Section INDUCTIVE.
     match m with
     | Con' _ s => s end.
 
-  Definition Des o (m : Mu o) : F o Mu := NTinv _ (Des' m).
-
-  Lemma eta_expand2 : forall o (x : Mu o), Con (Des x) = x.
-  Proof.
-    intros. unfold Des, Con. rewrite BIJECTION2.
-    destruct x. reflexivity.
-  Qed.
-
-  Lemma eta_expand1 : forall o (x : F o Mu), Des (Con x) = x.
-  Proof.
-    intros. unfold Des, Con.
-    rewrite <- BIJECTION1.
-    destruct (NT Mu x). reflexivity.
-  Qed.
-
   Definition ord : forall o1, Mu o1 -> forall o2, Mu o2 -> Prop :=
    fun o1 m1 o2 m2 => mem (Des' m2) m1.
 
@@ -47,7 +32,10 @@ Section INDUCTIVE.
     rewrite <- H0. apply ord_wf.
   Qed.
 
-  Definition ord_c := iclos_transn1 ord.
+  Inductive ord_c : forall i (x: Mu i) j (y : Mu j), Type :=
+  | itn1_step {i} (x: Mu i) {j} (y : Mu j) : ord x y -> ord_c x y
+  | itn1_trans {i} (x: Mu i) {j} (y : Mu j) {k} (z : Mu k)
+    : ord_c x y -> ord y z -> ord_c x z.
 
   Lemma ord_correct : forall o1 (m : Mu o1) o2 (fx : F o2 Mu),
       @mem O (F o2) _ Mu fx o1 m <-> ord m (Con fx).
@@ -55,28 +43,99 @@ Section INDUCTIVE.
     intros. rewrite MEM_COMMUTE. reflexivity.
   Qed.
 
-  Lemma ord_c_wf : iwell_founded ord_c.
-  Proof.
-    apply wf_iclos_trans. apply ord_wf.
-  Qed.
-
   Lemma ord_transitive o1 o2 o3 (x : Mu o1) (y : Mu o2) (z : Mu o3) :
     ord_c x y -> ord_c y z -> ord_c x z.
   Proof.
-    apply iclos_transn1_transitive.
+    intros ORD1 ORD2. revert x ORD1. induction ORD2. 
+    - intros x0 ORD. apply (itn1_trans ORD o).
+    - intros x0 ORD.
+      apply (itn1_trans (IHORD2 _ ORD) o).
+  Qed.
+
+  Definition rec_mem (T : forall o, Mu o -> Type)
+             (FIX : forall o1 (m1 : F o1 Mu), 
+                 (forall o2 (m2 : Mu o2), mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
+    forall o (m : Mu o), T o m.
+  Admitted.
+
+  Lemma rec_mem_red (T : forall o, Mu o -> Type)
+        (FIX : forall o1 (m1 : F o1 Mu), 
+            (forall o2 (m2 : Mu o2), mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
+    forall o (m : F o Mu),
+      rec_mem T FIX (Con m) = FIX _ m (fun o2 m2 _ => rec_mem T FIX m2).
+  Admitted.
+
+  Definition Des : forall o, Mu o -> F o Mu :=
+    rec_mem (fun o _ => F o Mu) (fun _ m _ => m).
+
+  Lemma eta_expand1 : forall o (x : F o Mu), Des (Con x) = x.
+  Proof.
+    intros o x. unfold Des. rewrite rec_mem_red. reflexivity.
+  Qed.
+
+  Lemma eta_expand2 : forall o (x : Mu o), Con (Des x) = x.
+  Proof.
+    apply rec_mem. intros o1 m1 IH.
+    unfold Des. rewrite rec_mem_red. reflexivity.
   Qed.
 
   Definition rec (P : forall o, Mu o -> Type)
              (FIX : forall o1 (m1 : Mu o1), 
+                 (forall o2 (m2 : Mu o2), ord m2 m1 -> P o2 m2) -> P o1 m1) :
+    forall o (m : Mu o), P o m.
+    apply rec_mem. intros o1 m1 IH. apply FIX.
+    intros o2 m2 ORD. apply IH. 
+    apply ord_correct. apply ORD.
+  Defined.
+
+  Lemma rec_red (P : forall o, Mu o -> Type)
+        (FIX : forall o1 (m1 : Mu o1), 
+            (forall o2 (m2 : Mu o2), ord m2 m1 -> P o2 m2) -> P o1 m1)
+        o (fx : F o  Mu) :
+    rec _ FIX (Con fx) = FIX _ (Con fx) (fun _ fy _ => rec _ FIX fy).
+  Proof.
+    unfold rec at 1. apply rec_mem_red.
+  Qed.
+
+  Definition rec_c' (P : forall o, Mu o -> Type)
+             (FIX : forall o1 (m1 : Mu o1), 
                  (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2 m2) -> P o1 m1) :
-    forall o (m : Mu o), P o m :=
-    iFix ord_c_wf P FIX.
+    forall o (m : Mu o),
+      P o m * (forall (o2 : O) (m2 : Mu o2), ord_c m2 m -> P o2 m2).
+    apply rec.
+    intros o1 m1 IH. split.
+    - apply FIX. intros o2 m2 ORD. destruct ORD.
+      + apply (fst (IH _ x o)).
+      + apply (snd (IH _ _ o) _ _ ORD).
+    - intros o2 m2 ORD. destruct ORD.
+      + apply (fst (IH _ x o)).
+      + apply (snd (IH _ _ o) _ _ ORD).
+  Defined.
+
+  Definition rec_c (P : forall o, Mu o -> Type)
+             (FIX : forall o1 (m1 : Mu o1), 
+                 (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2 m2) -> P o1 m1) :
+    forall o (m : Mu o), P o m.
+    intros o m. apply (fst (rec_c' _ FIX m)).
+  Defined.
+
+  Lemma rec_c_red (P : forall o, Mu o -> Type)
+        (FIX : forall o1 (m1 : Mu o1), 
+            (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2 m2) -> P o1 m1)
+        o (fx : F o  Mu) :
+    rec_c _ FIX (Con fx) = FIX _ (Con fx) (fun _ fy _ => rec_c _ FIX fy).
+  Proof.
+    unfold rec_c, rec_c' at 1. rewrite rec_red. simpl. f_equal.
+    extensionality o2. extensionality m2. extensionality ORD.
+    destruct ORD. simpl. reflexivity. 
+    simpl.
+  Admitted.
 
   Definition rec_simpl1 (P : forall o, Type)
              (FIX : forall o1 (m1 : Mu o1), 
                  (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2) -> P o1) :
     forall o, Mu o -> P o :=
-    rec _ FIX.
+    rec_c _ FIX.
 
   Definition rec_simpl2 T
              (FIX : forall o1 (m1 : Mu o1), 
@@ -84,22 +143,13 @@ Section INDUCTIVE.
     forall o, Mu o -> T :=
     rec_simpl1 _ FIX.
 
-  Lemma rec_red (P : forall o, Mu o -> Type)
-        (FIX : forall o1 (m1 : Mu o1), 
-            (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2 m2) -> P o1 m1)
-        o (fx : F o  Mu) :
-    rec _ FIX (Con fx) = FIX _ (Con fx) (fun _ fy _ => rec _ FIX fy).
-  Proof.
-    apply iFix_eq.
-  Qed.
-
   Lemma rec_simpl1_red (P : forall o, Type)
         (FIX : forall o1 (m1 : Mu o1), 
             (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2) -> P o1) 
         o (fx : F o Mu) :
     rec_simpl1 _ FIX (Con fx) = FIX _ (Con fx) (fun _ fy _ => rec_simpl1 _ FIX fy).
   Proof.
-    apply (rec_red _ FIX fx).
+    apply (rec_c_red _ FIX fx).
   Qed.
 
   Lemma rec_simpl2_red T
@@ -119,11 +169,13 @@ Section INDUCTIVE.
     apply (iFix ord_wf P FIX).
   Qed.
 
+(*
   Definition str_induction_principle (P : forall o, Mu o -> Prop)
              (FIX : forall o1 (m1 : Mu o1), 
                  (forall o2 (m2 : Mu o2), ord_c m2 m1 -> P o2 m2) -> P o1 m1) :
     forall o (m : Mu o), P o m.
   Proof.
+    
     apply (iFix ord_c_wf P FIX).
   Qed.
 
@@ -240,123 +292,6 @@ Section INDUCTIVE.
     apply INJ in EQ.
   Admitted.
 
-(*apply MAP_MEM_INJECTIVE in EQ. 
-    - apply EQ. 
-    - apply INH.
-  Qed.
-*)
-
-(*
-
-  Definition rec_mem' (T : forall o, Mu o -> Type)
-             (FIX : forall o1 m1, 
-                 (forall o2 m2, mem m1 m2 -> T o2 m2) -> T o1 (Con' o1 m1)) :
-    forall o (m : Mu o), T o m.
-    apply rec. intros o1 m1 f.
-    destruct m1. apply FIX.
-    intros o2 m2 MEM. apply f, itn1_step, MEM.
-  Defined.
-
-  Lemma rec_mem'_red (T : forall o, Mu o -> Type)
-             (FIX : forall o1 m1, 
-                 (forall o2 m2, mem m1 m2 -> T o2 m2) -> T o1 (Con' o1 m1)) :
-    forall o m,
-      rec_mem' T FIX (Con' o m) = FIX _ m (fun o2 m2 _ => rec_mem' T FIX m2).
-  Proof.  
-    intros. apply iFix_eq.
-  Qed.
-
-  (* this is the most general one!! however i'm not sure it can be proven without K *)
-
-
-  Definition rec_mem2 (T : forall o, Mu o -> Type)
-             (FIX : forall o1 (m1 : F o1 Mu), 
-                 (forall o2 m2, mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
-    forall o (m : Mu o), T o m.
-    apply rec_mem'.
-    intros. specialize (FIX _ (NTinv _ m1)).
-
-    unfold Con in FIX. rewrite BIJECTION2 in FIX. apply FIX.
-    intros. apply X0. apply MEM_COMMUTE in H0. rewrite BIJECTION2 in H0. apply H0.
-  Defined.
-
-  Lemma rec_mem_red2 (T : forall o, Mu o -> Type)
-        (FIX : forall o1 (m1 : F o1 Mu), 
-            (forall o2 (m2 : Mu o2), mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
-    forall o (m : F o Mu),
-      rec_mem2 T FIX (Con m) = FIX _ m (fun o2 m2 _ => rec_mem2 T FIX m2).
-    intros. unfold Con. unfold rec_mem2 at 1. simpl.
-    rewrite rec_mem'_red. simpl.
-    
-    set (f := fun m' : F o Mu => (fun (o2 : O) (m2 : Mu o2) (_ : mem m' m2) => rec_mem2 T FIX m2)).
-
-    assert (eq_rect (NT Mu (NTinv Mu (NT Mu m)))
-    (fun c : Container P Mu =>
-     (forall (o2 : O) (m2 : Mu o2), mem (NTinv Mu (NT Mu m)) m2 -> T o2 m2) ->
-     T o (Con' o c)) (FIX o (NTinv Mu (NT Mu m))) (NT Mu m) 
-    (BIJECTION2 Mu (NT Mu m)) (f (NTinv Mu (NT Mu m))) =
-  FIX o m (f m)); [| apply H0].
-
-    simpl. remember (BIJECTION2 Mu (NT Mu m)). 
-  Admitted.
-
-  Lemma rec_mem_lemma o1 (m1 : Mu o1) o2 (m2 : Mu o2) :
-    mem (Des m1) m2 -> ord_c m2 m1.
-  Proof.
-    intro MEM. rewrite <- eta_expand2.
-    apply itn1_step, ord_correct, MEM.
-  Qed.
-
-
-
-  Definition rec_mem (T : forall o, Mu o -> Type)
-             (FIX : forall o1 (m1 : F o1 Mu), 
-                 (forall o2 (m2 : Mu o2), mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
-    forall o (m : Mu o), T o m.
-    apply rec. intros o1 m1 f.
-
-    
-    rewrite <- eta_expand2. apply FIX. 
-
-    intros o2 m2 MEM. apply f. apply (rec_mem_lemma _ _ MEM).
-  Defined.
-
-  Lemma rec_mem_red (T : forall o, Mu o -> Type)
-        (FIX : forall o1 (m1 : F o1 Mu), 
-            (forall o2 (m2 : Mu o2), mem m1 m2 -> T o2 m2) -> T o1 (Con m1)) :
-    forall o (m : F o Mu),
-      rec_mem T FIX (Con m) = FIX _ m (fun o2 m2 _ => rec_mem T FIX m2).
-
-
-    intros. unfold rec_mem at 1. rewrite rec_red. simpl.
-    set (f := fun (m' : F o Mu) => fun (o2 : O) (m2 : Mu o2) (_ : mem m' m2) => rec_mem T FIX m2).
-    assert (eq_rect (Con (Des (Con m))) (T o)
-                    (FIX o (Des (Con m)) (f (Des (Con m)))) (Con m) (eta_expand2 (Con m)) =
-            FIX o m (f m)).
-    - remember (eta_expand2 (Con m)).
-
-      
-      assert (m' : Mu o). admit.
-      assert (Des m' = m). admit.
-      destruct H0. simpl. 
-
-      admit.
-
-  Definition Des2 : forall o, Mu o -> F o Mu :=
-    rec_mem (fun o _ => F o Mu) (fun _ m _ => m). 
-
-  Goal True. apply I. Qed.
-
-  Lemma Des2_eta1 : forall o (x : Mu o), Con (Des2 x) = x.
-  Proof.
-    apply rec_mem. intros o1 m1 FIX.
-    unfold Des2. rewrite rec_mem_red. reflexivity.
-  Qed.
-
-  Lemma Des2_eta2 : forall o (fx : F o Mu), Des2 (Con fx) = fx.
-  Proof.
-    intros. unfold Des2. rewrite rec_mem_red. reflexivity. 
-  Qed.
 *)
 
 End INDUCTIVE.
