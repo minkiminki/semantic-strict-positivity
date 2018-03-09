@@ -36,8 +36,6 @@ Section PAIN.
     forall o, pa_Mu B o -> A o :=
     fun o (m : pa_Mu B o) => FIX o (painup A FIX m).
 
-  Goal True. apply I. Qed.
-
   Definition value (R : O -> Type) : forall o, pa_Mu R o -> Mu F o :=
     prim_rec (Mu F)
              (fun o (fx : F o (Mu F /+\ R)) => Con F o (map (fun _ => fst) fx)).
@@ -103,6 +101,37 @@ Section PAIN.
              (map (fun i x => (painup A FIX (fst x), (parec A FIX (fst x), (snd x)))) m)).
   Proof.
     unfold parec at 1. f_equal. apply painup_red.
+  Qed.
+
+  Definition painup_top (A : O -> Type)
+             (FIX : forall o, pa_Mu A o -> A o) :
+    forall o, Mu F o -> pa_Mu A o :=
+    prim_rec (F:=F) (pa_Mu A)
+             (fun o fx =>
+                Con (fun o0 => Comp (fun o1 => Prod (Ident o1) (Const (A o1))) (F o0)) o
+                    (map (fun o1 x => (x, FIX o1 x)) fx)).
+
+  Definition parec_top (A : O -> Type) (FIX : forall o, pa_Mu A o -> A o) :
+    forall o, Mu F o -> A o :=
+    fun o fx => FIX _ (painup_top FIX fx).
+
+  Lemma painup_top_red A (FIX : forall o, pa_Mu A o -> A o)
+        o (m : F o (Mu F)) :
+    painup_top FIX (Con _ o m) =
+    Con (fun o0 => Comp (fun o1 => Prod (Ident o1) (Const (A o1))) (F o0)) o
+        (map (fun i x => (painup_top FIX x, parec_top FIX x)) m).
+  Proof.
+    unfold painup_top. rewrite prim_rec_red. rewrite MAP_COMPOSE.
+    reflexivity.
+  Qed.
+
+  Lemma parec_top_red A (FIX : forall o, pa_Mu A o -> A o)
+        o m :
+    parec_top FIX (Con _ o m) =
+    FIX o (Con (fun o0 => Comp (fun o1 => Prod (Ident o1) (Const (A o1))) (F o0)) o
+               (map (fun i x => (painup_top FIX x, parec_top FIX x)) m)).
+  Proof.
+    unfold parec_top at 1. f_equal. apply painup_top_red.
   Qed.
 
 End PAIN.

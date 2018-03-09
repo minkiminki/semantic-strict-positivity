@@ -6,8 +6,8 @@ Set Implicit Arguments.
 
 Require Import index wf IFunctor ISPFunctor hott iso container_combinator.
 
-Arguments S {C} F {SPFunctor}.
-Arguments P {C} F {SPFunctor}.
+Arguments shape {C} F {SPFunctor}.
+Arguments degree {C} F {SPFunctor}.
 Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 Arguments ISO {C F} SPFunctor.
@@ -25,8 +25,8 @@ Section IDENT.
     forall i, X i -> Prop :=
   | Ident_eq_refl : Ident_eq X x i x.
 
-  Definition Ident_Functor : Functor Ident
-    := Build_Functor _ (fun _ _ f => f i) Ident_eq (fun _ _ R => @R i)
+  Definition Ident_Functor : SFunctor Ident
+    := Build_SFunctor (Build_Functor _ (fun _ _ f => f i)) Ident_eq (fun _ _ R => @R i)
                       (fun X fx => existI fx (Ident_eq_refl _ fx)).
 
   Global Program Instance Ident_SPF : SPFunctor Ident
@@ -69,8 +69,8 @@ Section CONST.
 
   Definition Const (X : C -> Type) := D.
 
-  Definition Const_Functor : Functor Const
-    := Build_Functor  _ (fun _ _ _ => @id D) (fun _ _ _ _ => False)
+  Definition Const_Functor : SFunctor Const
+    := Build_SFunctor  (Build_Functor _ (fun _ _ _ => @id D)) (fun _ _ _ _ => False)
                       (fun _ _ _ => eq) (fun _ => id).
 
   Global Program Instance Const_SPF : SPFunctor Const
@@ -113,7 +113,7 @@ Section PROD.
     @Build_SPFunctor _ _ (@Prod_Functor _ F G Fn Fn) _ _
                      (Transitive_NatIso
                         (@Prod_Iso _ _ _ _ _ _ _ _ _ (ISO SPF_F) (ISO SPF_G))
-                        (Prod_Container (P F) (P G))) _.
+                        (Prod_Container (degree F) (degree G))) _.
   Next Obligation.
     rewrite surjective_pairing.
     f_equal; rewrite MAP_COMPOSE; apply TAG.
@@ -132,7 +132,7 @@ Section COPROD.
     @Build_SPFunctor _ _ (@Coprod_Functor _ F G Fn Fn) _ _
                      (Transitive_NatIso
                         (@Coprod_Iso _ _ _ _ _ _ _ _ _ (ISO SPF_F) (ISO SPF_G))
-                        (Coprod_Container (P F) (P G))) _.
+                        (Coprod_Container (degree F) (degree G))) _.
   Next Obligation.
     destruct fx; f_equal; apply TAG.
   Qed.
@@ -149,7 +149,7 @@ Section DEP_FUN.
     @Build_SPFunctor _ _ (@Dep_fun_Functor _ _ B (fun a => Fn)) _ _
                      (Transitive_NatIso
                         (@Dep_Fun_Iso _ _ _ _ _ _ (fun a => ISO (SPF_F a)))
-                        (Dep_Fun_Container _ (fun a : A => P (B a))))_.
+                        (Dep_Fun_Container _ (fun a : A => degree (B a))))_.
   Next Obligation.
     extensionality a. rewrite MAP_COMPOSE. apply TAG.
   Qed.
@@ -166,7 +166,7 @@ Section DEP_SUM.
     @Build_SPFunctor _ _ (@Dep_sum_Functor _ _ B (fun a => Fn)) _ _
                      (Transitive_NatIso
                         (@Dep_sum_Iso _ _ _ _ _ _ (fun a => ISO (SPF_F a)))
-                        (Dep_Sum_Container _ (fun a : A => P (B a))))_.
+                        (Dep_Sum_Container _ (fun a : A => degree (B a))))_.
   Next Obligation.
     rewrite sigT_eta. f_equal. apply TAG.
   Qed.
@@ -186,9 +186,9 @@ Section COMP.
     @Build_SPFunctor _ _ (@Comp_Functor _ _ _ _ Fn (fun i => Fn)) _ _ 
                      (Transitive_NatIso (Transitive_NatIso
                                            (@Comp_Iso1 _ _ F1 _ _ _ _ _ (ISO SPF_F2))
-                                           (@Comp_Iso2 _ _ F1 _ _ (P F2) _ _
+                                           (@Comp_Iso2 _ _ F1 _ _ (degree F2) _ _
                                                        (fun i => ISO (SPF_F1 i))))
-                                        (Comp_Container _ (fun i => P (F1 i)) (P F2))) _.
+                                        (Comp_Container _ (fun i => degree (F1 i)) (degree F2))) _.
   Next Obligation.
     repeat rewrite MAP_COMPOSE. unfold Comp in *.
     rewrite <- TAG. f_equal.
@@ -206,9 +206,7 @@ Section EXPN.
 
   Definition Expn (X : C -> Type) := (D -> F X).
 
-  Definition Expn_Functor : Functor Expn := Dep_fun_Functor (fun d : D => F).
-
-  Definition Expn_SPF : SPFunctor Expn := Dep_fun_SPF (fun d : D => F).
+  Global Instance Expn_SPF : SPFunctor Expn := Dep_fun_SPF (fun d : D => F).
 
 End EXPN.
 
@@ -226,7 +224,7 @@ Section SUBST.
                                | inr c => @Ident C c
                                end) F).
 
-  Definition Subst_SPFunctor : SPFunctor Subst := 
+  Global Instance Subst_SPFunctor : SPFunctor Subst := 
     @Comp_SPF _ _ _ _ _
               (fun i : C0 + C =>
                  match i with
@@ -246,7 +244,7 @@ Section DEPEND.
   Definition Depend (b : B) (X : B -> Type) :=
     sigT (fun a : A => ((F a X) * (f a = b))%type).
 
-  Definition Depend_SPFunctor (b : B) : SPFunctor (Depend b) :=
+  Global Instance Depend_SPFunctor (b : B) : SPFunctor (Depend b) :=
     @Dep_sum_SPF _ _ _ (fun a => @Prod_SPF _ _ _ _ (Const_SPF B ((f a) = b))).
 
 End DEPEND.

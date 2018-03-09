@@ -148,7 +148,7 @@ Section IFUNCTOR.
   Goal True. apply I. Qed.
 
   Program Definition Transitive_NatTr C (F G H: iType C -> Type)
-          `{FnF : Functor _ F} `{FnG : Functor _ G} `{FnH : Functor _ H}
+          `{FnF : SFunctor _ F} `{FnG : SFunctor _ G} `{FnH : SFunctor _ H}
           `{@NatTr _ _ _ FnF FnG} `{@NatTr _ _ _ FnG FnH}: NatTr F H
     := Build_NatTr _ _ (fun _ fx => NT (NT fx)) _ _ _.
   Next Obligation.
@@ -164,7 +164,7 @@ Section IFUNCTOR.
   Qed.
 
   Program Definition Transitive_NatIso C (F G H: iType C -> Type)
-          `{FnF : Functor _ F} `{FnG : Functor _ G} `{FnH : Functor _ H}
+          `{FnF : SFunctor _ F} `{FnG : SFunctor _ G} `{FnH : SFunctor _ H}
           `{@NatIso _ _ _ FnF FnG} `{@NatIso _ _ _ FnG FnH}: NatIso F H
     := Build_NatIso Transitive_NatTr (fun _ hx => NTinv (NTinv hx)) _ _.
   Next Obligation.

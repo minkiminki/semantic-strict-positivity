@@ -3,71 +3,111 @@ Require Import Program.
 Require Import JMeq.
 
 Set Implicit Arguments.
-(*
-Require Import index wf IFunctor ISPFunctor iinductive hott.
 
-Section Mu.
+Require Import index wf IFunctor ISPFunctor iinductive hott iso icombinator1
+        icoinductive.
+
+Section MU.
 
   Variable A B : Type.
-  Variable (F : (A -> Type) -> B -> (B -> Type)-> Type).
+  Variable (F : B -> (A + B -> Type)-> Type).
 
-  Context `{SPF1 : forall b X, SPFunctor (F X b)}.
-  Context `{SPF2 : forall b Y, SPFunctor (fun X => F X b Y)}.
+  Context `{SPF : forall b, SPFunctor (F b)}.
 
-  Arguments map {C F} Functor {X Y} f x.
-  Arguments Fn {C F} SPFunctor.
-
-  Definition bimap b X1 X2 Y1 Y2 (f : forall a, X1 a -> X2 a)
-             (g : forall b0, Y1 b0 -> Y2 b0) : F X1 b Y1 -> F X2 b Y2 :=
-    fun fx => map (Fn (SPF1 b X2)) g (map (Fn (SPF2 b Y1)) f fx).
-
-  Definition mu b (X : A -> Type) := Mu (F X) b.
+  Definition mu b (X : A -> Type) : Type := Mu (fun b => Subst (F b) X) b.
   
-  Goal True. apply I. Qed.
-  
-  Program Definition mu_Functor b : Functor (mu b)
-    := Build_Functor _ _ _ _ _.
-  Next Obligation.
-    revert b X0. apply prim_rec.
-    intros o fx.
-    apply Con. apply (map (Fn (SPF2 _ _)) f fx). Show Proof.
+  Definition mu_map X Y (f : forall a, X a -> Y a) : forall b, mu b X -> mu b Y :=
+    prim_rec (F:=fun b : B => Subst (F b) X) (fun o => mu o Y)
+             (fun b (fx : Subst (F b) X (fun o : B => mu o Y)) =>
+                Con (fun b0 : B => Subst (F b0) Y) b
+                    (map
+                       (fun i : A + B =>
+                          match
+                            i as s
+                            return
+                            (match s with
+                             | inl c0 => fun _ : B -> Type => X c0
+                             | inr c => fun X0 : B -> Type => X0 c
+                             end (fun o : B => mu o Y) ->
+                             match s with
+                             | inl c0 => fun _ : B -> Type => Y c0
+                             | inr c => fun X0 : B -> Type => X0 c
+                             end
+                               (Mu
+                                  (fun (b0 : B) (X0 : B -> Type) =>
+                                     F b0
+                                       (fun i0 : A + B =>
+                                          match i0 with
+                                          | inl c0 => fun _ : B -> Type => Y c0
+                                          | inr c => fun X1 : B -> Type => X1 c
+                                          end X0))))
+                          with
+                          | inl a => f a
+                          | inr b0 => id
+                          end) fx)).
+
+  Definition mu_mem X : forall b, mu b X -> forall a, X a -> Prop.
+    apply (@simple_rec _ _ _ (forall a : A, X a -> Prop)).
+    intros b fx.
+    unfold Subst, Comp, Const, Ident in fx. simpl in *.
+
+    intros a x. apply or.
+    - apply (@mem _ _ _ _ fx (inl a) x).
+    - apply (@ex B). intro b'.
+      apply (@ex (forall a : A, X a -> Prop)). intro MEM. apply and.
+      + apply (@mem _ _ _ _ fx (inr b') MEM).
+      + apply (MEM a x).
   Defined.
-  Next Obligation.
-    revert b X0 i X1.
-    apply (@simple_rec _ (F X) _ (forall i : A, X i -> Prop)). intros o fx i x.
-    apply or.
-    - apply (mem fx x).
-    - apply (exists j (p : forall i : A, X i -> Prop), mem fx p (i := j) /\ p i x).
-  Defined.  
-  Next Obligation.
-    revert b fx fy. apply (@prim_rec _ (F X) _ (fun b => Mu (F Y) b -> Prop)).
-    intros o fx m.
 
-    apply Des in m.
-  Admitted.
-  Next Obligation.
-    revert b fx. apply rec. intros o1 m1 FIX.
+  Definition mu_rel X Y (R : forall a, X a -> Y a -> Prop) :
+    forall b, mu b X -> mu b Y -> Prop.
+    apply (prim_rec (fun b => mu b Y -> Prop)).
+    intros b fx my. 
+    unfold Subst, Comp, Const, Ident in *. simpl in *.
+    eapply (rel _ fx (Des my)). Unshelve.
 
-    unfold mu. apply Con.
-    
-    set (Des_ord m1).
+    intro i. destruct i.
+    - apply (R a).
+    - intros r m. apply (r m).
+  Defined.
 
-    set (tag X f). simpl in *.
-    eapply (bimap _ _ _ _ y). Unshelve.
+  Definition mu_tag X : forall b, forall (m : mu b X), mu b (sigI (mu_mem m)).
+  Proof.
+    apply rec.
+    intros o1 m1 FIX. apply Con.
 
-    - intros a x. apply (existI (projI1 x)). 
-      unfold mu_Functor_obligation_2. simpl.
-      set (projI2 x). 
+    set (Des m1). unfold Subst, Comp, Const, Ident in s.
+    set (tag _ s).
 
+    eapply (map _ f). Unshelve. simpl. unfold s. clear s f.
 
+    intro i. destruct i.
+    - unfold Subst, Comp, Const, Ident. 
 
+      intro fx. destruct fx as [[fa | fb] p].
+      + rewrite <- (eta_expand2 m1). unfold mu_mem.
+        rewrite simple_rec_red. giveup.
+      + giveup.
+    - giveup.
+  Qed.
 
-apply (existI x). sigI
-    
+  Global Instance mu_SPFunctor b : SPFunctor (mu b).
+    giveup.
+  Qed.
 
-    unfold mu_Functor_obligation_2, mu. simpl.
+End MU.
 
-  Definition mu_map b (X Y : A ->
+Section NU.
+
+  Variable A B : Type.
+  Variable (F : B -> (A + B -> Type)-> Type).
+
+  Context `{SPF : forall b, SPFunctor (F b)}.
+
+  Definition nu b (X : A -> Type) : Type := Nu (fun b => Subst (F b) X) b.
   
+  Global Instance nu_SPFunctor b : SPFunctor (nu b).
+    giveup.
+  Qed.
 
-*)
+End NU.

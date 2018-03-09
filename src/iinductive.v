@@ -13,11 +13,11 @@ Section INDUCTIVE.
   Context `{H : forall c, SPFunctor (F c)}.
   
   Inductive Mu o : Type :=
-  | Con' : Container (@P _ _ (H o)) Mu -> Mu o.
+  | Con' : Container (@degree _ _ (H o)) Mu -> Mu o.
 
   Definition Con o (fx : F o Mu) : Mu o := Con' o (NT _ fx).
 
-  Definition Des' o (m : Mu o) : Container (@P _ _ (H o)) Mu :=
+  Definition Des' o (m : Mu o) : Container (@degree _ _ (H o)) Mu :=
     match m with
     | Con' _ s => s end.
 

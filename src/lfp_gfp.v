@@ -5,7 +5,8 @@ Require Import paco.
 Set Implicit Arguments.
 Set Primitive Projections.
 
-Require Import index wf IFunctor ISPFunctor icoinductive iso iinductive icoinductive.
+Require Import index wf IFunctor ISPFunctor icoinductive iso
+        iinductive icoinductive icombinator1 pafix pacofix.
 
 Section LFP_GFP.
 
@@ -133,3 +134,168 @@ Section FP_ISO.
   Qed.
 
 End FP_ISO.
+
+Section SPF_SQUARE.
+
+  Variable O : Type.
+  Variable F : O -> (O -> Type) -> Type.
+
+  Context `{H : forall c, SPFunctor (F c)}.
+
+  Definition square : O -> Type := Mu (fun o => Comp F (F o)).
+
+  Definition square_fn1 : forall o, square o -> Mu F o :=
+    prim_rec (F:=fun o : O => Comp F (F o)) (Mu F)
+             (fun (o : O) (fx : Comp F (F o) (Mu F)) => Con F o (map (Con F) fx)).
+
+  Definition square_fn2 : forall o, Mu F o -> square o :=
+    parec_top
+      (fun o fx => Con (fun o0 => Comp F (F o0)) _
+                       (map (F:=F o) (fun i x => (map (F:= F i) (fun i0 m => snd m)
+                                                      (Des (fst x)))) (Des fx))).
+
+  Goal True. apply I. Qed.
+
+
+  Lemma square_bij2 : forall o (m : Mu (fun o0 => Comp F (F o0)) o),
+      square_fn2 (square_fn1 m) = m.
+  Proof.
+    apply fun_unique with (FIX := Con _).
+    - intros o fx.
+      unfold square_fn1 at 1. rewrite prim_rec_red. simpl. rewrite MAP_COMPOSE.
+      fold square_fn1. unfold square_fn2 at 1.
+      rewrite parec_top_red. f_equal.
+      fold square_fn2. rewrite MAP_COMPOSE. rewrite eta_expand1.
+      rewrite MAP_COMPOSE. simpl. f_equal.
+      extensionality i. extensionality x.
+      rewrite painup_top_red. simpl. rewrite eta_expand1.
+      simpl. fold square_fn1. fold square_fn2.
+      rewrite MAP_COMPOSE. rewrite MAP_COMPOSE. simpl.
+      reflexivity.
+    - intros o fx. f_equal. symmetry. apply MAP_ID.
+  Qed.
+
+(*
+  Lemma square_bij1 : forall o (m : Mu F o), square_fn1 (square_fn2 m) = m.
+  Proof.
+    apply mem_induction_principle.
+    intros o fx IH.
+    
+
+    unfold square_fn2 at 1. rewrite parec_top_red.
+    fold square_fn2. rewrite eta_expand1. rewrite MAP_COMPOSE.
+    unfold square_fn1 at 1. rewrite prim_rec_red. simpl.
+    fold square_fn1. rewrite MAP_COMPOSE. simpl. rewrite MAP_COMPOSE.
+    f_equal.
+
+    simpl. pattern fx at 2. rewrite <- (MAP_ID _ fx).
+
+    apply MAP_POINTWISE. intros i x MEM.
+
+    rewrite MAP_COMPOSE. simpl.
+      
+    pattern x at 1. rewrite <- (eta_expand2 x). rewrite painup_top_red.
+    simpl. fold square_fn2. rewrite eta_expand1. rewrite MAP_COMPOSE.
+    simpl. specialize (IH _ _ MEM). 
+
+
+  Lemma square_bij1 : forall o (m : Mu F o), square_fn1 (square_fn2 m) = m.
+  Proof.
+    apply fun_unique with (FIX := Con _).
+    - intros o fx. unfold square_fn2 at 1. rewrite parec_top_red.
+      fold square_fn2. rewrite eta_expand1. rewrite MAP_COMPOSE.
+      unfold square_fn1 at 1. rewrite prim_rec_red. simpl.
+      fold square_fn1. rewrite MAP_COMPOSE. simpl. rewrite MAP_COMPOSE.
+      f_equal.
+
+      simpl. 
+
+      f_equal.
+
+      extensionality i. extensionality x. rewrite MAP_COMPOSE. simpl.
+      
+      pattern x at 1. rewrite <- (eta_expand2 x). rewrite painup_top_red.
+      simpl. fold square_fn2. rewrite eta_expand1. rewrite MAP_COMPOSE.
+      simpl.
+
+
+      rewrite parec_top_red. fold square_fn2. rewrite eta_expand1.
+      rewrite MAP_COMPOSE. 
+
+    - intros o fx. f_equal. symmetry. apply MAP_ID.
+
+
+    apply mem_induction_principle.
+    intros o1 fx IH.
+
+
+
+    unfold square_fn2 at 1. rewrite parec_top_red.
+    fold square_fn2. simpl. rewrite eta_expand1. simpl.
+    rewrite MAP_COMPOSE. simpl.
+
+unfold square_fn1 at 1. rewrite prim_rec_red.
+
+    repeat rewrite MAP_COMPOSE.
+    rewrite eta_expand1. simpl. repeat rewrite MAP_COMPOSE. simpl. 
+    f_equal. pattern fx at 2. rewrite <- (MAP_ID _ fx). apply MAP_POINTWISE.
+
+    intros o2 m MEM.
+
+    simpl. rewrite MAP_COMPOSE.
+    fold square_fn1. pattern m at 1. rewrite <- (eta_expand2 m).
+    rewrite painup_top_red. fold square_fn2. fold square_fn1. rewrite eta_expand1.
+    rewrite MAP_COMPOSE. 
+    set square_fn2. unfold square_fn2 in s. unfold parec_top in s.
+
+fold square_fn2. 
+
+    apply fun_unique with (FIX := Con _).
+    - intros o fx. rewrite <- (eta_expand1 _ _ fx).
+      rem
+ 
+apply mem_induction_principle.
+      
+      intros o fx. unfold square_fn2 at 1. simpl. rewrite parec_top_red. simpl.
+      fold square_fn2. unfold square_fn1 at 1. rewrite prim_rec_red.
+
+      simpl. repeat rewrite MAP_COMPOSE.
+      rewrite eta_expand1. rewrite MAP_COMPOSE. simpl. 
+      f_equal. 
+
+      f_equal.
+
+
+      extensionality i. extensionality x. fold square_fn1. fold square_fn2.
+      rewrite MAP_COMPOSE. 
+
+      pattern x at 1. rewrite <- (eta_expand2 x).
+      rewrite painup_top_red. simpl. rewrite eta_expand1. simpl.
+      rewrite MAP_COMPOSE. simpl.
+      fold square_fn2.
+
+
+
+      f_equal. simpl. repeat rewrite MAP_COMPOSE.
+      rewrite eta_expand1. rewrite MAP_COMPOSE. simpl. 
+      f_equal. extensionality i. extensionality x. fold square_fn1. fold square_fn2.
+      rewrite MAP_COMPOSE. 
+
+      pattern x at 1. rewrite <- (eta_expand2 x).
+      rewrite painup_top_red. simpl. rewrite eta_expand1. simpl.
+      rewrite MAP_COMPOSE. simpl.
+      fold square_fn2.
+
+      
+
+rewrite MAP_COMPOSE.
+      rewrite painup_top_red.
+ fold square_fn2.
+
+
+admit.
+    - intros o fx. f_equal. symmetry. apply MAP_ID. 
+    
+*)
+
+End SPF_SQUARE.

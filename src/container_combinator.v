@@ -6,8 +6,8 @@ Set Implicit Arguments.
 
 Require Import index wf IFunctor ISPFunctor hott iso.
 
-Arguments S {C} F {SPFunctor}.
-Arguments P {C} F {SPFunctor}.
+Arguments shape {C} F {SPFunctor}.
+Arguments degree {C} F {SPFunctor}.
 Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 

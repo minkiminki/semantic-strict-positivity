@@ -113,4 +113,40 @@ Section PACO.
     unfold pacorec at 1. apply pacodown_red.
   Qed.
 
+  Definition pacodown_bot (A : O -> Type) (FIX : forall o, A o -> pa_Nu A o) :
+    forall o, pa_Nu A o -> Nu F o :=
+    corec F (pa_Nu A) (fun o fx => map (fun i x =>
+                                          match x with
+                                          | inl n => n
+                                          | inr a => FIX i a
+                                          end) (cDes fx)).
+
+  Definition pacorec_bot (A : O -> Type) (FIX : forall o, A o -> pa_Nu A o) :
+    forall o, A o -> Nu F o :=
+    fun o fx => pacodown_bot FIX (FIX o fx).
+
+  Lemma pacodown_bot_red A (FIX : forall o, A o -> pa_Nu A o)
+        o (fx : pa_Nu A o) :
+    cDes (pacodown_bot FIX fx) =
+    map (fun i x => match x with
+                    | inl n => pacodown_bot FIX n
+                    | inr a => pacorec_bot FIX i a
+                    end) (cDes fx).
+  Proof.
+    unfold pacodown_bot at 1. rewrite corec_red. rewrite MAP_COMPOSE.
+    f_equal. extensionality i. extensionality x.
+    destruct x as [x | a]; reflexivity.
+  Qed.
+
+  Lemma pacorec_bot_red A (FIX : forall o, A o -> pa_Nu A o)
+        o (a : A o) :
+    cDes (pacorec_bot FIX _ a) =
+    map (fun i x => match x with
+                    | inl n => pacodown_bot FIX n
+                    | inr a => pacorec_bot FIX i a
+                    end) (cDes (FIX o a)).
+  Proof.
+    unfold pacorec_bot at 1. apply pacodown_bot_red.
+  Qed.
+
 End PACO.

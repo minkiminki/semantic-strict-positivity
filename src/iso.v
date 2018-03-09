@@ -6,8 +6,8 @@ Set Implicit Arguments.
 
 Require Import index wf IFunctor ISPFunctor hott.
 
-Arguments S {C} F {SPFunctor}.
-Arguments P {C} F {SPFunctor}.
+Arguments shape {C} F {SPFunctor}.
+Arguments degree {C} F {SPFunctor}.
 Arguments NT {C F G H H0} NatTr {X} f.
 Arguments NTinv {C F G H H0} NatIso {X} f.
 
@@ -18,14 +18,14 @@ Section DEP_FUN.
 
   Variable C A : Type.
   Variable (B: A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B a)}.
+  Context `{forall (a : A), SFunctor (B a)}.
 
   Definition Dep_fun (X : C -> Type) := forall a, B a X.
 
-  Program Definition Dep_fun_Functor : Functor Dep_fun
-    := Build_Functor
-         Dep_fun
-         (fun _ _ f fx a => map f (fx a)) 
+  Program Definition Dep_fun_Functor : SFunctor Dep_fun
+    := Build_SFunctor
+         (Build_Functor _
+         (fun _ _ f fx a => map f (fx a)))
          (fun _ fx _ x => ex (fun a => mem (fx a) x))
          (fun _ _ R fx fy => forall (a : A), rel R (fx a) (fy a))
          (fun _ fx =>
@@ -38,8 +38,8 @@ Section DEP_FUN_TR.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B1 a)}.
-  Context `{forall (a : A), Functor (B2 a)}.
+  Context `{forall (a : A), SFunctor (B1 a)}.
+  Context `{forall (a : A), SFunctor (B2 a)}.
 
   Context `{forall (a : A), @NatTr _ (B1 a) (B2 a) _ _}.
 
@@ -65,8 +65,8 @@ Section DEP_FUN_ISO.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B1 a)}.
-  Context `{forall (a : A), Functor (B2 a)}.
+  Context `{forall (a : A), SFunctor (B1 a)}.
+  Context `{forall (a : A), SFunctor (B2 a)}.
 
   Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
 
@@ -90,19 +90,19 @@ Section COMP.
   Variable F1 : C2 -> (C1 -> Type) -> Type.
   Variable F2 : (C2 -> Type) -> Type.
 
-  Context `{Functor _ F2}.
-  Context `{forall (i : C2), Functor (F1 i)}.
+  Context `{SFunctor _ F2}.
+  Context `{forall (i : C2), SFunctor (F1 i)}.
 
   Arguments map {C} F {Functor X Y}.
-  Arguments mem {C} F {Functor X} f {i} x.
-  Arguments rel {C} F {Functor X Y} R fx fy.
+  Arguments mem {C} F {SFunctor X} f {i} x.
+  Arguments rel {C} F {SFunctor X Y} R fx fy.
 
   Definition Comp (X : C1 -> Type) := F2 (fun (i : C2) => F1 i X).
 
-  Program Definition Comp_Functor : Functor Comp
-    := Build_Functor
-         Comp
-         (fun _ _ f => map F2 (fun i x => map (F1 i) f x))
+  Program Definition Comp_Functor : SFunctor Comp
+    := Build_SFunctor
+         (Build_Functor _
+         (fun _ _ f => map F2 (fun i x => map (F1 i) f x)))
          (fun X fxx i x => exists (j : C2) (fx : F1 j X),
               mem F2 fxx fx /\ mem (F1 j) fx x)
          (fun X Y R => rel F2 (fun (i : C2) => rel (F1 i) R))
@@ -122,13 +122,13 @@ Section COMP_TR1.
   Variable F1 : C2 -> (C1 -> Type) -> Type.
   Variable F2 F2' : (C2 -> Type) -> Type.
 
-  Context `{Functor _ F2}.
-  Context `{Functor _ F2'}.
-  Context `{forall (i : C2), Functor (F1 i)}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ F2'}.
+  Context `{forall (i : C2), SFunctor (F1 i)}.
 
   Arguments map {C} F {Functor X Y}.
-  Arguments mem {C} F {Functor X} f {i} x.
-  Arguments rel {C} F {Functor X Y} R fx fy.
+  Arguments mem {C} F {SFunctor X} f {i} x.
+  Arguments rel {C} F {SFunctor X Y} R fx fy.
   
   Context `{@NatTr _ F2 F2' _ _}.
 
@@ -152,13 +152,13 @@ Section COMP_ISO1.
   Variable F1 : C2 -> (C1 -> Type) -> Type.
   Variable F2 F2' : (C2 -> Type) -> Type.
 
-  Context `{Functor _ F2}.
-  Context `{Functor _ F2'}.
-  Context `{forall (i : C2), Functor (F1 i)}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ F2'}.
+  Context `{forall (i : C2), SFunctor (F1 i)}.
 
   Arguments map {C} F {Functor X Y}.
-  Arguments mem {C} F {Functor X} f {i} x.
-  Arguments rel {C} F {Functor X Y} R fx fy.
+  Arguments mem {C} F {SFunctor X} f {i} x.
+  Arguments rel {C} F {SFunctor X Y} R fx fy.
   
   Context `{@NatIso _ F2 F2' _ _}.
 
@@ -178,12 +178,12 @@ Section COMP_TR2.
   Variable CS : Type.
   Variable CP : CS -> C2 -> Type.
 
-  Context `{forall (i : C2), Functor (F1 i)}.
-  Context `{forall (i : C2), Functor (F1' i)}.
+  Context `{forall (i : C2), SFunctor (F1 i)}.
+  Context `{forall (i : C2), SFunctor (F1' i)}.
 
   Arguments map {C} F {Functor X Y}.
-  Arguments mem {C} F {Functor X} f {i} x.
-  Arguments rel {C} F {Functor X Y} R fx fy.
+  Arguments mem {C} F {SFunctor X} f {i} x.
+  Arguments rel {C} F {SFunctor X Y} R fx fy.
   
   Context `{forall (i : C2), @NatTr _ (F1 i) (F1' i) _ _}.
 
@@ -229,12 +229,12 @@ Section COMP_ISO2.
   Variable CS : Type.
   Variable CP : CS -> C2 -> Type.
 
-  Context `{forall (i : C2), Functor (F1 i)}.
-  Context `{forall (i : C2), Functor (F1' i)}.
+  Context `{forall (i : C2), SFunctor (F1 i)}.
+  Context `{forall (i : C2), SFunctor (F1' i)}.
 
   Arguments map {C} F {Functor X Y}.
-  Arguments mem {C} F {Functor X} f {i} x.
-  Arguments rel {C} F {Functor X Y} R fx fy.
+  Arguments mem {C} F {SFunctor X} f {i} x.
+  Arguments rel {C} F {SFunctor X Y} R fx fy.
   
   Context `{forall (i : C2), @NatIso _ (F1 i) (F1' i) _ _}.
 
@@ -261,8 +261,8 @@ Section COPROD.
 
   Variable C : Type.
   Variable (F G : (C -> Type) -> Type).
-  Context `{Functor _ F}.
-  Context `{Functor _ G}.
+  Context `{SFunctor _ F}.
+  Context `{SFunctor _ G}.
 
   Definition Coprod (X : C -> Type) := (F X + G X)%type.
 
@@ -272,10 +272,10 @@ Section COPROD.
   | coprod_rel_inr gx gy (REL : rel R gx gy) : Coprod_rel R (inr gx) (inr gy)
   .
 
-  Program Definition Coprod_Functor : Functor Coprod
-    := Build_Functor _ (fun X Y f x => match x return Coprod Y with
+  Program Definition Coprod_Functor : SFunctor Coprod
+    := Build_SFunctor (Build_Functor _ (fun X Y f x => match x return Coprod Y with
                                        | inl fx => inl (map f fx)
-                                       | inr gx => inr (map f gx) end)
+                                       | inr gx => inr (map f gx) end))
                      (fun X x => match x return (forall i, X i -> Prop) with
                                  | inl fx => @mem _ _ _ _ fx
                                  | inr gx => @mem _ _ _ _ gx end)
@@ -302,10 +302,10 @@ Section COPROD_TR.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{Functor _ F1}.
-  Context `{Functor _ G1}.
-  Context `{Functor _ F2}.
-  Context `{Functor _ G2}.
+  Context `{SFunctor _ F1}.
+  Context `{SFunctor _ G1}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ G2}.
 
   Context `{@NatTr _ F1 F2 _ _}.
   Context `{@NatTr _ G1 G2 _ _}.
@@ -333,10 +333,10 @@ Section COPROD_ISO.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{Functor _ F1}.
-  Context `{Functor _ G1}.
-  Context `{Functor _ F2}.
-  Context `{Functor _ G2}.
+  Context `{SFunctor _ F1}.
+  Context `{SFunctor _ G1}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ G2}.
 
   Context `{@NatIso _ F1 F2 _ _}.
   Context `{@NatIso _ G1 G2 _ _}.
@@ -361,13 +361,13 @@ Section PROD.
 
   Variable C : Type.
   Variable (F G : (C -> Type) -> Type).
-  Context `{Functor _ F}.
-  Context `{Functor _ G}.
+  Context `{SFunctor _ F}.
+  Context `{SFunctor _ G}.
 
   Definition Prod (X : C -> Type) := (F X * G X)%type.
 
-  Program Definition Prod_Functor : Functor Prod
-    := Build_Functor _ (fun X Y f x => (map f (fst x), map f (snd x)))
+  Program Definition Prod_Functor : SFunctor Prod
+    := Build_SFunctor (Build_Functor _ (fun X Y f x => (map f (fst x), map f (snd x))))
                      (fun X x _ a => (mem (fst x) a \/ mem (snd x) a))
                      (fun _ _ R x y => rel R (fst x) (fst y)/\ rel R (snd x) (snd y))
                      (fun X x => ((map (sigImply _ (fun i x => @or_introl _ _))
@@ -381,10 +381,10 @@ Section PROD_TR.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{Functor _ F1}.
-  Context `{Functor _ G1}.
-  Context `{Functor _ F2}.
-  Context `{Functor _ G2}.
+  Context `{SFunctor _ F1}.
+  Context `{SFunctor _ G1}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ G2}.
 
   Context `{@NatTr _ F1 F2 _ _}.
   Context `{@NatTr _ G1 G2 _ _}.
@@ -418,10 +418,10 @@ Section PROD_ISO.
 
   Variable C : Type.
   Variable (F1 G1 F2 G2 : (C -> Type) -> Type).
-  Context `{Functor _ F1}.
-  Context `{Functor _ G1}.
-  Context `{Functor _ F2}.
-  Context `{Functor _ G2}.
+  Context `{SFunctor _ F1}.
+  Context `{SFunctor _ G1}.
+  Context `{SFunctor _ F2}.
+  Context `{SFunctor _ G2}.
 
   Context `{@NatIso _ F1 F2 _ _}.
   Context `{@NatIso _ G1 G2 _ _}.
@@ -443,7 +443,7 @@ Section DEP_SUM.
 
   Variable C A : Type.
   Variable (B : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B a)}.
+  Context `{forall (a : A), SFunctor (B a)}.
 
   Definition Dep_sum (X : C -> Type) := sigT (fun a => B a X).
 
@@ -463,9 +463,9 @@ Section DEP_SUM.
       apply H0.
   Qed.
 
-  Program Definition Dep_sum_Functor : Functor Dep_sum
-    := Build_Functor Dep_sum
-                     (fun _ _ f fx => existT _ (projT1 fx) (map f (projT2 fx)))
+  Program Definition Dep_sum_Functor : SFunctor Dep_sum
+    := Build_SFunctor (Build_Functor _
+                     (fun _ _ f fx => existT _ (projT1 fx) (map f (projT2 fx))))
                      (fun _ fx => @mem _ _ _ _ (projT2 fx))
                      Dep_sum_rel
                      (fun _ fx => existT _ (projT1 fx) (tag _ (projT2 fx))).
@@ -476,8 +476,8 @@ Section DEP_SUM_TR.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B1 a)}.
-  Context `{forall (a : A), Functor (B2 a)}.
+  Context `{forall (a : A), SFunctor (B1 a)}.
+  Context `{forall (a : A), SFunctor (B2 a)}.
 
   Context `{forall (a : A), @NatTr _ (B1 a) (B2 a) _ _}.
 
@@ -507,8 +507,8 @@ Section DEP_SUM_ISO.
 
   Variable C A : Type.
   Variable (B1 B2 : A -> (C -> Type) -> Type).
-  Context `{forall (a : A), Functor (B1 a)}.
-  Context `{forall (a : A), Functor (B2 a)}.
+  Context `{forall (a : A), SFunctor (B1 a)}.
+  Context `{forall (a : A), SFunctor (B2 a)}.
 
   Context `{forall (a : A), @NatIso _ (B1 a) (B2 a) _ _}.
 

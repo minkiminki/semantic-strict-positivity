@@ -21,11 +21,11 @@ Section CONTAINER.
   .
 
   Global Program Instance Functor_Container
-    : Functor Container :=
-    Build_Functor _
+    : SFunctor Container :=
+    Build_SFunctor (Build_Functor _
       (fun X Y f fx =>
                           (sigTimply _ (fun s (fn : forall i : C, P s i -> X i)
-                                            i p => f i (fn i p)) fx))
+                                            i p => f i (fn i p)) fx)))
       (fun X fx i x => exists p, projT2 fx i p = x)
       container_rel
       (fun X fx => existT _ _ (fun i p => existI _ (ex_intro _ p eq_refl))).
@@ -257,7 +257,7 @@ Section ISPFUNCTOR.
 
   Class SPFunctor C (F : (C -> Type) -> Type)
     := {
-        Fn :> Functor F;
+        Fn :> SFunctor F;
         S : Type;
         P : S -> C -> Type;
         ISO :> @NatIso _ F (Container P) _ _;

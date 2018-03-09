@@ -15,7 +15,7 @@ Section COINDUCTIVE.
   Context `{H : forall c, SPFunctor (F c)}.
 
   CoInductive Nu (o : O) : Type :=
-   cCon' { cDes' : Container (@P _ _ (H o)) Nu }.
+   cCon' { cDes' : Container (@degree _ _ (H o)) Nu }.
 
   Definition cCon o (fx : F o Nu) : Nu o := cCon' o (NT _ fx).
 
@@ -95,6 +95,17 @@ Section COINDUCTIVE.
     - subst. apply bsm_bsm', eq_bsm'.
   Qed.
 
+  Lemma bsm_prim (R : forall o, Nu o -> Nu o -> Prop) :
+    (forall o n1 n2, R o n1 n2 -> rel R (cDes n1) (cDes n2)) ->
+    (forall o n1 n2, R o n1 n2 -> bsm n1 n2).
+  Proof.
+    intro COFIX. pcofix CIH.
+    intros o n1 n2 REL. pfold. unfold bsm_gen.
+    apply REL_MONOTONE with (R := R).
+    - intros o' n1' n2' REL'. right. apply CIH. apply REL'.
+    - apply COFIX, REL.
+  Qed.
+
   Lemma eta_expand2': forall o (x : Nu o), cCon' o (cDes' x) = x.
   Proof.
     intros. apply bsm'_eq. pfold.
@@ -139,12 +150,12 @@ Section COINDUCTIVE.
   Qed.
 
   CoFixpoint corec' (T : O -> Type)
-             (FIX : forall o, T o -> Container (@P _ _ (H o)) T) :
+             (FIX : forall o, T o -> Container (@degree _ _ (H o)) T) :
     forall o, T o -> Nu o :=
     fun o t =>  (cCon' _ (map (corec' FIX) (FIX _ t))).
 
   Lemma corec'_red (T : O -> Type)
-        (FIX : forall o, T o -> Container (@P _ _ (H o)) T) o (t : T o) :
+        (FIX : forall o, T o -> Container (@degree _ _ (H o)) T) o (t : T o) :
     cDes' (corec' FIX o t) = map (corec' FIX) (FIX o t).
   Proof.
     reflexivity.

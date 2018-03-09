@@ -21,11 +21,11 @@ Section CONTAINER.
   .
 
   Global Program Instance Functor_Container
-    : Functor Container :=
-    Build_Functor _
+    : SFunctor Container :=
+    Build_SFunctor (Build_Functor _
       (fun X Y f fx =>
                           (sigTimply _ (fun s (fn : forall i : C, P s i -> X i)
-                                            i p => f i (fn i p)) fx))
+                                            i p => f i (fn i p)) fx)))
       (fun X fx i x => exists p, projT2 fx i p = x)
       container_rel
       (fun X fx => existT _ _ (fun i p => existI _ (ex_intro _ p eq_refl))).
@@ -251,6 +251,12 @@ Section CONTAINER.
     destruct fx. reflexivity.
   Qed.
 
+(*
+  Definition pullback_C (X : iType C) (fx : Container X) A (Y : A -> iType C)
+             (fy : forall a, Container (Y a)) (f : forall a i, Y a i -> X i)
+             (EQ : forall a, map (f a) (fy a) = fx) :
+*)  
+
 End CONTAINER.
 
 Section ISPFUNCTOR.
@@ -259,10 +265,10 @@ Section ISPFUNCTOR.
 
   Class SPFunctor C (F : (C -> Type) -> Type)
     := {
-        Fn :> Functor F;
-        S : Type;
-        P : S -> C -> Type;
-        ISO :> @NatIso _ F (Container P) _ _;
+        Fn :> SFunctor F;
+        shape : Type;
+        degree : shape -> C -> Type;
+        ISO :> @NatIso _ F (Container degree) _ _;
         TAG X (fx: F X) : map (@projI1 _ _ _) (tag _ fx) = fx;
        }.
 
