@@ -36,16 +36,8 @@ Section DEP_FUN_CONTAINER.
     - destruct H as [[a p] EQ].
       exists a. exists p. apply EQ.
   Qed.
-  Next Obligation. 
-    split; intro. - giveup.
-    - apply CONTAINER_REL2 in H. destruct H. simpl in *.
-      intro. apply CONTAINER_REL2.
-      
-      exists (eqext _ x a). intros.
-
-      specialize (H i (existT _ a p)). simpl in *.
-
-      set (eq_rect_fun3 _ x). simpl in *. giveup.
+  Next Obligation.
+    giveup.
   Qed.
   Next Obligation.
     extensionality a. symmetry. apply sigT_eta.

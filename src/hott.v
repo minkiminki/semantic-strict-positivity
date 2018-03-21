@@ -8,6 +8,18 @@ Record eqv (A B : Type) := Eqv {
                              }.
 Notation "A ~ B" := (eqv A B) (at level 50).
 
+Lemma eq_rect_real A (a1 : A) (P : forall a : A, a1 = a -> Type) :
+  (P a1 eq_refl) -> (forall a2 (e : a1 = a2), P a2 e).
+Proof.
+  intros p a2 e. destruct e. apply p.
+Defined.
+
+Lemma eq_rect_real_red A (a1 : A) P (p : P a1 eq_refl)
+  : eq_rect_real P p eq_refl = p.
+Proof.
+  reflexivity.
+Defined.
+
 Section SIGEQ.
 
   Variable A : Type.
@@ -113,7 +125,7 @@ Section SUMEQ.
   Defined.
 
 End SUMEQ.
-
+(*
 Section FUNEXT.
 
   Variable A : Type.
@@ -149,6 +161,7 @@ Section FUNEXT.
     |}.
 
 End FUNEXT.
+*)
 
 Section EQRECTFACTS.
 
@@ -165,12 +178,14 @@ Section EQRECTFACTS.
     destruct EQ. reflexivity.
   Defined.
 
+(*
   Definition eq_rect_fun3 A B (f1 f2 : forall a : A, B a) (EQ : f1 = f2) (a : A)
     (P : forall a, B a -> Type) (p : P a (f1 a)) :
     eq_rect f1 (fun f => P a (f a)) p f2 EQ =
     eq_rect (f1 a) (P a) p (f2 a) (fn1 (functional_extensionality B f1 f2) EQ a).
     destruct EQ. reflexivity.
   Defined.
+*)
 
   Definition eq_rect_const A B (a1 a2 : A) (b : B) (EQ : a1 = a2) :
     eq_rect a1 (fun _ => B) b a2 EQ = b.
